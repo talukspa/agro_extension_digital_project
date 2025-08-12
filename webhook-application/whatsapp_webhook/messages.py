@@ -99,6 +99,7 @@ async def process_message(
     sender_wa_id: str, message: "WhatsAppMessage", app_name: str
 ) -> None:
     """Processes a single message from WhatsApp."""
+    await create_agent_session(sender_wa_id, app_name, sender_wa_id)
     if message.type == "text":
         await _process_single_text_message(sender_wa_id, message, app_name)
     elif message.type == "audio" and message.audio:
@@ -114,7 +115,6 @@ async def _process_single_text_message(
     sender_wa_id: str, message: "WhatsAppMessage", app_name: str
 ) -> None:
     """Process a single text message from WhatsApp."""
-    await create_agent_session(sender_wa_id, app_name, sender_wa_id)
     message_text = message.get_message_content() or ""
     agent_response = await send_message_to_agent(
         sender_wa_id, app_name, sender_wa_id, message_text

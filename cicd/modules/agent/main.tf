@@ -48,6 +48,7 @@ resource "google_cloud_run_v2_service" "cloud_run_name_agent_aa" {
 
     scaling {
       min_instance_count = var.min_scale
+      max_instance_count = var.max_scale
     }
 
     containers {
@@ -121,6 +122,7 @@ resource "google_cloud_run_v2_service" "cloud_run_name_webhook" {
 
     scaling {
       min_instance_count = var.min_scale
+      max_instance_count = var.max_scale
     }
 
     containers {

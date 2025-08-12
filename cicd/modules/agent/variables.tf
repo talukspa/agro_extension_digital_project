@@ -180,3 +180,9 @@ variable "min_scale" {
   type        = number
   default     = 1
 }
+
+variable "max_scale" {
+  description = "Cantidad máxima de instancias para los servicios de Cloud Run (debe ser >= min_scale)"
+  type        = number
+  default     = 10
+}

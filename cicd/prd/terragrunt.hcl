@@ -60,6 +60,8 @@ inputs = {
   
   # Cloud Run min instances for PRD (avoid cold starts)
   min_scale = 1
+  # Cloud Run max instances for PRD (capacity cap)
+  max_scale = 20
 
   # HTTP timeouts (seconds) for webhook outbound calls
   agent_http_timeout = "90"
