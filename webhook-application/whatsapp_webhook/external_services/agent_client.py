@@ -36,7 +36,7 @@ async def send_to_agent(
     }
 
     logging.info(f"Sending message to agent {app_name} for user {user_id}")
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(agent_run_url, json=payload, headers=headers)
         response.raise_for_status()
         response_data = response.json()
@@ -63,7 +63,7 @@ async def create_agent_session(user_id: str, app_name: str, session_id: str) -> 
         "Content-Type": "application/json"
     }
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.get(session_url, headers=headers)
         if response.status_code == 200:
             logging.info(f"Session already exists for user {user_id} with agent {app_name}")

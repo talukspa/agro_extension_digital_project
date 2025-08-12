@@ -41,6 +41,12 @@ resource "google_cloud_run_v2_service" "cloud_run_name_agent_aa" {
   project  = var.project_id
 
   template {
+    # Performance optimization: Configure annotations for auto scaling
+    annotations = {
+      "run.googleapis.com/minScale" = tostring(var.min_instance_count_agent_aa)
+      "run.googleapis.com/maxScale" = tostring(var.max_instance_count_agent_aa)
+    }
+
     # Performance optimization: Set CPU allocation and startup boost
     scaling {
       min_instance_count = var.min_instance_count_agent_aa
@@ -132,6 +138,12 @@ resource "google_cloud_run_v2_service" "cloud_run_name_webhook" {
   project  = var.project_id
 
   template {
+    # Performance optimization: Configure annotations for auto scaling
+    annotations = {
+      "run.googleapis.com/minScale" = tostring(var.min_instance_count_webhook)
+      "run.googleapis.com/maxScale" = tostring(var.max_instance_count_webhook)
+    }
+
     # Performance optimization: Set CPU allocation and startup boost
     scaling {
       min_instance_count = var.min_instance_count_webhook

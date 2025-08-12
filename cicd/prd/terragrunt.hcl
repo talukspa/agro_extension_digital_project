@@ -59,7 +59,7 @@ inputs = {
   bigquery_dataset = "agro_extension_digital_prd_dataset"  # BigQuery dataset for production environment
   
   # Performance optimization variables for agent AA (Production environment)
-  min_instance_count_agent_aa = 2  # Higher minimum for production availability
+  min_instance_count_agent_aa = 1  # Higher minimum for production availability
   max_instance_count_agent_aa = 20  # Higher maximum for production scaling
   memory_limit_agent_aa = "4Gi"  # More memory for production workloads
   cpu_limit_agent_aa = "4"  # More CPU for production workloads
@@ -71,7 +71,7 @@ inputs = {
   container_port_agent_aa = 8080
   
   # Performance optimization variables for webhook (Production environment)
-  min_instance_count_webhook = 2  # Higher minimum for production availability
+  min_instance_count_webhook = 1  # Higher minimum for production availability
   max_instance_count_webhook = 10  # Higher maximum for production scaling
   memory_limit_webhook = "2Gi"  # More memory for production
   cpu_limit_webhook = "2"  # More CPU for production
