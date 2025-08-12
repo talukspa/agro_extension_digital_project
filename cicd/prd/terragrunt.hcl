@@ -57,6 +57,13 @@ inputs = {
   whatsapp_base_url = "https://graph.facebook.com/v22.0"
   log_level = "INFO"  # Production environment uses INFO level for performance and log volume control
   bigquery_dataset = "agro_extension_digital_prd_dataset"  # BigQuery dataset for production environment
+  
+  # Cloud Run min instances for PRD (avoid cold starts)
+  min_scale = 1
+
+  # HTTP timeouts (seconds) for webhook outbound calls
+  agent_http_timeout = "90"
+  whatsapp_http_timeout = "90"
 }
 
 terraform {
