@@ -47,6 +47,33 @@ inputs = {
   whatsapp_base_url = "https://graph.facebook.com/v22.0"
   log_level = "DEBUG"  # Development environment uses DEBUG level for detailed logging
   bigquery_dataset = "sandbox_rsolar"  # BigQuery dataset for development environment
+  
+  # Performance optimization variables for agent AA (Development environment)
+  min_instance_count_agent_aa = 1
+  max_instance_count_agent_aa = 5
+  memory_limit_agent_aa = "2Gi"
+  cpu_limit_agent_aa = "2"
+  cpu_idle_agent_aa = false
+  startup_cpu_boost_agent_aa = true
+  max_concurrency_agent_aa = 50  # Lower for dev environment
+  session_affinity_agent_aa = false
+  request_timeout_agent_aa = "300s"
+  container_port_agent_aa = 8080
+  
+  # Performance optimization variables for webhook (Development environment)
+  min_instance_count_webhook = 1
+  max_instance_count_webhook = 3
+  memory_limit_webhook = "1Gi"
+  cpu_limit_webhook = "1"
+  cpu_idle_webhook = false
+  startup_cpu_boost_webhook = true
+  max_concurrency_webhook = 80  # Higher concurrency for webhook
+  session_affinity_webhook = false
+  request_timeout_webhook = "60s"
+  container_port_webhook = 8080
+  
+  # Execution environment (Gen2 for better performance)
+  execution_environment = "EXECUTION_ENVIRONMENT_GEN2"
 }
 
 terraform {

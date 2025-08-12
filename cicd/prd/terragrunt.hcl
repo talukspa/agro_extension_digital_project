@@ -57,6 +57,33 @@ inputs = {
   whatsapp_base_url = "https://graph.facebook.com/v22.0"
   log_level = "INFO"  # Production environment uses INFO level for performance and log volume control
   bigquery_dataset = "agro_extension_digital_prd_dataset"  # BigQuery dataset for production environment
+  
+  # Performance optimization variables for agent AA (Production environment)
+  min_instance_count_agent_aa = 2  # Higher minimum for production availability
+  max_instance_count_agent_aa = 20  # Higher maximum for production scaling
+  memory_limit_agent_aa = "4Gi"  # More memory for production workloads
+  cpu_limit_agent_aa = "4"  # More CPU for production workloads
+  cpu_idle_agent_aa = true  # Keep CPU allocated for better response times in production
+  startup_cpu_boost_agent_aa = true
+  max_concurrency_agent_aa = 80  # Optimal concurrency for production
+  session_affinity_agent_aa = false
+  request_timeout_agent_aa = "300s"
+  container_port_agent_aa = 8080
+  
+  # Performance optimization variables for webhook (Production environment)
+  min_instance_count_webhook = 2  # Higher minimum for production availability
+  max_instance_count_webhook = 10  # Higher maximum for production scaling
+  memory_limit_webhook = "2Gi"  # More memory for production
+  cpu_limit_webhook = "2"  # More CPU for production
+  cpu_idle_webhook = true  # Keep CPU allocated for better response times in production
+  startup_cpu_boost_webhook = true
+  max_concurrency_webhook = 100  # Higher concurrency for webhook in production
+  session_affinity_webhook = false
+  request_timeout_webhook = "60s"
+  container_port_webhook = 8080
+  
+  # Execution environment (Gen2 for better performance)
+  execution_environment = "EXECUTION_ENVIRONMENT_GEN2"
 }
 
 terraform {
