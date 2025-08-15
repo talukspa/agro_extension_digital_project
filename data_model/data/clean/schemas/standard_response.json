@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "properties": {
+    "business_rut": {
+      "type": "string",
+      "description": "El RUT del negocio que respondió al estándar."
+    },
+    "is_completed": {
+      "type": "boolean",
+      "description": "Un indicador que muestra si el estándar ha sido completado."
+    },
+    "date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "La fecha y hora en que el estándar fue actualizado o completado por última vez."
+    },
+    "answers": {
+      "type": "array",
+      "items": {
+        "$ref": "standard_answer.json"
+      },
+      "description": "Contiene las respuestas a las preguntas del estándar."
+    }
+  },
+  "required": [
+    "business_rut",
+    "is_completed",
+    "date",
+    "answers"
+  ]
+}

@@ -22,19 +22,19 @@ Represents individual business profiles.
 *   `digital_tools_experienced`: (Array of Strings) - Una lista de herramientas digitales con las que el propietario/persona de contacto tiene experiencia.
 *   `owner_name`: (String) - El nombre del propietario o persona de contacto del negocio.
 
-#### 2. `standard_template` (from `surveys_templates.data.json`)
+#### 2. `standard` (from `standard.json`)
 
-Represents the master templates for different types of standards.
+Represents an array of master templates for different types of standards.
 
 *   **`template_name`**: (String, **Conceptual Primary Key**) - Un identificador implícito para la plantilla (e.g., "ciruelas-aa").
 *   `description`: (String) - Descripción de la plantilla (del esquema).
-*   `questions`: (Array of `standard_question_template` objects) - Contiene la estructura detallada de cada pregunta dentro de la plantilla.
+*   `questions`: (Array of `standard_question` objects) - Contiene la estructura detallada de cada pregunta dentro de la plantilla.
 
-#### 3. `standard_question_template` (nested within `standard_template`)
+#### 3. `standard_question` (nested within `standard`)
 
-Represents individual questions or standards defined within a `standard_template`. This is the **canonical source** for standard definitions.
+Represents individual questions or standards defined within a `standard`. This is the **canonical source** for standard definitions.
 
-*   **`standard_code`**: (String, **Primary Key within `standard_template`**) - Identificador único y orientado al negocio para la pregunta/estándar (e.g., 'A001', 'P001').
+*   **`standard_code`**: (String, **Primary Key within `standard`**) - Identificador único y orientado al negocio para la pregunta/estándar (e.g., 'A001', 'P001').
 
 *   `level`: (String) - El nivel del estándar.
 *   `dimension`: (String) - La dimensión o categoría principal a la que pertenece la pregunta.
@@ -61,7 +61,7 @@ Stores individual standard responses from businesses.
 
 Represents an individual answer to a standard question.
 
-*   **`standard_code`**: (String, **Primary Key within `standard_response`**, **Foreign Key** to `standard_question_template.standard_code`) - El identificador de la pregunta que se está respondiendo.
+*   **`standard_code`**: (String, **Primary Key within `standard_response`**, **Foreign Key** to `standard_question.standard_code`) - El identificador de la pregunta que se está respondiendo.
 *   `answer_value`: (Mixed) - La respuesta real proporcionada por el usuario (el tipo de dato depende de la pregunta).
 *   `register_id`: (Integer, **Foreign Key** to `register.id`, *Optional*) - Enlace a la entrada de `register` asociada para la verificación de esta respuesta.
 
@@ -71,7 +71,7 @@ Represents a recorded compliance item, now including details about the uploaded 
 
 *   **`id`**: (Integer, **Primary Key**) - Identificador único para esta instancia específica de registro/verificación.
 *   **`business_rut`**: (String, **Foreign Key** to `business_profile.rut`) - El RUT del negocio asociado con este registro.
-*   **`standard_code`**: (String, **Foreign Key** to `standard_question_template.standard_code`) - El identificador de la pregunta para la que es este registro.
+*   **`standard_code`**: (String, **Foreign Key** to `standard_question.standard_code`) - El identificador de la pregunta para la que es este registro.
 *   `folder`: (String, *Optional*) - Ruta o identificador de la carpeta donde se almacenan los archivos asociados.
 *   `log`: (String, *Optional*) - Un registro o bitácora de actividades relacionadas con la verificación.
 *   `upload_timestamp`: (Timestamp, *Optional*) - La fecha y hora en que se cargaron/registraron los datos de verificación.
@@ -107,26 +107,26 @@ Represents an auditor who validates uploaded verification media.
 ### Relationships Summary (Updated):
 
 *   `business_profile` 1 -- M `standard_response` (via `rut` / `business_rut`)
-*   `standard_template` 1 -- M `standard_question_template` (conceptual containment)
+*   `standard` 1 -- M `standard_question` (conceptual containment)
 *   `standard_response` 1 -- M `standard_answer` (conceptual containment)
-*   `standard_question_template` 1 -- M `register` (via `standard_code`)
-*   `standard_question_template` 1 -- M `standard_answer` (via `standard_code`)
+*   `standard_question` 1 -- M `register` (via `standard_code`)
+*   `standard_question` 1 -- M `standard_answer` (via `standard_code`)
 *   `standard_answer` 1 -- 0..1 `register` (via `register_id`)
 *   `auditor` 1 -- M `register` (via `auditor_id`)
-*   `resource` M -- M `standard_question_template` (via `resource_code` / `standard_code`)
+*   `resource` M -- M `standard_question` (via `resource_code` / `standard_code`)
 
 ### Entity Relationship Diagram
 
 ```mermaid
 erDiagram
     business_profile ||--|{ standard_response : "has"
-    standard_template ||--|{ standard_question_template : "contains"
+    standard ||--|{ standard_question : "contains"
     standard_response ||--|{ standard_answer : "contains"
-    standard_question_template ||--|{ register : "has"
-    standard_question_template ||--|{ standard_answer : "has"
+    standard_question ||--|{ register : "has"
+    standard_question ||--|{ standard_answer : "has"
     standard_answer |o--|| register : "verifies"
     auditor ||--|{ register : "validates"
-    resource }|--|{ standard_question_template : "linked to"
+    resource }|--|{ standard_question : "linked to"
 
     business_profile {
         string rut PK
@@ -144,12 +144,12 @@ erDiagram
         string owner_name
     }
 
-    standard_template {
+    standard {
         string template_name PK
         string description
     }
 
-    standard_question_template {
+    standard_question {
         string standard_code PK
         string level
         string dimension

@@ -12,7 +12,7 @@
     "questions": {
       "type": "array",
       "items": {
-        "$ref": "standard_question_template.json"
+        "$ref": "standard_question.json"
       }
     }
   },

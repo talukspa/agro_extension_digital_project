@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "auditor_id": {
+      "type": "integer",
+      "description": "Identificador único para el auditor."
+    },
+    "auditor_name": {
+      "type": "string",
+      "description": "Nombre del auditor."
+    },
+    "auditor_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Dirección de correo electrónico del auditor."
+    }
+  },
+  "required": [
+    "auditor_id",
+    "auditor_name"
+  ]
+}
