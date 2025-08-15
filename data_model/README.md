@@ -41,10 +41,9 @@ Represents individual questions or standards defined within a `standard_template
 *   `theme`: (String) - El tema específico dentro de la dimensión.
 *   `action`: (String) - La acción específica tomada para cumplir con el estándar.
 *   `good_practice`: (String) - Describe la buena práctica relacionada con la pregunta.
-*   `verification_medium`: (String) - Describe el *contenido esperado* de la verificación (e.g., "Registro de consumo de agua mensual").
+*   `verification_detail`: (String) - Describe el *contenido esperado* de la verificación (e.g., "Registro de consumo de agua mensual").
 *   `verification_type`: (String) - El *tipo esperado* de evidencia de verificación (e.g., "Foto", "Archivo", "Bitácora").
 *   `valid_answers`: (Array of Mixed, *Optional*) - Una lista de respuestas válidas predefinidas para esta pregunta.
-*   `question`: (String, *Optional*) - El texto de la pregunta.
 *   `points`: (Integer) - Puntos asociados al estándar.
 *   `linked_resources`: (Array of Strings, *Optional*) - Una lista de valores `resource_code` para los recursos relacionados con esta pregunta.
 *   `link`: (String, *Optional*) - Una URL a información adicional o recursos relacionados con el estándar.
@@ -85,11 +84,13 @@ Represents a recorded compliance item, now including details about the uploaded 
 
 Represents available resources for standards.
 
-*   **`resource_code`**: (String, **Primary Key**) - Un identificador único para esta instancia de recurso específica.
-
-*   `type`: (String) - Tipo de recurso.
+*   **`standard_code`**: (String, **Primary Key**) - Identificador único para esta instancia de recurso específica. Puede ser un código único o una lista de códigos separados por comas.
+*   `dimension`: (String) - La categoría principal o dimensión del recurso.
+*   `theme`: (String) - El tema específico dentro de la dimensión.
+*   `type`: (String) - El tipo de recurso (e.g., Señalética, TDR, Registro, Guía, Curso, Estándar).
 *   `detail`: (String) - Descripción detallada del recurso.
-*   `url`: (String) - Una única URL para el recurso.
+*   `urls`: (Object) - Un objeto que contiene varias URLs relacionadas con el recurso, con claves que indican el tipo de URL (e.g., 'web', 'curso', 'pdf', 'word', 'excel').
+*   `resource_code`: (String) - Un identificador numérico único para el recurso.
 
 ---
 
@@ -158,7 +159,7 @@ erDiagram
         string verification_medium
         string verification_type
         string valid_answers
-        string question
+        
         int points
         string linked_resources
         string link
@@ -190,10 +191,13 @@ erDiagram
     }
 
     resource {
-        string resource_code PK
+        string standard_code PK
+        string dimension
+        string theme
         string type
         string detail
-        string url
+        object urls
+        string resource_code
     }
 
     auditor {
