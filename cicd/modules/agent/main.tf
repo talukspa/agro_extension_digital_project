@@ -1,37 +1,37 @@
 resource "google_service_account" "agent_aa_app" {
-    account_id   = var.service_account_id_agent_aa
-    display_name = var.service_account_display_name_agent_aa
-    project = var.project_id
+  account_id   = var.service_account_id_agent_aa
+  display_name = var.service_account_display_name_agent_aa
+  project      = var.project_id
 }
 
 resource "google_service_account" "webhook_app_sa" {
-    account_id   = var.service_account_webhook_app
-    display_name = var.service_account_display_name_webhook_app
-    project = var.project_id
+  account_id   = var.service_account_webhook_app
+  display_name = var.service_account_display_name_webhook_app
+  project      = var.project_id
 }
 
-resource "google_project_iam_member" "agent_aa_sa_role" {   
-    project = var.project_id
-    role    = "roles/aiplatform.user"
-    member  = "serviceAccount:${google_service_account.agent_aa_app.email}"
+resource "google_project_iam_member" "agent_aa_sa_role" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.agent_aa_app.email}"
 }
 
-resource "google_project_iam_member" "agent_aa_sa_role_discovery" {   
-    project = var.project_id
-    role    = "roles/discoveryengine.user"
-    member  = "serviceAccount:${google_service_account.agent_aa_app.email}"
+resource "google_project_iam_member" "agent_aa_sa_role_discovery" {
+  project = var.project_id
+  role    = "roles/discoveryengine.user"
+  member  = "serviceAccount:${google_service_account.agent_aa_app.email}"
 }
 
-resource "google_project_iam_member" "agent_aa_sa_role_bigquery" {   
-    project = var.project_id
-    role    = "roles/bigquery.dataViewer"
-    member  = "serviceAccount:${google_service_account.agent_aa_app.email}"
+resource "google_project_iam_member" "agent_aa_sa_role_bigquery" {
+  project = var.project_id
+  role    = "roles/bigquery.dataViewer"
+  member  = "serviceAccount:${google_service_account.agent_aa_app.email}"
 }
 
-resource "google_project_iam_member" "agent_aa_sa_role_bigquery_job" {   
-    project = var.project_id
-    role    = "roles/bigquery.jobUser"
-    member  = "serviceAccount:${google_service_account.agent_aa_app.email}"
+resource "google_project_iam_member" "agent_aa_sa_role_bigquery_job" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.agent_aa_app.email}"
 }
 
 
@@ -41,9 +41,19 @@ resource "google_cloud_run_v2_service" "cloud_run_name_agent_aa" {
   project  = var.project_id
 
   template {
+    annotations = {
+      "run.googleapis.com/minScale"          = tostring(var.min_scale)
+      "run.googleapis.com/startup-cpu-boost" = tostring(var.startup_cpu_boost)
+    }
+
+    scaling {
+      min_instance_count = var.min_scale
+      max_instance_count = var.max_scale
+    }
+
     containers {
       image = var.gar_image_location_agent_aa
-      
+
       resources {
         limits = {
           memory = "1Gi"
@@ -105,12 +115,30 @@ resource "google_cloud_run_v2_service" "cloud_run_name_webhook" {
   project  = var.project_id
 
   template {
+    annotations = {
+      "run.googleapis.com/minScale"          = tostring(var.min_scale)
+      "run.googleapis.com/startup-cpu-boost" = tostring(var.startup_cpu_boost)
+    }
+
+    scaling {
+      min_instance_count = var.min_scale
+      max_instance_count = var.max_scale
+    }
+
     containers {
       image = var.gar_image_location_webhook
 
       env {
         name  = "APP_URL"
         value = google_cloud_run_v2_service.cloud_run_name_agent_aa.uri
+      }
+      env {
+        name  = "AGENT_HTTP_TIMEOUT"
+        value = var.agent_http_timeout
+      }
+      env {
+        name  = "WHATSAPP_HTTP_TIMEOUT"
+        value = var.whatsapp_http_timeout
       }
       env {
         name  = "ESTANDAR_AA_FACEBOOK_APP"
@@ -152,17 +180,17 @@ resource "google_cloud_run_v2_service" "cloud_run_name_webhook" {
     service_account = google_service_account.webhook_app_sa.email
   }
 
-  ingress = "INGRESS_TRAFFIC_ALL"
+  ingress    = "INGRESS_TRAFFIC_ALL"
   depends_on = [google_cloud_run_v2_service.cloud_run_name_agent_aa]
 }
 
 
 resource "google_cloud_run_v2_service_iam_binding" "noauth_webhook" {
-    name        = google_cloud_run_v2_service.cloud_run_name_webhook.name
-    project     = var.project_id
-    location    = var.region
-    role        = "roles/run.invoker"
-    members     = ["allUsers"]
+  name     = google_cloud_run_v2_service.cloud_run_name_webhook.name
+  project  = var.project_id
+  location = var.region
+  role     = "roles/run.invoker"
+  members  = ["allUsers"]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "webhook_invokes_agent_aa" {

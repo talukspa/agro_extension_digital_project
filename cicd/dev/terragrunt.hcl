@@ -47,6 +47,13 @@ inputs = {
   whatsapp_base_url = "https://graph.facebook.com/v22.0"
   log_level = "DEBUG"  # Development environment uses DEBUG level for detailed logging
   bigquery_dataset = "sandbox_rsolar"  # BigQuery dataset for development environment
+  
+  # Cloud Run min instances for DEV (allow scale-to-zero)
+  min_scale = 0
+
+  # HTTP timeouts (seconds) for webhook outbound calls
+  agent_http_timeout = "30"
+  whatsapp_http_timeout = "30"
 }
 
 terraform {
