@@ -1,48 +1,67 @@
 {
-  "title": "Resource Schema",
-  "description": "Schema for resources data, including various types of links stored in a dictionary.",
-  "type": "object",
-  "properties": {
-    "dimension": {
-      "type": "string",
-      "description": "The main category or dimension of the resource."
-    },
-    "theme": {
-      "type": "string",
-      "description": "The specific theme within the dimension."
-    },
-    "type": {
-      "type": "string",
-      "description": "The type of resource (e.g., Señalética, TDR, Registro, Guía, Curso, Estándar)."
-    },
-    "detail": {
-      "type": "string",
-      "description": "Detailed description of the resource."
-    },
-    "standard_code": {
-      "type": "string",
-      "description": "Unique identifier(s) for the resource. Can be a single code or a comma-separated list of codes."
-    },
-    "urls": {
-      "type": "object",
-      "description": "A dictionary containing various URLs related to the resource, with keys indicating the type of URL (e.g., 'web', 'curso', 'pdf', 'word', 'excel').",
-      "additionalProperties": {
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "dimension": {
         "type": "string",
-        "format": "uri"
+        "description": "La categoría principal o dimensión del recurso."
+      },
+      "theme": {
+        "type": "string",
+        "description": "El tema específico dentro de la dimensión."
+      },
+      "type": {
+        "type": "string",
+        "description": "El tipo de recurso (e.g., Señalética, TDR, Registro, Guía, Curso, Estándar)."
+      },
+      "detail": {
+        "type": "string",
+        "description": "Descripción detallada del recurso."
+      },
+      "standard_code": {
+        "type": "string",
+        "description": "Identificador único para esta instancia de recurso específica. Puede ser un código único o una lista de códigos separados por comas."
+      },
+      "urls": {
+        "type": "object",
+        "properties": {
+          "web": {
+            "type": "string",
+            "format": "uri"
+          },
+          "pdf": {
+            "type": "string",
+            "format": "uri"
+          },
+          "word": {
+            "type": "string",
+            "format": "uri"
+          },
+          "excel": {
+            "type": "string",
+            "format": "uri"
+          },
+          "curso": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "description": "Un objeto que contiene varias URLs relacionadas con el recurso, con claves que indican el tipo de URL (e.g., 'web', 'curso', 'pdf', 'word', 'excel')."
+      },
+      "resource_code": {
+        "type": "string",
+        "description": "Un identificador numérico único para el recurso."
       }
     },
-    "resource_code": {
-      "type": "string",
-      "description": "A unique numerical identifier for the resource."
-    }
-  },
-  "required": [
-    "dimension",
-    "theme",
-    "type",
-    "detail",
-    "standard_code",
-    "urls",
-    "resource_code"
-  ]
+    "required": [
+      "dimension",
+      "theme",
+      "type",
+      "detail",
+      "standard_code",
+      "urls",
+      "resource_code"
+    ]
+  }
 }

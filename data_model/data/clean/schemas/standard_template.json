@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "properties": {
+    "template_name": {
+      "type": "string",
+      "description": "Un identificador implícito para la plantilla (e.g., 'ciruelas-aa')."
+    },
+    "description": {
+      "type": "string",
+      "description": "Descripción de la plantilla (del esquema)."
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "$ref": "standard_question_template.json"
+      }
+    }
+  },
+  "required": ["template_name", "description", "questions"]
+}

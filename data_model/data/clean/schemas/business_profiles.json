@@ -1,84 +1,82 @@
 {
-  "title": "Business Profile Schema",
-  "description": "Schema for business profiles data.",
   "type": "array",
   "items": {
     "type": "object",
     "properties": {
-      "region": {
+      "rut": {
         "type": "string",
-        "description": "The region where the business is located."
+        "description": "Rol Único Tributario del negocio."
       },
-      "business_size": {
+      "commune": {
         "type": "string",
-        "description": "The size of the business based on annual sales."
-      },
-      "process_type": {
-        "type": "string",
-        "description": "The type of production process the business uses."
-      },
-      "comuna": {
-        "type": "string",
-        "description": "The commune or district where the business is located."
-      },
-      "razon_social": {
-        "type": "string",
-        "description": "The legal name of the business."
-      },
-      "owner_name": {
-        "type": "string",
-        "description": "The name of the business owner or contact person."
-      },
-      "owner_role": {
-        "type": "string",
-        "description": "The role or title of the owner/contact person."
-      },
-      "owner_phone": {
-        "type": "string",
-        "description": "The phone number of the business owner or contact person."
+        "description": "La comuna o distrito donde se encuentra el negocio."
       },
       "digital_tools_used_at_work": {
         "type": "array",
         "items": {
           "type": "string"
         },
-        "description": "A list of digital tools the business uses for work."
+        "description": "Herramientas digitales utilizadas por el negocio."
+      },
+      "business_size": {
+        "type": "string",
+        "description": "Tamaño del negocio basado en las ventas anuales."
+      },
+      "legal_name": {
+        "type": "string",
+        "description": "La razón social del negocio."
+      },
+      "address": {
+        "type": "string",
+        "description": "La dirección física del negocio."
+      },
+      "region": {
+        "type": "string",
+        "description": "La región donde se encuentra el negocio."
+      },
+      "owner_phone": {
+        "type": "string",
+        "description": "El número de teléfono del propietario o persona de contacto del negocio."
+      },
+      "process_type": {
+        "type": "string",
+        "description": "El tipo de proceso de producción que utiliza el negocio."
       },
       "owner_email": {
         "type": "string",
         "format": "email",
-        "description": "The email address of the owner or contact person."
+        "description": "La dirección de correo electrónico del propietario o persona de contacto."
+      },
+      "owner_role": {
+        "type": "string",
+        "description": "El rol o título del propietario/persona de contacto."
       },
       "digital_tools_experienced": {
         "type": "array",
         "items": {
           "type": "string"
         },
-        "description": "A list of digital tools the owner/contact person has experience with."
+        "description": "Una lista de herramientas digitales con las que el propietario/persona de contacto tiene experiencia."
       },
-      "rut": {
+      "owner_name": {
         "type": "string",
-        "description": "The unique tax identification number for the business (Primary Key)."
-      },
-      "direccion": {
-        "type": "string",
-        "description": "The physical address of the business."
+        "description": "El nombre del propietario o persona de contacto del negocio."
       }
     },
     "required": [
-      "region",
-      "business_size",
-      "process_type",
-      "comuna",
-      "razon_social",
-      "owner_name",
-      "owner_role",
-      "owner_phone",
-      "digital_tools_used_at_work",
-      "owner_email",
-      "digital_tools_experienced",
       "rut",
-      "direccion"
+      "commune",
+      "digital_tools_used_at_work",
+      "business_size",
+      "legal_name",
+      "address",
+      "region",
+      "owner_phone",
+      "process_type",
+      "owner_email",
+      "owner_role",
+      "digital_tools_experienced",
+      "owner_name"
     ]
   }
 }
