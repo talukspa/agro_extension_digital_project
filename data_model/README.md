@@ -101,6 +101,8 @@ Represents an auditor who validates uploaded verification media.
 *   **`auditor_id`**: (Integer, **Primary Key**) - Identificador único para el auditor.
 *   `auditor_name`: (String) - Nombre del auditor.
 *   `auditor_email`: (String, *Optional*) - Dirección de correo electrónico del auditor.
+*   `auditor_phone`: (String, *Optional*) - Número de teléfono del auditor.
+*   `assigned_businesses`: (Array of Strings) - Una lista de RUTs de negocios asignados a este auditor.
 
 ---
 
@@ -126,6 +128,7 @@ erDiagram
     standard_question ||--|{ standard_answer : "has"
     standard_answer |o--|| register : "verifies"
     auditor ||--|{ register : "validates"
+    auditor }|--|{ business_profile : "assigned to"
     resource }|--|{ standard_question : "linked to"
 
     business_profile {
@@ -204,5 +207,7 @@ erDiagram
         int auditor_id PK
         string auditor_name
         string auditor_email
+        string auditor_phone
+        string assigned_businesses
     }
 ```

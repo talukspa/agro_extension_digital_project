@@ -13,6 +13,17 @@
       "type": "string",
       "format": "email",
       "description": "Dirección de correo electrónico del auditor."
+    },
+    "auditor_phone": {
+      "type": "string",
+      "description": "Número de teléfono del auditor."
+    },
+    "assigned_businesses": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Una lista de RUTs de negocios asignados a este auditor."
     }
   },
   "required": [
