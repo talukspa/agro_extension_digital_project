@@ -21,7 +21,7 @@
 		// Node.js con pnpm. Se conserva nodeGypDependencies para módulos nativos.
 		"ghcr.io/devcontainers/features/node:1": {
 			"version": "lts",
-			"pnpm": "true",
+			"pnpm": "latest",
 			"nodeGypDependencies": true
 		},
 		// Python 3.12
@@ -60,7 +60,7 @@
 		"type=volume,source=vscode-bash-history,target=/home/vscode/commandhistory"
 	],
 	// Script post-creación para ajustes adicionales.
-	"postCreateCommand": "bash .devcontainer/post-create.sh",
+	"postCreateCommand": "bash .devcontainer/post-create.sh && pnpm install -g next",
 	// Extensiones y ajustes de VS Code
 	"customizations": {
 		"vscode": {

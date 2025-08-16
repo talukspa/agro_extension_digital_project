@@ -13,6 +13,7 @@ jobs:
       PROJECT_ID: agro-extension-digital-npe
       GAR_REPO: us-central1-docker.pkg.dev/agro-extension-digital-npe/agents/agent-aa-app
       GAR_REPO_WEBHOOK: us-central1-docker.pkg.dev/agro-extension-digital-npe/agents/agent-webhook-app
+      GAR_REPO_FRONTEND: us-central1-docker.pkg.dev/agro-extension-digital-npe/agents/agent-frontend-app
 
     steps:
       - name: Checkout code
@@ -57,5 +58,20 @@ jobs:
           docker push $GAR_REPO_WEBHOOK:${GIT_SHA}
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             docker push $GAR_REPO_WEBHOOK:${TAG_NAME}
+          fi
+      - name: Build frontend Docker image
+        working-directory: frontend
+        run: |
+          docker build -t $GAR_REPO_FRONTEND:latest \
+                       -t $GAR_REPO_FRONTEND:${GIT_SHA} \
+                       $( [[ "$GITHUB_REF" == refs/tags/* ]] && echo "-t $GAR_REPO_FRONTEND:${TAG_NAME}" ) .
+
+      - name: Push frontend Docker images
+        working-directory: frontend
+        run: |
+          docker push $GAR_REPO_FRONTEND:latest
+          docker push $GAR_REPO_FRONTEND:${GIT_SHA}
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            docker push $GAR_REPO_FRONTEND:${TAG_NAME}
           fi
 
