@@ -1,0 +1,35 @@
+# =============================================================================
+# CONFIGURACIÓN COMÚN PARA TODOS LOS ENTORNOS
+# Este archivo contiene SOLO las configuraciones verdaderamente compartidas
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# CONFIGURACIÓN GLOBAL DE GCP
+# -----------------------------------------------------------------------------
+gcp:
+  default_region: "us-central1"
+
+# -----------------------------------------------------------------------------
+# CONFIGURACIÓN DE REDES Y CONECTIVIDAD
+# -----------------------------------------------------------------------------
+networking:
+  ingress: "INGRESS_TRAFFIC_ALL"
+
+# URLs base reutilizables
+urls:
+  whatsapp_base: "https://graph.facebook.com/v22.0"
+
+# -----------------------------------------------------------------------------
+# CONFIGURACIÓN DE FACEBOOK GRAPH API (versión común)
+# -----------------------------------------------------------------------------
+facebook:
+  graph_api_version: "v22.0"
+
+# -----------------------------------------------------------------------------
+# CONFIGURACIÓN DE CONTENEDORES Y REGISTRY
+# -----------------------------------------------------------------------------
+containers:
+  registry: "us-central1-docker.pkg.dev"
+  repository: "agents"
+  # Nota: Las imágenes se almacenan en el proyecto NPE para ambos entornos
+  project: "agro-extension-digital-npe"
