@@ -1,0 +1,62 @@
+[
+  {
+    "auditor_id": 1,
+    "auditor_name": "James Black",
+    "auditor_email": "elizabeth86@example.net",
+    "auditor_phone": "001-946-575-7455x47184",
+    "assigned_businesses": [
+      "966290501",
+      "17049695-7",
+      "96604260-5",
+      "78023030-4",
+      "10577592-k"
+    ]
+  },
+  {
+    "auditor_id": 2,
+    "auditor_name": "Wesley Smith",
+    "auditor_email": "andrew26@example.net",
+    "auditor_phone": "+1-286-981-3470x535",
+    "assigned_businesses": [
+      "17708318-6",
+      "10590515-7",
+      "18276552-k"
+    ]
+  },
+  {
+    "auditor_id": 3,
+    "auditor_name": "Nicole Mcgee",
+    "auditor_email": "hallelizabeth@example.net",
+    "auditor_phone": "+1-622-216-6936x71234",
+    "assigned_businesses": [
+      "17396038-7",
+      "78609090-3",
+      "760089001"
+    ]
+  },
+  {
+    "auditor_id": 4,
+    "auditor_name": "Kimberly Byrd",
+    "auditor_email": "jason45@example.net",
+    "auditor_phone": "(774)372-6140",
+    "assigned_businesses": [
+      "96604260-5",
+      "170496957",
+      "2-7",
+      "78023030-4",
+      "76008900-1"
+    ]
+  },
+  {
+    "auditor_id": 5,
+    "auditor_name": "Daniel Lopez",
+    "auditor_email": "robert67@example.net",
+    "auditor_phone": "(310)755-0307x83867",
+    "assigned_businesses": [
+      "2-7",
+      "127184364",
+      "16661279-9",
+      "78023030-4"
+    ]
+  }
+]
