@@ -31,7 +31,7 @@ locals {
   # URLs base para PRD
   facebook_aa_url = "https://graph.facebook.com/${local.common_vars.facebook.graph_api_version}/${local.env_vars.facebook.aa_app_id}"
   facebook_pp_url = "https://graph.facebook.com/${local.common_vars.facebook.graph_api_version}/${local.env_vars.facebook.pp_app_id}"
-  gar_base_url    = "${local.common_vars.containers.registry}/${local.common_vars.containers.project}/${local.common_vars.containers.repository}"
+  gar_base_url      = "${local.common_vars.containers.registry}/${local.common_vars.containers.project}/${local.common_vars.containers.repository}"
   
   # Datastores específicos de PRD
   datastores = {
@@ -51,27 +51,27 @@ inputs = {
   google_cloud_project      = local.project_id
   google_cloud_location     = local.region
   
-  # Agent AA configuración
-  cloud_run_name_agent_aa           = try(local.env_vars.service_names.agent_aa, "agent-aa-${local.environment}")
-  service_account_id_agent_aa       = "agent-aa-sa-${local.environment}"
-  service_account_display_name_agent_aa     = "Agent AA Service Account PRD"
-  gar_image_location_agent_aa       = "${local.gar_base_url}/agent-aa-app:latest"
-  estandar_aa_app_name                = "agent_aa_app"
-  estandar_aa_facebook_app = local.facebook_aa_url
+  # Agent AA configuración - nombres exactos que espera el módulo
+  cloud_run_name_agent_aa                = "agent-aa-${local.environment}"
+  service_account_id_agent_aa            = "agent-aa-sa-${local.environment}"
+  service_account_display_name_agent_aa  = "Agent AA Service Account PRD"
+  gar_image_location_agent_aa            = "us-central1-docker.pkg.dev/${local.project_id}/agro-extension-digital/agents:latest"
+  estandar_aa_app_name                   = "agent_aa_app"
+  estandar_aa_facebook_app               = local.facebook_aa_url
   
-  # Agent PP configuración
-  cloud_run_name_agent_pp           = "agent-pp-${local.environment}"
-  service_account_id_agent_pp       = "agent-pp-sa-${local.environment}"
-  service_account_display_name_agent_pp     = "Agent PP Service Account PRD"
-  gar_image_location_agent_pp       = "${local.gar_base_url}/agent-pp-app:latest"
-  estandar_pp_app_name                = "agent_pp_app"
-  estandar_pp_facebook_app   = local.facebook_pp_url
+  # Agent PP configuración - nombres exactos que espera el módulo
+  cloud_run_name_agent_pp                = "agent-pp-${local.environment}"
+  service_account_id_agent_pp            = "agent-pp-sa-${local.environment}"
+  service_account_display_name_agent_pp  = "Agent PP Service Account PRD"
+  gar_image_location_agent_pp            = "${local.gar_base_url}/agent-pp-app:latest"
+  estandar_pp_app_name                   = "agent_pp_app"
+  estandar_pp_facebook_app               = local.facebook_pp_url
   
-  # Webhook configuración
-  cloud_run_name_webhook           = try(local.env_vars.service_names.webhook, "agent-webhook-${local.environment}")
-  service_account_webhook_app       = "agent-webhook-sa-${local.environment}"
-  service_account_display_name_webhook_app     = "Agent Webhook Service Account PRD"
-  gar_image_location_webhook       = "${local.gar_base_url}/agent-webhook-app:latest"
+  # Webhook configuración - nombres exactos que espera el módulo
+  cloud_run_name_webhook                     = "agent-webhook-${local.environment}"
+  service_account_webhook_app                = "agent-webhook-sa-${local.environment}"
+  service_account_display_name_webhook_app   = "Agent Webhook Service Account PRD"
+  gar_image_location_webhook                 = "us-central1-docker.pkg.dev/${local.project_id}/agro-extension-digital/webhook:latest"
   
   # Service name
   service_name = "agent-${local.environment}"
@@ -93,6 +93,7 @@ inputs = {
   bigquery_dataset         = local.env_vars.bigquery.dataset
   min_scale               = local.env_vars.environment.min_scale
   max_scale               = local.env_vars.environment.max_scale
+  startup_cpu_boost       = true
   
   # Timeouts HTTP desde env.yaml
   agent_http_timeout       = local.env_vars.timeouts.agent_http

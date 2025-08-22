@@ -1,0 +1,224 @@
+# Firestore Security Rules - Optimized for AuthN/AuthZ v2.0
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // UTILITY FUNCTIONS
+    // ============================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+    
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    function isAdmin() {
+      return getUserRole() == 'admin';
+    }
+    
+    function isAuditor() {
+      return getUserRole() == 'auditor';
+    }
+    
+    function isBusinessOwner() {
+      return getUserRole() == 'business_owner';
+    }
+    
+    function isActiveUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isActive == true;
+    }
+    
+    // ============================================
+    // USERS COLLECTION
+    // ============================================
+    
+    match /users/{userId} {
+      // Users can read their own profile, admins can read all
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      
+      // Only admins can create users, users can update their own profile (limited fields)
+      allow create: if isAuthenticated() && isAdmin();
+      allow update: if isAuthenticated() && 
+        (isOwner(userId) && onlyUpdatingFields(['displayName', 'lastLoginAt', 'metadata']) || isAdmin());
+      
+      // Only admins can delete users
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+    
+    // ============================================
+    // BUSINESS PROFILES COLLECTION
+    // ============================================
+    
+    match /business_profiles/{profileId} {
+      // Business owners can read their own profile, auditors can read assigned profiles, admins can read all
+      allow read: if isAuthenticated() && isActiveUser() && 
+        (isOwner(resource.data.uid) || 
+         (isAuditor() && resource.data.assignedAuditorId == getUserAuditorId()) ||
+         isAdmin());
+      
+      // Only business owners can create their own profile or admins
+      allow create: if isAuthenticated() && isActiveUser() && 
+        (isBusinessOwner() && isOwner(request.resource.data.uid) || isAdmin());
+      
+      // Business owners can update their own profile, auditors can update assigned profiles (limited fields), admins can update all
+      allow update: if isAuthenticated() && isActiveUser() && 
+        (isOwner(resource.data.uid) || 
+         (isAuditor() && resource.data.assignedAuditorId == getUserAuditorId() && onlyUpdatingFields(['certificationStatus', 'assignedAuditorId'])) ||
+         isAdmin());
+      
+      // Only admins can delete profiles
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+    
+    // ============================================
+    // AUDITORS COLLECTION
+    // ============================================
+    
+    match /auditors/{auditorId} {
+      // Auditors can read their own profile, admins can read all, business owners can read their assigned auditor
+      allow read: if isAuthenticated() && isActiveUser() && 
+        (isOwner(resource.data.uid) || isAdmin() ||
+         (isBusinessOwner() && getBusinessProfile().assignedAuditorId == auditorId));
+      
+      // Only admins can create auditor profiles
+      allow create: if isAuthenticated() && isAdmin();
+      
+      // Auditors can update their own profile (limited fields), admins can update all
+      allow update: if isAuthenticated() && isActiveUser() && 
+        (isOwner(resource.data.uid) && onlyUpdatingFields(['auditorPhone', 'availableRegions', 'currentAuditsCount']) || 
+         isAdmin());
+      
+      // Only admins can delete auditor profiles
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+    
+    // ============================================
+    // STANDARDS COLLECTION
+    // ============================================
+    
+    match /standards/{standardId} {
+      // All authenticated users can read standards
+      allow read: if isAuthenticated() && isActiveUser();
+      
+      // Only admins can modify standards
+      allow create, update, delete: if isAuthenticated() && isAdmin();
+    }
+    
+    // ============================================
+    // REGISTERS COLLECTION
+    // ============================================
+    
+    match /registers/{registerId} {
+      // Business owners can read their own registers, auditors can read registers from assigned businesses, admins can read all
+      allow read: if isAuthenticated() && isActiveUser() && 
+        (isOwner(resource.data.uid) || 
+         (isAuditor() && isAssignedToBusiness(resource.data.businessProfileId)) ||
+         isAdmin());
+      
+      // Business owners can create registers for their own business
+      allow create: if isAuthenticated() && isActiveUser() && isBusinessOwner() && 
+        isOwner(request.resource.data.uid) && 
+        ownsBusiness(request.resource.data.businessProfileId);
+      
+      // Business owners can update their own registers (if not submitted), auditors can update status and comments, admins can update all
+      allow update: if isAuthenticated() && isActiveUser() && 
+        (isOwner(resource.data.uid) && resource.data.status in ['draft'] ||
+         (isAuditor() && isAssignedToBusiness(resource.data.businessProfileId) && onlyUpdatingFields(['status', 'reviewComments', 'score', 'reviewDate', 'approvalDate', 'reviewedBy'])) ||
+         isAdmin());
+      
+      // Only the owner or admins can delete registers
+      allow delete: if isAuthenticated() && isActiveUser() && 
+        (isOwner(resource.data.uid) || isAdmin());
+    }
+    
+    // ============================================
+    // RESOURCES COLLECTION
+    // ============================================
+    
+    match /resources/{resourceId} {
+      // All authenticated users can read public resources, admins can read all
+      allow read: if isAuthenticated() && isActiveUser() && 
+        (resource.data.isPublic == true || isAdmin());
+      
+      // Only admins can modify resources
+      allow create, update, delete: if isAuthenticated() && isAdmin();
+    }
+    
+    // ============================================
+    // AUDITS COLLECTION
+    // ============================================
+    
+    match /audits/{auditId} {
+      // Business owners can read their own audits, auditors can read assigned audits, admins can read all
+      allow read: if isAuthenticated() && isActiveUser() && 
+        (ownsBusinessProfile(resource.data.businessProfileId) ||
+         isOwner(resource.data.auditorId) ||
+         isAdmin());
+      
+      // Only auditors can create audits for assigned businesses, admins can create all
+      allow create: if isAuthenticated() && isActiveUser() && 
+        ((isAuditor() && isAssignedToBusiness(request.resource.data.businessProfileId)) ||
+         isAdmin());
+      
+      // Auditors can update their assigned audits, admins can update all
+      allow update: if isAuthenticated() && isActiveUser() && 
+        (isOwner(resource.data.auditorId) || isAdmin());
+      
+      // Only admins can delete audits
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+    
+    // ============================================
+    // STANDARD RESPONSES COLLECTION
+    // ============================================
+    
+    match /standard_responses/{responseId} {
+      // Auditors and admins can read standard responses
+      allow read: if isAuthenticated() && isActiveUser() && 
+        (isAuditor() || isAdmin());
+      
+      // Only admins can modify standard responses
+      allow create, update, delete: if isAuthenticated() && isAdmin();
+    }
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    function onlyUpdatingFields(allowedFields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedFields);
+    }
+    
+    function getUserAuditorId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.auditorProfileId;
+    }
+    
+    function getBusinessProfile() {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return get(/databases/$(database)/documents/business_profiles/$(userDoc.data.businessProfileId));
+    }
+    
+    function ownsBusiness(businessProfileId) {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc.data.businessProfileId == businessProfileId;
+    }
+    
+    function ownsBusinessProfile(businessProfileId) {
+      let businessDoc = get(/databases/$(database)/documents/business_profiles/$(businessProfileId));
+      return businessDoc.data.uid == request.auth.uid;
+    }
+    
+    function isAssignedToBusiness(businessProfileId) {
+      let businessDoc = get(/databases/$(database)/documents/business_profiles/$(businessProfileId));
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return businessDoc.data.assignedAuditorId == userDoc.data.auditorProfileId;
+    }
+  }
+}

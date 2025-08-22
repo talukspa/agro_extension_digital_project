@@ -6,15 +6,26 @@ terraform {
   source = "../../../modules/frontend"
 }
 
-# Configuración del backend remoto específica para DEV Frontend
+# Configuración del backend remoto específico para DEV Frontend
 remote_state {
   backend = "gcs"
   config = {
-    bucket   = "agro-extension-digital-npe-tf-state-bucket"
+    bucket   = yamldecode(file("../env.yaml")).terraform_state.bucket
+    project  = yamldecode(file("../env.yaml")).project.id
     prefix   = "${path_relative_to_include()}/terraform.tfstate"
-    location = "us-central1"
-    project  = "agro-extension-digital-npe"
+    location = yamldecode(file(find_in_parent_folders("common.yaml"))).gcp.default_region
   }
+}
+
+# Dependencias - necesitamos que el backend esté desplegado primero
+dependency "backend" {
+  config_path = "../backend"
+  
+  mock_outputs = {
+    agent_aa_service_url = "https://mock-agent-aa-url"
+  }
+  
+  mock_outputs_allowed_terraform_commands = ["validate", "plan", "providers", "init"]
 }
 
 # Importar configuración común desde archivos yaml
@@ -23,13 +34,20 @@ locals {
   common_vars = yamldecode(file(find_in_parent_folders("common.yaml")))
   env_vars    = yamldecode(file("../env.yaml"))
   
-  # Valores base desde common.yaml
-  project_id = local.common_vars.project.id
-  region     = local.common_vars.gcp.default_region
+  # Valores base desde env.yaml (específicos del ambiente)
+  project_id  = local.env_vars.project.id
+  region      = local.common_vars.gcp.default_region
   environment = local.env_vars.environment.name
   
-  # URLs base para frontend
-  gar_base_url = "${local.common_vars.containers.registry}/${local.project_id}/${local.common_vars.containers.repository}"
+  # Firebase configuration específica de DEV
+  firebase_config = {
+    api_key              = "AIzaSyD0nFbsMt_TaEJ-qRTodXEWF9ZdF6Ka0_M"
+    auth_domain          = "${local.project_id}.firebaseapp.com"
+    storage_bucket       = "${local.project_id}.firebasestorage.app"
+    messaging_sender_id  = "890639421110"
+    app_id              = "1:890639421110:web:aeabdca529fefeb64aa017"
+    measurement_id      = "G-TZBH5RVGBW"
+  }
 }
 
 inputs = {
@@ -38,13 +56,33 @@ inputs = {
   environment = local.environment
   location    = local.region
   
-  # Frontend configuración
-  cloud_run_name_frontend = "frontend-app-${local.environment}"
-  gar_image_location_frontend = "${local.gar_base_url}/agent-frontend-app:latest"
+  # Frontend Service Configuration
+  cloud_run_name_frontend                = "frontend-${local.environment}"
+  service_account_id_frontend            = "frontend-sa-${local.environment}"
+  service_account_display_name_frontend  = "Frontend Service Account DEV"
+  gar_image_location_frontend            = "us-central1-docker.pkg.dev/${local.project_id}/agro-extension-digital/frontend:latest"
   
-  # Configuración de recursos específica del entorno
-  min_scale = local.env_vars.environment.min_scale
-  max_scale = local.env_vars.environment.max_scale
-  cpu_limit = local.env_vars.resources.cpu
-  memory_limit = local.env_vars.resources.memory
+  # Scaling Configuration
+  min_scale               = 0  # DEV puede bajar a 0
+  max_scale               = 5  # Límite para DEV
+  startup_cpu_boost       = true
+  
+  # Resource Configuration
+  cpu_limit    = "1000m"
+  memory_limit = "2Gi"
+  
+  # Firebase Configuration
+  firebase_api_key              = local.firebase_config.api_key
+  firebase_auth_domain          = local.firebase_config.auth_domain
+  firebase_storage_bucket       = local.firebase_config.storage_bucket
+  firebase_messaging_sender_id  = local.firebase_config.messaging_sender_id
+  firebase_app_id              = local.firebase_config.app_id
+  firebase_measurement_id      = local.firebase_config.measurement_id
+  
+  # Backend Services URLs (desde dependency)
+  agent_aa_service_url = dependency.backend.outputs.agent_aa_service_url
+  webhook_service_url  = "https://agent-webhook-dev-c2udweuoga-uc.a.run.app"
+  
+  # Database Configuration
+  firestore_database_id = "agro-extension-db"
 }
