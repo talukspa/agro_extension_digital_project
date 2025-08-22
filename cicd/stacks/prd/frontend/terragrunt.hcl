@@ -10,10 +10,10 @@ terraform {
 remote_state {
   backend = "gcs"
   config = {
-    bucket   = "agro-extension-digital-prd-tf-state-bucket"
+    bucket   = yamldecode(file("../env.yaml")).terraform_state.bucket
+    project  = yamldecode(file("../env.yaml")).project.id
     prefix   = "${path_relative_to_include()}/terraform.tfstate"
-    location = "us-central1"
-    project  = "agro-extension-digital-prd"
+    location = yamldecode(file(find_in_parent_folders("common.yaml"))).gcp.default_region
   }
 }
 
@@ -23,13 +23,13 @@ locals {
   common_vars = yamldecode(file(find_in_parent_folders("common.yaml")))
   env_vars    = yamldecode(file("../env.yaml"))
   
-  # Valores base desde common.yaml
-  project_id = local.env_vars.environment.name == "prd" ? local.common_vars.project.prd_id : local.common_vars.project.id
-  region     = local.common_vars.gcp.default_region
+  # Valores base desde env.yaml (específicos del ambiente PRD)
+  project_id  = local.env_vars.project.id
+  region      = local.common_vars.gcp.default_region
   environment = local.env_vars.environment.name
   
   # URLs base para frontend
-  gar_base_url = "${local.common_vars.containers.registry}/${local.project_id}/${local.common_vars.containers.repository}"
+  gar_base_url = "${local.common_vars.containers.registry}/${local.common_vars.containers.project}/${local.common_vars.containers.repository}"
 }
 
 inputs = {
@@ -41,6 +41,15 @@ inputs = {
   # Frontend configuración
   cloud_run_name_frontend = "frontend-app-${local.environment}"
   gar_image_location_frontend = "${local.gar_base_url}/agent-frontend-app:latest"
+  
+  # Variables de entorno de Firebase (usando Google Secrets Manager)
+  firebase_api_key = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-api-key", "--project=${local.project_id}")
+  firebase_auth_domain = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-auth-domain", "--project=${local.project_id}")
+  firebase_project_id = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-project-id", "--project=${local.project_id}")
+  firebase_storage_bucket = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-storage-bucket", "--project=${local.project_id}")
+  firebase_messaging_sender_id = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-messaging-sender-id", "--project=${local.project_id}")
+  firebase_app_id = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-app-id", "--project=${local.project_id}")
+  firebase_measurement_id = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-measurement-id", "--project=${local.project_id}", "--quiet", "||", "echo", "''")
   
   # Configuración de recursos específica del entorno
   min_scale = local.env_vars.environment.min_scale

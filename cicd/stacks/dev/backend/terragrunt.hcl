@@ -51,10 +51,10 @@ inputs = {
   google_cloud_location     = local.region
   
   # Agent AA configuración - nombres exactos que espera el módulo
-  cloud_run_name_agent_aa                = "agent-${local.environment}"
+  cloud_run_name_agent_aa                = "agent-aa-${local.environment}"
   service_account_id_agent_aa            = "agent-aa-sa-${local.environment}"
-  service_account_display_name_agent_aa  = "Agent AA Service Account"
-  gar_image_location_agent_aa            = "${local.gar_base_url}/agent-aa-app:latest"
+  service_account_display_name_agent_aa  = "Agent AA Service Account DEV"
+  gar_image_location_agent_aa            = "us-central1-docker.pkg.dev/${local.project_id}/agro-extension-digital/agents:latest"
   estandar_aa_app_name                   = "agent_aa_app"
   estandar_aa_facebook_app               = local.facebook_base_url
   
@@ -69,8 +69,8 @@ inputs = {
   # Webhook configuración - nombres exactos que espera el módulo
   cloud_run_name_webhook                     = "agent-webhook-${local.environment}"
   service_account_webhook_app                = "agent-webhook-sa-${local.environment}"
-  service_account_display_name_webhook_app   = "Agent Webhook Service Account"
-  gar_image_location_webhook                 = "${local.gar_base_url}/agent-webhook-app:latest"
+  service_account_display_name_webhook_app   = "Agent Webhook Service Account DEV"
+  gar_image_location_webhook                 = "us-central1-docker.pkg.dev/${local.project_id}/agro-extension-digital/webhook:latest"
   
   # Service name
   service_name = "agent-${local.environment}"
@@ -84,13 +84,15 @@ inputs = {
   
   # Secrets y tokens
   wsp_token                = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=wsp-token", "--project=${local.project_id}")
-  verify_token            = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=webhook-verify-token", "--project=${local.project_id}")
+  verify_token             = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=webhook-verify-token", "--project=${local.project_id}")
   whatsapp_base_url        = local.common_vars.urls.whatsapp_base
   
   # Configuración específica del entorno desde env.yaml
   log_level                = local.env_vars.environment.log_level
   bigquery_dataset         = local.env_vars.bigquery.dataset
-  min_scale               = local.env_vars.environment.min_scale
+  min_scale               = 0  # Mínimo para dev
+  max_scale               = 10 # Máximo para dev
+  startup_cpu_boost       = true
   
   # Timeouts HTTP desde env.yaml
   agent_http_timeout       = local.env_vars.timeouts.agent_http
