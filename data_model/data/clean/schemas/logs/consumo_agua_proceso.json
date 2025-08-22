@@ -1,0 +1,19 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "consumo_agua_proceso",
+    "type": "object",
+    "properties": {
+        "monthly_consumption_m3": {
+            "type": "string",
+            "description": "Consumo mensual (m3)"
+        },
+        "water_source": {
+            "type": "string",
+            "description": "Fuente de abastecimiento disponible (canal, pozo, suministro de agua potable, red aljibe, etc.)"
+        },
+        "process_use_type": {
+            "type": "string",
+            "description": "Tipo de uso dentro de la linea de proceso"
+        }
+    }
+}

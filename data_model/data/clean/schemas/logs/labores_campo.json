@@ -1,0 +1,31 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "labores_campo",
+    "type": "object",
+    "properties": {
+        "date_time": {
+            "type": "string",
+            "description": "Fecha y hora"
+        },
+        "findings_optional": {
+            "type": "string",
+            "description": "Hallazgos (opcional)"
+        },
+        "task_executed": {
+            "type": "string",
+            "description": "Labor ejecutada"
+        },
+        "task_objective": {
+            "type": "string",
+            "description": "Objetivo de la labor"
+        },
+        "responsible_person": {
+            "type": "string",
+            "description": "Responsable"
+        },
+        "sector": {
+            "type": "string",
+            "description": "Sector o cuartel"
+        }
+    }
+}

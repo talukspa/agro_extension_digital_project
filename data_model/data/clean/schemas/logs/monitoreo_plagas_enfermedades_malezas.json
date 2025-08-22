@@ -1,0 +1,35 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "monitoreo_plagas_enfermedades_malezas",
+    "type": "object",
+    "properties": {
+        "damage_caused": {
+            "type": "string",
+            "description": "Daño provocado"
+        },
+        "discovery_date": {
+            "type": "string",
+            "description": "Fecha del hallazgo"
+        },
+        "control_measures": {
+            "type": "string",
+            "description": "Medidas de control"
+        },
+        "species_name": {
+            "type": "string",
+            "description": "Nombre de la especie"
+        },
+        "number_of_individuals_seen": {
+            "type": "string",
+            "description": "N° de individuos visualizados"
+        },
+        "location": {
+            "type": "string",
+            "description": "Ubicacion"
+        },
+        "maximum_damage_threshold": {
+            "type": "string",
+            "description": "Umbral de daño maximo"
+        }
+    }
+}

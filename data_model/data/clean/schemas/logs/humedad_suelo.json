@@ -1,0 +1,27 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "humedad_suelo",
+    "type": "object",
+    "properties": {
+        "irrigation_equipment": {
+            "type": "string",
+            "description": "Equipo de riego"
+        },
+        "date": {
+            "type": "string",
+            "description": "Fecha"
+        },
+        "soil_moisture_or_water_potential": {
+            "type": "string",
+            "description": "Humedad de suelo o potencial hidrico de la planta, segun datos arrojados por el instrumento"
+        },
+        "observations": {
+            "type": "string",
+            "description": "Observaciones"
+        },
+        "responsible_person": {
+            "type": "string",
+            "description": "Responsable"
+        }
+    }
+}

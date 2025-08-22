@@ -1,0 +1,43 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "aplicacion_fertilizantes",
+    "type": "object",
+    "properties": {
+        "composition": {
+            "type": "string",
+            "description": "Composicion (P2O5, K2O o N y otros nutrientes)"
+        },
+        "dosage": {
+            "type": "string",
+            "description": "Dosis"
+        },
+        "application_date_time": {
+            "type": "string",
+            "description": "Fecha y hora de la aplicacion"
+        },
+        "organic_fertilizer": {
+            "type": "string",
+            "description": "Fertilizante Organico (SI/NO)"
+        },
+        "nitrogen_fertilizer_identification": {
+            "type": "string",
+            "description": "Identificacion de fertilizantes nitrogenados (SI/NO)"
+        },
+        "application_method": {
+            "type": "string",
+            "description": "Metodo de aplicacion"
+        },
+        "product_name": {
+            "type": "string",
+            "description": "Nombre del producto"
+        },
+        "responsible_person": {
+            "type": "string",
+            "description": "Responsable"
+        },
+        "sector": {
+            "type": "string",
+            "description": "Sector o cuartel"
+        }
+    }
+}
