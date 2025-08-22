@@ -4,6 +4,7 @@ WhatsApp API client utilities for sending messages and downloading media.
 import httpx
 import logging
 from typing import Any, Dict, Optional
+from ..utils.app_config import config
 
 async def send_whatsapp_message(
     to: str,
@@ -19,7 +20,7 @@ async def send_whatsapp_message(
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     
     logging.info(f"Sending WhatsApp message to {to}")
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=config.whatsapp_http_timeout) as client:
         response = await client.post(whatsapp_api_url, json=payload, headers=headers)
         response.raise_for_status()
         result = response.json()
@@ -55,7 +56,7 @@ async def download_whatsapp_media(media_id: str, whatsapp_base_url: str, token: 
     
     logging.info(f"Getting media URL for ID: {media_id} from endpoint: {media_url_endpoint}")
     
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=config.whatsapp_http_timeout) as client:
         try:
             # Primero obtener la información del media incluyendo la URL de descarga
             media_response = await client.get(media_url_endpoint, headers=headers)

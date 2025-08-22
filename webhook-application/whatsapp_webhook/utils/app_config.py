@@ -11,6 +11,9 @@ class AppConfig(BaseModel):
     log_level: str
     verify_token: str
     wsp_token: str
+    # HTTP client timeouts (seconds)
+    agent_http_timeout: float = 30.0
+    whatsapp_http_timeout: float = 30.0
     
     # WhatsApp API configuration
     whatsapp_base_url: str
@@ -29,6 +32,8 @@ def load_config_from_env() -> AppConfig:
         log_level=os.getenv("LOG_LEVEL", "INFO"),
         verify_token=os.getenv("VERIFY_TOKEN"),
         wsp_token=os.getenv("WSP_TOKEN"),
+    agent_http_timeout=float(os.getenv("AGENT_HTTP_TIMEOUT", "30")),
+    whatsapp_http_timeout=float(os.getenv("WHATSAPP_HTTP_TIMEOUT", "30")),
         whatsapp_base_url=os.getenv("WHATSAPP_BASE_URL", "https://graph.facebook.com/v22.0"),
         aa_facebook_app_url=os.getenv("ESTANDAR_AA_FACEBOOK_APP"),
         aa_app_name=os.getenv("ESTANDAR_AA_APP_NAME"),

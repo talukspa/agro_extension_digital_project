@@ -1,34 +1,88 @@
-// For format details, see https://aka.ms/devcontainer.json. For config options, see the
-// README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
+// Para detalles de formato ver https://aka.ms/devcontainer.json
 {
-	"name": "Ubuntu",
-	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-	"image": "mcr.microsoft.com/devcontainers/base:jammy",
-
-	// Features to add to the dev container. More info: https://containers.dev/features.
-	// "features": {},
+	"name": "GCP Polyglot DevContainer",
+	// Imagen base (Ubuntu 22.04). 'jammy' equivale a 22.04, se usa etiqueta explícita.
+	"image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+	// Usuario no-root recomendado.
+	"remoteUser": "vscode",
+	// Características instaladas. Se agregan las faltantes solicitadas manteniendo las existentes.
 	"features": {
-		"ghcr.io/devcontainers/features/terraform:1": {},
-		"ghcr.io/jsburckhardt/devcontainer-features/uv:1": {},
+		// Docker para construir/ejecutar contenedores dentro del contenedor.
 		"ghcr.io/devcontainers/features/docker-in-docker:2": {},
-		"ghcr.io/jsburckhardt/devcontainer-features/ruff:1": {},
-		"ghcr.io/dhoeric/features/google-cloud-cli:1.0.1": {},
+		// Terraform + herramientas complementarias.
+		"ghcr.io/devcontainers/features/terraform:1": {
+			"version": "latest",
+			"tflint": "latest",
+			"terragrunt": "latest",
+			"installSentinel": false,
+			"installTFsec": false,
+			"installTerraformDocs": false
+		},
+		// Node.js con pnpm. Se conserva nodeGypDependencies para módulos nativos.
 		"ghcr.io/devcontainers/features/node:1": {
-			"nodeGypDependencies": true,
-			"version": "lts"
+			"version": "lts",
+			"pnpm": "latest",
+			"nodeGypDependencies": true
+		},
+		// Python 3.12
+		"ghcr.io/devcontainers/features/python:1": {
+			"version": "3.12"
+		},
+		// Go toolchain.
+		"ghcr.io/devcontainers/features/go:1": {},
+		// uv (gestor rápido Python) y ruff (lint/format)
+		"ghcr.io/jsburckhardt/devcontainer-features/uv:1": {},
+		"ghcr.io/jsburckhardt/devcontainer-features/ruff:1": {},
+		// CLI de GitHub
+		"ghcr.io/devcontainers/features/github-cli:1": {},
+		// Persistencia de gcloud (nueva) + CLI existente (se mantiene por compatibilidad temporal).
+		"ghcr.io/joshuanianji/devcontainer-features/gcloud-cli-persistence:1": {},
+		"ghcr.io/dhoeric/features/google-cloud-cli:1.0.1": {},
+
+		"ghcr.io/devcontainers/features/common-utils:2": {
+			"installZsh": true,
+			"installOhMyZsh": true,
+			"upgradePackages": true,
+			"username": "vscode",
+			"userUid": "1000",
+			"userGid": "1000"
+		},
+
+		"ghcr.io/devcontainers/features/git-lfs:1": {},
+
+		"ghcr.io/devcontainers/features/git:1": {},
+
+		"ghcr.io/devcontainers/features/rust:1": {}
+	},
+	// Volúmenes para preservar configuración y historial bash/zsh entre recreaciones.
+	"mounts": [
+		"type=volume,source=vscode-user-data,target=/home/vscode/.config",
+		"type=volume,source=vscode-bash-history,target=/home/vscode/commandhistory"
+	],
+	// Script post-creación para ajustes adicionales.
+	"postCreateCommand": "bash .devcontainer/post-create.sh && pnpm install -g next",
+	// Extensiones y ajustes de VS Code
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"GitHub.copilot",
+				"GitHub.copilot-chat",
+				"GitHub.vscode-pull-request-github",
+				"Anthropic.claude-vscode",
+				"Google.gemini-vscode",
+				"ms-python.python",
+				"ms-toolsai.jupyter",
+				"ms-azuretools.vscode-docker",
+				"hashicorp.terraform",
+				"golang.go",
+				"charliermarsh.ruff",
+				"yzhang.markdown-all-in-one",
+				"vscodevim.vim"
+			],
+			"settings": {
+				"terminal.integrated.defaultProfile.linux": "zsh",
+				"python.defaultInterpreterPath": "/usr/bin/python3"
+			}
 		}
 	}
-
-
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	// "forwardPorts": [],
-
-	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "uname -a",
-
-	// Configure tool-specific properties.
-	// "customizations": {},
-
-	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
-	// "remoteUser": "root"
 }
