@@ -9,10 +9,10 @@
       "type": "string",
       "description": "Descripción de la plantilla (del esquema)."
     },
-    "questions": {
+    "action": {
       "type": "array",
       "items": {
-        "$ref": "standard_question.json"
+        "$ref": "action.json"
       }
     }
   },

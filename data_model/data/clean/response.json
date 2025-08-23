@@ -544,7 +544,8 @@
         "standard_code": "A135",
         "answer_value": "Si cumplo"
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "10590515-7",
@@ -1091,7 +1092,8 @@
         "standard_code": "A135",
         "answer_value": "Si cumplo"
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "127184364",
@@ -1638,7 +1640,8 @@
         "standard_code": "A135",
         "answer_value": ""
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "13971813-5",
@@ -2185,7 +2188,8 @@
         "standard_code": "A135",
         "answer_value": "Si cumplo"
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "16411526-7",
@@ -2732,7 +2736,8 @@
         "standard_code": "A135",
         "answer_value": ""
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "17049695-7",
@@ -3279,7 +3284,8 @@
         "standard_code": "A135",
         "answer_value": "No cumplo, pero me es factible"
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "17708318-6",
@@ -3826,7 +3832,8 @@
         "standard_code": "A135",
         "answer_value": ""
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "18276552-k",
@@ -4373,7 +4380,8 @@
         "standard_code": "A135",
         "answer_value": "No cumplo, pero me es factible"
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "69500400-1",
@@ -4920,7 +4928,8 @@
         "standard_code": "A135",
         "answer_value": ""
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "76008900-1",
@@ -5467,7 +5476,8 @@
         "standard_code": "A135",
         "answer_value": "No cumplo, pero me es factible"
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "760089001",
@@ -6014,7 +6024,8 @@
         "standard_code": "A135",
         "answer_value": ""
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "76059579-9",
@@ -6561,7 +6572,8 @@
         "standard_code": "A135",
         "answer_value": "No cumplo"
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "76371350-4",
@@ -7108,7 +7120,8 @@
         "standard_code": "A135",
         "answer_value": "No cumplo, pero me es factible"
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "7694421-0",
@@ -7655,7 +7668,8 @@
         "standard_code": "A135",
         "answer_value": ""
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "77072740-5",
@@ -8202,7 +8216,8 @@
         "standard_code": "A135",
         "answer_value": "No cumplo, pero me es factible"
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "78023030-4",
@@ -8749,7 +8764,8 @@
         "standard_code": "A135",
         "answer_value": "No cumplo, pero me es factible"
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "78609090-3",
@@ -9296,7 +9312,8 @@
         "standard_code": "A135",
         "answer_value": "No cumplo"
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "789362807",
@@ -9843,7 +9860,8 @@
         "standard_code": "A135",
         "answer_value": "Si cumplo"
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "797490709",
@@ -10390,7 +10408,8 @@
         "standard_code": "A135",
         "answer_value": "Si cumplo"
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "96604260-5",
@@ -10937,7 +10956,8 @@
         "standard_code": "A135",
         "answer_value": "No cumplo"
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "96629050-1",
@@ -11484,7 +11504,8 @@
         "standard_code": "A135",
         "answer_value": "Si cumplo"
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "966290501",
@@ -12031,7 +12052,8 @@
         "standard_code": "A135",
         "answer_value": ""
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   },
   {
     "business_rut": "96687090-7",
@@ -12578,6 +12600,7 @@
         "standard_code": "A135",
         "answer_value": "Si cumplo"
       }
-    ]
+    ],
+    "auditor_id": "unassigned"
   }
 ]
