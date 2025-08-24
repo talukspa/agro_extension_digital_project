@@ -1529,7 +1529,7 @@
                     "No cumplo, pero me es factible",
                     "No aplica a mi sistema productivo"
                 ],
-                "verification_type": "",
+                "verification_type": "document",
                 "resources": [
                     {
                         "type": "Guía",
