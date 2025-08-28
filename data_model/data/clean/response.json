@@ -25564,6 +25564,15 @@
                 "execution_date_time": "2025-08-28T19:19:51.111615",
                 "person_responsible_for_execution": "Peter Pan"
               }
+            },
+            {
+              "standard_code": "A076",
+              "data": {
+                "task": "Cleaning",
+                "process_line_phase": "Packaging",
+                "execution_date_time": "2025-08-28T19:19:51.111615",
+                "person_responsible_for_execution": "Peter Pan"
+              }
             }
           ]
         }
