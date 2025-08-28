@@ -1,0 +1,7 @@
+Debugging generate_responses.py:
+
+Issue: Inconsistent answer counts due to a mismatch in standard code formats between survey links and standard.json. Survey links used 'A1', 'A2', etc., while standard.json used 'A001', 'A002', etc.
+
+Resolution: Modified the `get_standard_code_from_link` function in `generate_responses.py` to correctly parse the numeric part of the standard code from the survey links and format it with leading zeros to match the 'A001' format used in `clean/standard.json`.
+
+Verification: Reran `generate_responses.py`. The output now consistently shows 'Found 135 answers for survey X' for all surveys, and no 'Could not find standard action for code' messages are present. The generated `clean/responses.json` was successfully validated against `clean/schemas/response.json`.
