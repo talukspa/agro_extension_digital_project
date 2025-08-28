@@ -21059,7 +21059,7 @@
           "logs": [
             {
               "standard_code": "A001",
-              "log_data": {
+              "data": {
                 "supply_source": "well",
                 "monthly_consumption_m3": 100,
                 "process_use_type": "irrigation"
@@ -21493,7 +21493,7 @@
           "logs": [
             {
               "standard_code": "A008",
-              "log_data": {
+              "data": {
                 "event_type": "Maintenance",
                 "execution_date": "2025-08-28T19:19:51.111456",
                 "equipment_or_infrastructure": "Tractor",
@@ -21568,7 +21568,7 @@
           "logs": [
             {
               "standard_code": "A009",
-              "log_data": {
+              "data": {
                 "event_type": "Monitoring",
                 "execution_date": "2025-08-28T19:19:51.111481",
                 "equipment_or_infrastructure": "Pipes",
@@ -22437,7 +22437,7 @@
           "logs": [
             {
               "standard_code": "A024",
-              "log_data": {
+              "data": {
                 "finding_date": "2025-08-28T19:19:51.111511",
                 "species_name": "Wild Boar",
                 "location": "Field A",
@@ -22976,7 +22976,7 @@
           "logs": [
             {
               "standard_code": "A033",
-              "log_data": {
+              "data": {
                 "product_name": "Potassium Sorbate",
                 "lot_number": 12345,
                 "production_phase": "Drying",
@@ -24095,7 +24095,7 @@
           "logs": [
             {
               "standard_code": "A052",
-              "log_data": {
+              "data": {
                 "energy_source_type": "diesel",
                 "monthly_energy_consumption_kwh": 500,
                 "energy_expenditure_per_month": 250
@@ -24552,7 +24552,7 @@
           "logs": [
             {
               "standard_code": "A059",
-              "log_data": {
+              "data": {
                 "event_type": "Maintenance",
                 "execution_date": "2025-08-28T19:19:51.111584",
                 "equipment_or_infrastructure": "Tractor",
@@ -25558,7 +25558,7 @@
           "logs": [
             {
               "standard_code": "A076",
-              "log_data": {
+              "data": {
                 "task": "Cleaning",
                 "process_line_phase": "Packaging",
                 "execution_date_time": "2025-08-28T19:19:51.111615",

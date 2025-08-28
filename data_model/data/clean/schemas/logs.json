@@ -7,13 +7,13 @@
     "standard_code": {
       "type": "string"
     },
-    "log_data": {
+    "data": {
       "type": "object"
     }
   },
   "required": [
     "standard_code",
-    "log_data"
+    "data"
   ],
   "oneOf": [
     {
@@ -26,7 +26,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "supply_source": {
@@ -62,7 +62,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "event_type": {
@@ -109,7 +109,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "event_type": {
@@ -156,7 +156,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "finding_date": {
@@ -208,7 +208,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "product_name": {
@@ -255,7 +255,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "energy_source_type": {
@@ -291,7 +291,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "event_type": {
@@ -338,7 +338,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "task": {
@@ -380,7 +380,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "date": {
@@ -442,7 +442,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "event_type": {
@@ -492,7 +492,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "calicata_number_or_code": {
@@ -544,7 +544,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "event_type": {
@@ -591,7 +591,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "date": {
@@ -642,7 +642,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "event_type": {
@@ -692,7 +692,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "date_time": {
@@ -748,7 +748,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "fecha_y_hora_de_la_aplicaci\u00c3\u00b3n": {
@@ -815,7 +815,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "finding_date": {
@@ -873,7 +873,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "date_time": {
@@ -965,7 +965,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "finding_date": {
@@ -1022,7 +1022,7 @@
       },
       "then": {
         "properties": {
-          "log_data": {
+          "data": {
             "type": "object",
             "properties": {
               "energy_source_type": {
