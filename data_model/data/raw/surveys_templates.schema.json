@@ -1,0 +1,7 @@
+{
+  "collection": "surveys_templates",
+  "description": "This collection holds the master templates for the different types of surveys. The documents seem to be named after the survey type (e.g., 'ciruelas-aa').",
+  "schema": {
+    "data": "(Array of Objects) This is the main field, containing an array of all the questions and associated metadata for the survey template. Each object in the array represents a single question or item in the survey and has a detailed structure."
+  }
+}

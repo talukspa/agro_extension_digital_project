@@ -1,0 +1,9 @@
+{
+  "collection": "surveys",
+  "description": "This collection stores the individual survey responses from different businesses. The document ID is the rut of the business that took the survey, linking it back to the business_profiles collection.",
+  "schema": {
+    "is_completed": "(Boolean) A flag indicating whether the survey has been completed.",
+    "date": "(Timestamp) The date and time when the survey was last updated or completed.",
+    "data": "(Array of Objects) This array holds the answers to the survey questions. Each object represents a single question and answer, and its structure is very similar to the template, but with the addition of the user's answer and some metadata."
+  }
+}

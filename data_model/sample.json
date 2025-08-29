@@ -1,0 +1,154 @@
+{
+  "business_profiles": [
+    {
+      "rut": "76.432.187-4",
+      "commune": "Paine",
+      "digital_tools_used_at_work": [
+        "Redes sociales (Facebook, Instagram, etc.)",
+        "Aplicaciones de mensajería (WhatsApp, Telegram, etc.)"
+      ],
+      "business_size": "Microempresa",
+      "legal_name": "Exportadora de Ciruelas Paine",
+      "address": "Av. Gral. Baquedano 108",
+      "region": "Metropolitana",
+      "owner_phone": "+56987654321",
+      "process_type": "Producción Primaria",
+      "owner_email": "contacto@exportadorapaine.cl",
+      "owner_role": "Dueño",
+      "digital_tools_experienced": [
+        "Redes sociales (Facebook, Instagram, etc.)",
+        "Aplicaciones de mensajería (WhatsApp, Telegram, etc.)"
+      ],
+      "owner_name": "Juan Rojas"
+    }
+  ],
+  "auditors": [
+    {
+      "auditor_id": 1,
+      "auditor_name": "Carlos Ruiz",
+      "auditor_email": "carlos.ruiz@auditcorp.com"
+    },
+    {
+      "auditor_id": 2,
+      "auditor_name": "Ana Soto",
+      "auditor_email": "ana.soto@auditcorp.com"
+    }
+  ],
+  "resources": [
+    {
+      "resource_code": "A007",
+      "type": "Señalética",
+      "detail": "Evite el desperdicio de agua",
+      "url": "https://ciruelacertificada.cl/recurso/senaletica-evite-el-desperdicio-de-agua/"
+    },
+    {
+      "resource_code": "A005",
+      "type": "TDR",
+      "detail": "TDR para la contratación de empresa que realice plan de gestión del recurso hídrico",
+      "url": "https://ciruelacertificada.cl/recurso/tdr-para-la-contratacion-de-empresa-que-realice-plan-de-gestion-del-recurso-hidrico/"
+    }
+  ],
+  "standard_templates": [
+    {
+      "template_name": "ciruelas-aa",
+      "description": "Estándares para la producción y procesamiento de ciruelas agro-industriales.",
+      "questions": [
+        {
+          "standard_code": "A001",
+          "level": "Fundamental",
+          "points": 5,
+          "dimension": "Ambiente",
+          "theme": "Agua",
+          "good_practice": "Gestionar los recursos hídricos en la planta",
+          "action": "La planta registra mensualmente el consumo de agua en las plantas, especificando la fuente de abastecimiento y su uso.",
+          "verification_medium": "Registro de consumo de agua mensual con la siguiente información: - Fuente de abastecimiento disponible (canal, pozo, suministro de agua potable, red aljibe, etc.). - Consumo mensual por de cada fuente (m3). - Tipo de uso dentro de la línea de proceso de cada una de las fuentes.",
+          "verification_type": "Bitácora"
+        },
+        {
+          "standard_code": "A002",
+          "level": "Básico",
+          "points": 2,
+          "dimension": "Ambiente",
+          "theme": "Agua",
+          "good_practice": "Gestionar los recursos hídricos en la planta",
+          "action": "La planta capacita a las personas tomadoras de decisiones en el ámbito hídrico, abordando estrategias para la gestión eficiente del recurso.",
+          "verification_medium": "Registro de ejecución de capacitaciones (lista de asistencia identificando sexo de quien participa, tema expuesto, persona que expone, material expuesto, registro fotográfico y certificación entregada) o certificado de participación en instancias de capacitación externa (cursos, seminarios, congresos, etc.). Se verifica que al menos una persona atingente al área, haya recibido esta capacitación.",
+          "verification_type": "Foto"
+        }
+      ]
+    },
+    {
+      "template_name": "produccion-primaria-pp",
+      "description": "Estándares para la producción primaria.",
+      "questions": [
+        {
+          "standard_code": "P001",
+          "level": "Fundamental",
+          "points": 5,
+          "dimension": "Ambiente",
+          "theme": "Agua",
+          "good_practice": "Gestionar los recursos hídricos en el predio",
+          "action": "El predio registra mensualmente el consumo de agua de riego especificando la fuente de abastecimiento y su uso.",
+          "verification_medium": "Registro de consumo de agua de riego mensual con especificaciones de la siguiente información:  - Fecha.  - Cultivo.  - Sector o cuartel.  - Fuente de abastecimiento disponible (canal, pozo, suministro de agua potable, red aljibe, etc.).  - Superficie.  - Tiempo de riego.  - Días de riego en la semana.  - Volumen de agua aplicado en el día (litros).  - Volumen de agua acumulado (litros).",
+          "verification_type": "Bitácora"
+        },
+        {
+          "standard_code": "P002",
+          "level": "Básico",
+          "points": 2,
+          "dimension": "Ambiente",
+          "theme": "Agua",
+          "good_practice": "Gestionar los recursos hídricos en el predio",
+          "action": "El predio capacita a quienes trabajan como tomadores de decisiones en el ámbito hídrico, abordando estrategias para la gestión eficiente del recurso.",
+          "verification_medium": "Registro de la ejecución de capacitaciones (lista de asistencia identificando sexo de quien participa, tema expuesto, persona que expone, material expuesto, registro fotográfico y certificación entregada) o certificado de participación en instancias de capacitación externa (cursos, seminarios, congresos, etc.). Se verifica que al menos una persona atingente al área, haya recibido esta capacitación.",
+          "verification_type": "Foto"
+        }
+      ]
+    }
+  ],
+  "registers": [
+    {
+      "id": 1,
+      "business_rut": "76.432.187-4",
+      "standard_code": "A001",
+      "folder": "/uploads/76.432.187-4/A001/202408",
+      "log": "Registro de consumo de agua de Agosto 2024.",
+      "upload_timestamp": "2024-08-10T10:00:00Z",
+      "validation_status": "pending",
+      "validation_timestamp": null,
+      "auditor_id": null,
+      "auditor_comments": null
+    },
+    {
+      "id": 2,
+      "business_rut": "76.432.187-4",
+      "standard_code": "P001",
+      "folder": "/uploads/76.432.187-4/P001/202408",
+      "log": "Registro de consumo de agua de riego de Agosto 2024.",
+      "upload_timestamp": "2024-08-09T11:00:00Z",
+      "validation_status": "validated",
+      "validation_timestamp": "2024-08-10T15:00:00Z",
+      "auditor_id": 1,
+      "auditor_comments": "Registro completo y consistente."
+    }
+  ],
+  "standard_responses": [
+    {
+      "business_rut": "76.432.187-4",
+      "is_completed": false,
+      "date": "2024-08-10T10:00:00Z",
+      "answers": [
+        {
+          "standard_code": "A001",
+          "answer_value": "En Proceso",
+          "register_id": 1
+        },
+        {
+          "standard_code": "A002",
+          "answer_value": "No Cumple",
+          "register_id": null
+        }
+      ]
+    }
+  ]
+}

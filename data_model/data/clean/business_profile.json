@@ -1,0 +1,701 @@
+
+[
+  {
+    "rut": "1-9",
+    "commune": "Arica",
+    "digital_tools_used_at_work": [
+      "Computador"
+    ],
+    "business_size": "Micro (ventas anuales entre 0,01 UF a 2.400 UF).",
+    "legal_name": "Cerveceria",
+    "address": "Bartolo Soto 3950, Depto 701",
+    "region": "Arica y Parinacota",
+    "owner_phone": "968767906",
+    "process_type": "Secado en horno (obtención de ciruela seca en formato condición natural)",
+    "owner_email": "rodrigo.vasquez.fernandez@gmail.com",
+    "owner_role": "Ingeniero",
+    "digital_tools_experienced": [
+      "Computador"
+    ],
+    "owner_name": "Rodrigo"
+  },
+  {
+    "rut": "10521712-9",
+    "commune": "Arica",
+    "digital_tools_used_at_work": [
+      "Computador"
+    ],
+    "business_size": "Micro (ventas anuales entre 0,01 UF a 2.400 UF).",
+    "legal_name": "test",
+    "address": "test",
+    "region": "Arica y Parinacota",
+    "owner_phone": "test",
+    "process_type": "Secado en horno (obtención de ciruela seca en formato condición natural)",
+    "owner_email": "test",
+    "owner_role": "test",
+    "digital_tools_experienced": [
+      "Computador"
+    ],
+    "owner_name": "test"
+  },
+  {
+    "rut": "10577592-k",
+    "commune": "Providencia",
+    "digital_tools_used_at_work": [
+      "Computador",
+      "Celular",
+      "Tablet",
+      "Correo electrónico",
+      "WhatsApp",
+      "Microsoft Office",
+      "Redes Sociales: (Facebook, Instagram, u otras)",
+      "Almacenamiento en la nube"
+    ],
+    "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+    "legal_name": "Sofruco Alimentos Limitada",
+    "address": "Coyancura 2283 of 602",
+    "region": "Metropolitana de Santiago",
+    "owner_phone": "226700620",
+    "process_type": "Ambos",
+    "owner_email": "pdiaz@sofruco.cl",
+    "owner_role": "Gerente de Agroindustria",
+    "digital_tools_experienced": [
+      "Computador",
+      "Celular",
+      "Tablet",
+      "Correo electrónico",
+      "WhatsApp",
+      "Microsoft Office",
+      "Redes Sociales: (Facebook, Instagram, u otras)",
+      "Almacenamiento en la nube"
+    ],
+    "owner_name": "Pedro Pablo Diaz Vergara"
+  },
+  {
+    "rut": "10590515-7",
+    "commune": "Providencia",
+    "digital_tools_used_at_work": [
+      "Computador",
+      "Celular",
+      "Correo electrónico",
+      "WhatsApp",
+      "Microsoft Office",
+      "Almacenamiento en la nube"
+    ],
+    "business_size": "Micro (ventas anuales entre 0,01 UF a 2.400 UF).",
+    "legal_name": "xxxxx",
+    "address": "Rancagua 0320",
+    "region": "Metropolitana de Santiago",
+    "owner_phone": "942873202",
+    "process_type": "Ambos",
+    "owner_email": "francisca.sepulveda.consultor@iica.int",
+    "owner_role": "Consultora",
+    "digital_tools_experienced": [
+      "Correo electrónico",
+      "Computador",
+      "Celular",
+      "WhatsApp",
+      "Microsoft Office",
+      "Almacenamiento en la nube"
+    ],
+    "owner_name": "Francisca"
+  },
+  {
+    "rut": "127184364",
+    "commune": "Las Condes",
+    "digital_tools_used_at_work": [
+      "Computador",
+      "WhatsApp",
+      "Correo electrónico",
+      "Microsoft Office",
+      "Almacenamiento en la nube"
+    ],
+    "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+    "legal_name": "AGRICOLA SIEMEL LIMITADA",
+    "address": "AV. EL GOLF 150 PISO 18",
+    "region": "Metropolitana de Santiago",
+    "owner_phone": "56995642342",
+    "process_type": "Ambos",
+    "owner_email": "AMOLINA@AGSIEMEL.CL",
+    "owner_role": "JEFE DE OPERACIONES",
+    "digital_tools_experienced": [
+      "Computador",
+      "Celular",
+      "Correo electrónico",
+      "WhatsApp"
+    ],
+    "owner_name": "ANDRES EFRAIN MOLINA HERRERA"
+  },
+  {
+    "rut": "13971813-5",
+    "commune": "Arica",
+    "digital_tools_used_at_work": [
+      "Computador"
+    ],
+    "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+    "legal_name": "Cerveceria",
+    "address": "Buin",
+    "region": "Arica y Parinacota",
+    "owner_phone": "4566798",
+    "process_type": "Tiernizado (obtención de producto en formato final)",
+    "owner_email": "rodrigo.vasquez.fernandez@gmail.com",
+    "owner_role": "Machine Learning Engineer",
+    "digital_tools_experienced": [
+      "Computador",
+      "Microsoft Office",
+      "Almacenamiento en la nube"
+    ],
+    "owner_name": "Roberto"
+  },
+  {
+    "rut": "16411526-7",
+    "commune": "Diego de Almagro",
+    "digital_tools_used_at_work": [
+      "Redes Sociales: (Facebook, Instagram, u otras)",
+      "Almacenamiento en la nube"
+    ],
+    "business_size": "Micro (ventas anuales entre 0,01 UF a 2.400 UF).",
+    "legal_name": "ICA",
+    "address": "Av. Vicuña Mackenna 4860, Macul, Santiago",
+    "region": "Atacama",
+    "owner_phone": "+569 12345678",
+    "process_type": "Tiernizado (obtención de producto en formato final)",
+    "owner_email": "a@a.a",
+    "owner_role": "Consultor",
+    "digital_tools_experienced": [
+      "Tablet",
+      "Almacenamiento en la nube"
+    ],
+    "owner_name": "Juan Perez"
+  },
+  {
+    "rut": "16661279-9",
+    "commune": "Arica",
+    "digital_tools_used_at_work": [
+      "Computador"
+    ],
+    "business_size": "Micro (ventas anuales entre 0,01 UF a 2.400 UF).",
+    "legal_name": "A",
+    "address": "A",
+    "region": "Arica y Parinacota",
+    "owner_phone": "A",
+    "process_type": "Secado en horno (obtención de ciruela seca en formato condición natural)",
+    "owner_email": "A",
+    "owner_role": "A",
+    "digital_tools_experienced": [
+      "Computador"
+    ],
+    "owner_name": "A"
+  },
+  {
+    "rut": "17049695-7",
+    "commune": "San Miguel",
+    "digital_tools_used_at_work": [
+      "Computador",
+      "Celular",
+      "Tablet",
+      "Correo electrónico",
+      "WhatsApp",
+      "Microsoft Office"
+    ],
+    "business_size": "Micro (ventas anuales entre 0,01 UF a 2.400 UF).",
+    "legal_name": "Karina Orellana",
+    "address": "Bartolo Soto 3950",
+    "region": "Metropolitana de Santiago",
+    "owner_phone": "961954566",
+    "process_type": "Ambos",
+    "owner_email": "karinaorellanamoreira@gmail.com",
+    "owner_role": "Consultora ",
+    "digital_tools_experienced": [
+      "Computador",
+      "Celular",
+      "Tablet",
+      "Correo electrónico",
+      "WhatsApp",
+      "Microsoft Office"
+    ],
+    "owner_name": "Karina Orellana"
+  },
+  {
+    "rut": "170496957",
+    "commune": "San Miguel",
+    "digital_tools_used_at_work": [
+      "Computador"
+    ],
+    "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+    "legal_name": "Karina Orellana",
+    "address": "Bartolo Soto 3950",
+    "region": "Metropolitana de Santiago",
+    "owner_phone": "961954566",
+    "process_type": "Secado en horno (obtención de ciruela seca en formato condición natural)",
+    "owner_email": "karinaorellanamoreira@gmail.com",
+    "owner_role": "Encargada de planta",
+    "digital_tools_experienced": [
+      "Computador",
+      "Microsoft Office",
+      "Tablet"
+    ],
+    "owner_name": "Karina Orellana"
+  },
+  {
+    "rut": "17396038-7",
+    "commune": "Arica",
+    "digital_tools_used_at_work": [
+      "Computador"
+    ],
+    "business_size": "Micro (ventas anuales entre 0,01 UF a 2.400 UF).",
+    "legal_name": "A",
+    "address": "A",
+    "region": "Arica y Parinacota",
+    "owner_phone": "A",
+    "process_type": "Secado en horno (obtención de ciruela seca en formato condición natural)",
+    "owner_email": "A",
+    "owner_role": "A",
+    "digital_tools_experienced": [
+      "Computador"
+    ],
+    "owner_name": "A"
+  },
+  {
+    "rut": "17708318-6",
+    "commune": "Canela",
+    "digital_tools_used_at_work": [
+      "Computador",
+      "Almacenamiento en la nube",
+      "WhatsApp",
+      "Tablet"
+    ],
+    "business_size": "Mediana (ventas anuales entre 25.000,01 UF a 100.000 UF).",
+    "legal_name": "Plata ciruelas",
+    "address": "Bartolo Soto 3950, Depto 701",
+    "region": "Coquimbo",
+    "owner_phone": "968767906",
+    "process_type": "Tiernizado (obtención de producto en formato final)",
+    "owner_email": "rodrigo.vasquez.fernandez@gmail.com",
+    "owner_role": "Technical PO and Architect",
+    "digital_tools_experienced": [
+      "Computador"
+    ],
+    "owner_name": "TIto"
+  },
+  {
+    "rut": "18276552-k",
+    "commune": "San Miguel",
+    "digital_tools_used_at_work": [
+      "Computador",
+      "Microsoft Office",
+      "Correo electrónico",
+      "Tablet"
+    ],
+    "business_size": "Mediana (ventas anuales entre 25.000,01 UF a 100.000 UF).",
+    "legal_name": "Camila Orellama",
+    "address": "Sexta Avenida 1527",
+    "region": "Metropolitana de Santiago",
+    "owner_phone": "961954566",
+    "process_type": "Ambos",
+    "owner_email": "karinaorellanamoreira@gmail.com",
+    "owner_role": "Encargada de planta",
+    "digital_tools_experienced": [
+      "Computador",
+      "Microsoft Office",
+      "WhatsApp",
+      "Correo electrónico",
+      "Redes Sociales: (Facebook, Instagram, u otras)"
+    ],
+    "owner_name": "Camila Orellana"
+  },
+  {
+    "rut": "2-7",
+    "commune": "Arica",
+    "digital_tools_used_at_work": [
+      "Computador",
+      "Almacenamiento en la nube"
+    ],
+    "business_size": "Mediana (ventas anuales entre 25.000,01 UF a 100.000 UF).",
+    "legal_name": "Ica2",
+    "address": "Bartolo Soto 3950, Depto 701",
+    "region": "Arica y Parinacota",
+    "owner_phone": "968767906",
+    "process_type": "Ambos",
+    "owner_email": "rodrigo.vasquez.fernandez@gmail.com",
+    "owner_role": "Ingeniero",
+    "digital_tools_experienced": [
+      "Computador",
+      "Redes Sociales: (Facebook, Instagram, u otras)",
+      "Correo electrónico"
+    ],
+    "owner_name": "Pedro Perez"
+  },
+  {
+    "rut": "3-5",
+    "commune": "Limache",
+    "digital_tools_used_at_work": [
+      "Computador"
+    ],
+    "business_size": "Micro (ventas anuales entre 0,01 UF a 2.400 UF).",
+    "legal_name": "Pepe",
+    "address": "Pepe",
+    "region": "Valparaíso",
+    "owner_phone": "942681889",
+    "process_type": "Secado en horno (obtención de ciruela seca en formato condición natural)",
+    "owner_email": "Roberto@solar.cl",
+    "owner_role": "Gangster",
+    "digital_tools_experienced": [
+      "Computador"
+    ],
+    "owner_name": "Roberto"
+  },
+  {
+    "rut": "69500400-1",
+    "commune": "Providencia",
+    "digital_tools_used_at_work": [
+      "Computador",
+      "Celular",
+      "Correo electrónico",
+      "Microsoft Office",
+      "Almacenamiento en la nube"
+    ],
+    "business_size": "Micro (ventas anuales entre 0,01 UF a 2.400 UF).",
+    "legal_name": "IICA",
+    "address": "Av. Rancagua 0320",
+    "region": "Metropolitana de Santiago",
+    "owner_phone": "99999999",
+    "process_type": "Ambos",
+    "owner_email": "francisca.sepulveda.consultor@iica.int",
+    "owner_role": "Consultora",
+    "digital_tools_experienced": [
+      "Computador",
+      "Celular",
+      "Correo electrónico",
+      "WhatsApp",
+      "Microsoft Office",
+      "Redes Sociales: (Facebook, Instagram, u otras)",
+      "Almacenamiento en la nube"
+    ],
+    "owner_name": "Francisca Sepúlveda"
+  },
+  {
+    "rut": "76008900-1",
+    "commune": "Doñihue",
+    "digital_tools_used_at_work": [
+      "Computador",
+      "Correo electrónico",
+      "Celular",
+      "Almacenamiento en la nube",
+      "Microsoft Office"
+    ],
+    "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+    "legal_name": "Agroindustrial y Comercial Superfruit Ltda.",
+    "address": "Camino Vecinal 124 Población Santa Cristina, Lo Miranda",
+    "region": "Libertador General Bernardo O'Higgins",
+    "owner_phone": "976099919",
+    "process_type": "Ambos",
+    "owner_email": "mcasabonne@superfruit.cl",
+    "owner_role": "Jefa Aseguramiento de Calidad, Encargada Sustentabilidad",
+    "digital_tools_experienced": [
+      "Computador",
+      "Celular",
+      "Almacenamiento en la nube",
+      "Correo electrónico",
+      "Microsoft Office"
+    ],
+    "owner_name": "Mery Casabonne N."
+  },
+  {
+    "rut": "760089001",
+    "commune": "Doñihue",
+    "digital_tools_used_at_work": [
+      "Computador",
+      "Celular",
+      "Almacenamiento en la nube",
+      "Correo electrónico",
+      "Microsoft Office",
+      "WhatsApp"
+    ],
+    "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+    "legal_name": "Agroindustrial y Comercial Superfruit Ltda.",
+    "address": "Camino Vecinal 124 Población Santa Cristina, Lo Miranda",
+    "region": "Libertador General Bernardo O'Higgins",
+    "owner_phone": "976099919",
+    "process_type": "Ambos",
+    "owner_email": "mcasabonne@superfruit.cl",
+    "owner_role": "Jefa Aseguramiento de Calidad, Encargada Sustentabilidad",
+    "digital_tools_experienced": [
+      "Computador",
+      "Celular",
+      "Almacenamiento en la nube",
+      "Correo electrónico",
+      "WhatsApp",
+      "Microsoft Office"
+    ],
+    "owner_name": "Mery Casabonne Nuñez"
+  },
+  {
+    "rut": "76059579-9",
+    "commune": "Palmilla",
+    "digital_tools_used_at_work": [
+      "Computador"
+    ],
+    "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+    "legal_name": "PROCESADORA Y DESHIDRATADORA COLCHAGUA S.A.",
+    "address": "CAMINO PICHILEMU S/N, PALMILLA",
+    "region": "Libertador General Bernardo O'Higgins",
+    "owner_phone": "569 34392555",
+    "process_type": "Ambos",
+    "owner_email": "MATIAS.ANINAT@GOODVALLEY.CL",
+    "owner_role": "GERENTE OPERACIONES",
+    "digital_tools_experienced": [
+      "Computador"
+    ],
+    "owner_name": "MATIAS ANINAT ALVAREZ-FOURCADE"
+  },
+  {
+    "rut": "76371350-4",
+    "commune": "Santa Cruz",
+    "digital_tools_used_at_work": [
+      "Computador",
+      "Tablet",
+      "Correo electrónico",
+      "Celular",
+      "WhatsApp",
+      "Microsoft Office",
+      "Almacenamiento en la nube"
+    ],
+    "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+    "legal_name": "Sunsweet Chile SpA",
+    "address": "Ruta 90, KM 38.5 Fundo San Jose de cunaco",
+    "region": "Libertador General Bernardo O'Higgins",
+    "owner_phone": "+56962952835",
+    "process_type": "Ambos",
+    "owner_email": "vmorales@sunsweetchile.com",
+    "owner_role": "Gerente Seguridad ",
+    "digital_tools_experienced": [
+      "Computador",
+      "Correo electrónico",
+      "Microsoft Office",
+      "Almacenamiento en la nube",
+      "WhatsApp",
+      "Celular",
+      "Tablet"
+    ],
+    "owner_name": "Maria Valeria Morales Vasquez"
+  },
+  {
+    "rut": "7694421-0",
+    "commune": "Arica",
+    "digital_tools_used_at_work": [
+      "Computador"
+    ],
+    "business_size": "Micro (ventas anuales entre 0,01 UF a 2.400 UF).",
+    "legal_name": "aaa",
+    "address": "qqq",
+    "region": "Arica y Parinacota",
+    "owner_phone": "961954566",
+    "process_type": "Secado en horno (obtención de ciruela seca en formato condición natural)",
+    "owner_email": "karinaorellanamoreira@gmail.com",
+    "owner_role": "qqqq",
+    "digital_tools_experienced": [
+      "Computador"
+    ],
+    "owner_name": "qqqq"
+  },
+  {
+    "rut": "77072740-5",
+    "commune": "Las Condes",
+    "digital_tools_used_at_work": [
+      "Computador",
+      "Microsoft Office",
+      "Almacenamiento en la nube"
+    ],
+    "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+    "legal_name": "AGRICOLA SIEMEL LIMITADA",
+    "address": "AV. EL GOLF 150 PISO 18",
+    "region": "Metropolitana de Santiago",
+    "owner_phone": "+56995642342",
+    "process_type": "Ambos",
+    "owner_email": "AMOLINA@AGSIEMEL.CL",
+    "owner_role": "JEFE DE PLANTA",
+    "digital_tools_experienced": [
+      "WhatsApp",
+      "Correo electrónico",
+      "Celular"
+    ],
+    "owner_name": "ANDRES MOLINA HERRERA"
+  },
+  {
+    "rut": "78023030-4",
+    "commune": "Providencia",
+    "digital_tools_used_at_work": [
+      "Computador",
+      "Celular",
+      "Correo electrónico",
+      "Microsoft Office",
+      "Almacenamiento en la nube"
+    ],
+    "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+    "legal_name": "Sofruco Alimentos Ltda",
+    "address": "Coyancura 2283 of 602",
+    "region": "Metropolitana de Santiago",
+    "owner_phone": "994448669",
+    "process_type": "Ambos",
+    "owner_email": "eschwember@sofruco.cl",
+    "owner_role": "Gerente Desarrollo y Calidad",
+    "digital_tools_experienced": [
+      "Computador",
+      "Celular",
+      "WhatsApp",
+      "Microsoft Office",
+      "Almacenamiento en la nube",
+      "Correo electrónico"
+    ],
+    "owner_name": "Enrique Schwember"
+  },
+  {
+    "rut": "78609090-3",
+    "commune": "Buin",
+    "digital_tools_used_at_work": [
+      "Computador"
+    ],
+    "business_size": "Pequeña (ventas anuales entre 2.400,01 UF a 25.000 UF).",
+    "legal_name": "Agroindustrial El Parron SPA",
+    "address": "CAMINO EL RECURSO S/N BUIN, BUIN",
+    "region": "Metropolitana de Santiago",
+    "owner_phone": "+56930704585",
+    "process_type": "Tiernizado (obtención de producto en formato final)",
+    "owner_email": "rafaelparra19@gmail.com",
+    "owner_role": "Encargado SGIA",
+    "digital_tools_experienced": [
+      "Computador"
+    ],
+    "owner_name": "Rafael Parra"
+  },
+  {
+    "rut": "789362807",
+    "commune": "Lolol",
+    "digital_tools_used_at_work": [
+      "Computador"
+    ],
+    "business_size": "Mediana (ventas anuales entre 25.000,01 UF a 100.000 UF).",
+    "legal_name": "agricola ",
+    "address": "nilahue bajo s/n, lolol",
+    "region": "Libertador General Bernardo O'Higgins",
+    "owner_phone": "961042058",
+    "process_type": "Secado en horno (obtención de ciruela seca en formato condición natural)",
+    "owner_email": "eveliz@alapalma.cl",
+    "owner_role": "JEFE TÉCNICO",
+    "digital_tools_experienced": [
+      "Computador"
+    ],
+    "owner_name": "EMA VELIZ CORREA"
+  },
+  {
+    "rut": "797490709",
+    "commune": "Buin",
+    "digital_tools_used_at_work": [
+      "Computador",
+      "Celular",
+      "Correo electrónico",
+      "WhatsApp",
+      "Microsoft Office",
+      "Almacenamiento en la nube"
+    ],
+    "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+    "legal_name": "Frutas de Exportación ",
+    "address": "Bajos de matte 3345",
+    "region": "Metropolitana de Santiago",
+    "owner_phone": "+56992339179",
+    "process_type": "Ambos",
+    "owner_email": "sbaeza@frutexsa.cl",
+    "owner_role": "Gerente de Planta",
+    "digital_tools_experienced": [
+      "Computador",
+      "Celular",
+      "Correo electrónico",
+      "WhatsApp",
+      "Microsoft Office",
+      "Almacenamiento en la nube",
+      "Redes Sociales: (Facebook, Instagram, u otras)"
+    ],
+    "owner_name": "Sergio Baeza"
+  },
+  {
+    "rut": "96604260-5",
+    "commune": "Chimbarongo",
+    "digital_tools_used_at_work": [
+      "Computador"
+    ],
+    "business_size": "Mediana (ventas anuales entre 25.000,01 UF a 100.000 UF).",
+    "legal_name": "Mercofrut SPA",
+    "address": "FUNDO SANTA ELISA SN",
+    "region": "Libertador General Bernardo O'Higgins",
+    "owner_phone": "944085337",
+    "process_type": "Tiernizado (obtención de producto en formato final)",
+    "owner_email": "YPIZARRO@MERCOFRUT.COM",
+    "owner_role": "ENCARGADO DE OPERACIONES",
+    "digital_tools_experienced": [
+      "Computador"
+    ],
+    "owner_name": "YONATAN PIZARRO"
+  },
+  {
+    "rut": "96629050-1",
+    "commune": "San Bernardo",
+    "digital_tools_used_at_work": [
+      "Computador"
+    ],
+    "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+    "legal_name": "Pacific Nut Compay Chile S.A",
+    "address": "Camino Padre Hurtado 19956",
+    "region": "Metropolitana de Santiago",
+    "owner_phone": "56963414465",
+    "process_type": "Ambos",
+    "owner_email": "rorellana@pacificnut.com",
+    "owner_role": "Encargada de Certificaciones y Sustentabilidad",
+    "digital_tools_experienced": [
+      "Celular"
+    ],
+    "owner_name": "Romina Orellana"
+  },
+  {
+    "rut": "966290501",
+    "commune": "San Bernardo",
+    "digital_tools_used_at_work": [
+      "Computador",
+      "WhatsApp",
+      "Microsoft Office",
+      "Celular"
+    ],
+    "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+    "legal_name": "Pacific Nut Company",
+    "address": "camino padre hurtado 19956",
+    "region": "Metropolitana de Santiago",
+    "owner_phone": "+56940033827",
+    "process_type": "Ambos",
+    "owner_email": "pquesney@pacificnut.com",
+    "owner_role": "Jefe de planta",
+    "digital_tools_experienced": [
+      "Computador",
+      "Celular"
+    ],
+    "owner_name": "Pelayo Quesney Cox"
+  },
+  {
+    "rut": "96687090-7",
+    "commune": "Pirque",
+    "digital_tools_used_at_work": [
+      "Computador"
+    ],
+    "business_size": "Mediana (ventas anuales entre 25.000,01 UF a 100.000 UF).",
+    "legal_name": "Prunesco SPA",
+    "address": "Ramon Subercaseaux 1712, Pirque",
+    "region": "Metropolitana de Santiago",
+    "owner_phone": "994173375",
+    "process_type": "Tiernizado (obtención de producto en formato final)",
+    "owner_email": "jbozzo@prunesco.com",
+    "owner_role": "Gerente de Planta ",
+    "digital_tools_experienced": [
+      "Computador"
+    ],
+    "owner_name": "Juan Carlos Bozzo "
+  }
+]

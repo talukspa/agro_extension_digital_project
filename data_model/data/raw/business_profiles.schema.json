@@ -1,0 +1,19 @@
+{
+  "collection": "business_profiles",
+  "description": "This collection stores detailed profiles of businesses. The document ID is the business's rut (Chilean National Identification Number).",
+  "schema": {
+    "comuna": "(String) The commune or district where the business is located (e.g., 'Arica', 'Providencia').",
+    "digital_tools_used_at_work": "(Array of Strings) A list of digital tools the business uses for work (e.g., 'Computador', 'WhatsApp', 'Microsoft Office').",
+    "business_size": "(String) The size of the business based on annual sales (e.g., 'Micro', 'Grande').",
+    "razon_social": "(String) The legal name of the business.",
+    "direccion": "(String) The physical address of the business.",
+    "region": "(String) The region where the business is located (e.g., 'Arica y Parinacota', 'Metropolitana de Santiago').",
+    "rut": "(String) The unique tax identification number for the business.",
+    "owner_phone": "(String) The phone number of the business owner or contact person.",
+    "process_type": "(String) The type of production process the business uses (e.g., 'Secado en horno', 'Ambos').",
+    "owner_email": "(String) The email address of the owner or contact person.",
+    "owner_role": "(String) The role or title of the owner/contact person (e.g., 'Ingeniero', 'Gerente de Agroindustria').",
+    "digital_tools_experienced": "(Array of Strings) A list of digital tools the owner/contact person has experience with.",
+    "owner_name": "(String) The name of the business owner or contact person."
+  }
+}
