@@ -1,96 +1,65 @@
-import json
-import os
 from google.cloud import firestore
-from jsonschema import validate, RefResolver
-from pathlib import Path
+import json
+import firebase_admin
+from firebase_admin import credentials
 
-# Function to ingest data from a JSON file to Firestore
-def ingest_data(file_path, collection_name, schema_path, id_field=None):
-    try:
-        # Initialize Firestore client
-        db = firestore.Client(project='agro-extension-digital-npe', database='agro-extension-db')
+# Initialize Firebase Admin SDK
+try:
+    cred = credentials.ApplicationDefault()
+    firebase_admin.initialize_app(cred, {
+        'projectId': 'agro-extension-digital-npe',
+    })
+    db = firestore.Client(database='agro-extension-db')
+except Exception as e:
+    print(f"Error initializing: {e}")
+    exit()
 
-        # Load schema
-        with open(schema_path, 'r', encoding='utf-8') as f:
-            schema = json.load(f)
+# Ingest business profiles
+try:
+    with open('C:\\Users\\Rodrigo\\Downloads\\repos\\agro_extension_digital_project\\data_model\\data\\clean\\business_profile.json', 'r', encoding='utf-8') as f:
+        business_profiles = json.load(f)
 
-        # Load data
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+    for profile in business_profiles:
+        rut = profile.get('rut')
+        if rut:
+            db.collection('business_profiles').document(rut).set(profile)
+    print("Successfully ingested business profiles.")
+except Exception as e:
+    print(f"Error ingesting business profiles: {e}")
 
-        # Create a resolver for local schema references
-        schema_dir = Path(schema_path).parent
-        resolver = RefResolver(base_uri=schema_dir.as_uri() + '/', referrer=schema)
+# Ingest standards
+try:
+    with open('C:\\Users\\Rodrigo\\Downloads\\repos\\agro_extension_digital_project\\data_model\\data\\clean\\standard.json', 'r', encoding='utf-8') as f:
+        standards = json.load(f)
 
-        # Validate data against schema
-        if schema.get('type') == 'object':
-            for item in data:
-                validate(instance=item, schema=schema, resolver=resolver)
-        else:
-            validate(instance=data, schema=schema, resolver=resolver)
+    for standard in standards:
+        template_name = standard.get('template_name')
+        if template_name:
+            db.collection('standards').document(template_name).set(standard)
+    print("Successfully ingested standards.")
+except Exception as e:
+    print(f"Error ingesting standards: {e}")
 
-        # Upload data to Firestore
-        collection_ref = db.collection(collection_name)
-        if isinstance(data, list):
-            for item in data:
-                if id_field and id_field in item:
-                    doc_ref = collection_ref.document(str(item[id_field]))
-                    doc_ref.set(item)
-                else:
-                    collection_ref.add(item)
-        else:
-            if id_field and id_field in data:
-                doc_ref = collection_ref.document(str(data[id_field]))
-                doc_ref.set(data)
-            else:
-                collection_ref.add(data)
+# Ingest responses
+try:
+    with open('C:\\Users\\Rodrigo\\Downloads\\repos\\agro_extension_digital_project\\data_model\\data\\clean\\response.json', 'r', encoding='utf-8') as f:
+        responses = json.load(f)
 
+    for response in responses:
+        db.collection('responses').add(response)
+    print("Successfully ingested responses.")
+except Exception as e:
+    print(f"Error ingesting responses: {e}")
 
-        print(f'Successfully ingested data from {file_path} to collection {collection_name}')
+# Ingest auditors
+try:
+    with open('C:\\Users\\Rodrigo\\Downloads\\repos\\agro_extension_digital_project\\data_model\\data\\dummy\\auditor.json', 'r', encoding='utf-8') as f:
+        auditors = json.load(f)
 
-    except Exception as e:
-        print(f'Error ingesting data from {file_path}: {e}')
-
-if __name__ == '__main__':
-    # Define file paths and collection names
-    files_to_ingest = [
-        {
-            'file_path': 'C:/Users/Rodrigo/Downloads/repos/agro_extension_digital_project/data_model/data/clean/standard.json',
-            'collection_name': 'standards',
-            'schema_path': 'C:/Users/Rodrigo/Downloads/repos/agro_extension_digital_project/data_model/data/clean/schemas/standard.json',
-            'id_field': 'template_name'
-        },
-        {
-            'file_path': 'C:/Users/Rodrigo/Downloads/repos/agro_extension_digital_project/data_model/data/clean/resources.json',
-            'collection_name': 'resources',
-            'schema_path': 'C:/Users/Rodrigo/Downloads/repos/agro_extension_digital_project/data_model/data/clean/schemas/resources.json',
-            'id_field': 'resource_code'
-        },
-        {
-            'file_path': 'C:/Users/Rodrigo/Downloads/repos/agro_extension_digital_project/data_model/data/clean/standard_response.json',
-            'collection_name': 'standard_responses',
-            'schema_path': 'C:/Users/Rodrigo/Downloads/repos/agro_extension_digital_project/data_model/data/clean/schemas/standard_response.json'
-        },
-        {
-            'file_path': 'C:/Users/Rodrigo/Downloads/repos/agro_extension_digital_project/data_model/data/clean/business_profile.json',
-            'collection_name': 'business_profiles',
-            'schema_path': 'C:/Users/Rodrigo/Downloads/repos/agro_extension_digital_project/data_model/data/clean/schemas/business_profile.json',
-            'id_field': 'rut'
-        },
-        {
-            'file_path': 'C:/Users/Rodrigo/Downloads/repos/agro_extension_digital_project/data_model/data/dummy/auditors.json',
-            'collection_name': 'auditors',
-            'schema_path': 'C:/Users/Rodrigo/Downloads/repos/agro_extension_digital_project/data_model/data/clean/schemas/auditor.json',
-            'id_field': 'auditor_id'
-        },
-        {
-            'file_path': 'C:/Users/Rodrigo/Downloads/repos/agro_extension_digital_project/data_model/data/dummy/registers.json',
-            'collection_name': 'registers',
-            'schema_path': 'C:/Users/Rodrigo/Downloads/repos/agro_extension_digital_project/data_model/data/clean/schemas/register.json',
-            'id_field': 'id'
-        }
-    ]
-
-    # Ingest data for each file
-    for file_info in files_to_ingest:
-        ingest_data(file_info['file_path'], file_info['collection_name'], file_info['schema_path'], file_info.get('id_field'))
+    for auditor in auditors:
+        auditor_id = auditor.get('auditor_id')
+        if auditor_id:
+            db.collection('auditors').document(str(auditor_id)).set(auditor)
+    print("Successfully ingested auditors.")
+except Exception as e:
+    print(f"Error ingesting auditors: {e}")
