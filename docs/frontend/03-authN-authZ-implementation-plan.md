@@ -11,19 +11,25 @@ Este documento proporciona un plan detallado para implementar autenticación (Au
 #### 1. `business_profiles` 
 ```javascript
 {
-  rut: "1-9",
-  legal_name: "Cerveceria",
-  owner_name: "Rodrigo", 
-  owner_email: "rodrigo.vasquez.fernandez@gmail.com",
-  owner_phone: "968767906",
-  owner_role: "Ingeniero",
-  region: "Arica y Parinacota",
-  commune: "Arica", 
-  address: "Bartolo Soto 3950, Depto 701",
-  business_size: "Micro (ventas anuales entre 0,01 UF a 2.400 UF).",
-  process_type: "Secado en horno...",
-  digital_tools_used_at_work: ["Computador"],
-  digital_tools_experienced: ["Computador"]
+  rut: "76.432.187-4",
+  legal_name: "Exportadora de Ciruelas Paine",
+  owner_name: "Juan Rojas", 
+  owner_email: "contacto@exportadorapaine.cl",
+  owner_phone: "+56987654321",
+  owner_role: "Dueño",
+  region: "Metropolitana",
+  commune: "Paine", 
+  address: "Av. Gral. Baquedano 108",
+  business_size: "Microempresa",
+  process_type: "Producción Primaria",
+  digital_tools_used_at_work: [
+    "Redes sociales (Facebook, Instagram, etc.)",
+    "Aplicaciones de mensajería (WhatsApp, Telegram, etc.)"
+  ],
+  digital_tools_experienced: [
+    "Redes sociales (Facebook, Instagram, etc.)",
+    "Aplicaciones de mensajería (WhatsApp, Telegram, etc.)"
+  ]
 }
 ```
 
@@ -31,18 +37,19 @@ Este documento proporciona un plan detallado para implementar autenticación (Au
 ```javascript
 {
   auditor_id: 1,
-  auditor_name: "James Black",
-  auditor_email: "elizabeth86@example.net", 
-  auditor_phone: "001-946-575-7455x47184",
-  assigned_businesses: ["966290501", "17049695-7", "96604260-5"]
+  auditor_name: "Carlos Ruiz",
+  auditor_email: "carlos.ruiz@auditcorp.com"
 }
 ```
 
 #### 3. Otras Colecciones
-- `registers` - Registros de auditorías y validaciones
+- `responses` - Respuestas de empresas a estándares (antes `standard_responses`)
+- `standards` - Plantillas de estándares (antes `standards`)
 - `resources` - Recursos del sistema
-- `standard_responses` - Respuestas estándar
-- `standards` - Estándares aplicados
+
+**Colecciones Adicionales del Modelo de Datos:**
+- `standard_templates` - Plantillas de estándares específicos (ej: `ciruelas-aa`, `produccion-primaria-pp`)
+- Estructura de `responses` incluye arrays embebidos de `answers` con `registers` para evidencia
 
 ## Arquitectura de Autorización Propuesta
 
@@ -55,7 +62,10 @@ Este documento proporciona un plan detallado para implementar autenticación (Au
 
 #### Mapping de Datos Existentes:
 - **Business Owners**: `owner_email` de `business_profiles` → Firebase Auth
+  - Ejemplo: `contacto@exportadorapaine.cl` (Exportadora de Ciruelas Paine)
 - **Auditors**: `auditor_email` de `auditors` → Firebase Auth
+  - Ejemplo: `carlos.ruiz@auditcorp.com` (Carlos Ruiz)
+  - Ejemplo: `ana.soto@auditcorp.com` (Ana Soto)
 - **Admins**: Nuevos usuarios con rol administrativo
 
 ## Plan de Implementación
@@ -168,12 +178,26 @@ interface User {
 ##### `business_profiles` - Agregar campos de autenticación:
 ```javascript
 {
-  // Campos existentes...
-  rut: "1-9",
-  legal_name: "Cerveceria", 
-  owner_name: "Rodrigo",
-  owner_email: "rodrigo.vasquez.fernandez@gmail.com",
-  // ... otros campos existentes
+  // Campos existentes del modelo real...
+  rut: "76.432.187-4",
+  legal_name: "Exportadora de Ciruelas Paine", 
+  owner_name: "Juan Rojas",
+  owner_email: "contacto@exportadorapaine.cl",
+  owner_phone: "+56987654321",
+  owner_role: "Dueño",
+  commune: "Paine",
+  region: "Metropolitana",
+  address: "Av. Gral. Baquedano 108",
+  business_size: "Microempresa",
+  process_type: "Producción Primaria",
+  digital_tools_used_at_work: [
+    "Redes sociales (Facebook, Instagram, etc.)",
+    "Aplicaciones de mensajería (WhatsApp, Telegram, etc.)"
+  ],
+  digital_tools_experienced: [
+    "Redes sociales (Facebook, Instagram, etc.)",
+    "Aplicaciones de mensajería (WhatsApp, Telegram, etc.)"
+  ],
   
   // NUEVOS CAMPOS PARA AUTORIZACIÓN
   firebase_uid: "firebase-auth-uid-123",     // Referencia al usuario Firebase
@@ -186,11 +210,10 @@ interface User {
 ##### `auditors` - Agregar campos de autenticación:
 ```javascript
 {
-  // Campos existentes...
+  // Campos existentes del modelo real...
   auditor_id: 1,
-  auditor_name: "James Black",
-  auditor_email: "elizabeth86@example.net",
-  // ... otros campos existentes
+  auditor_name: "Carlos Ruiz",
+  auditor_email: "carlos.ruiz@auditcorp.com",
   
   // NUEVOS CAMPOS PARA AUTORIZACIÓN  
   firebase_uid: "firebase-auth-uid-456",     // Referencia al usuario Firebase
@@ -1580,20 +1603,24 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Colección de registros (evidencias)
-    match /registers/{registerId} {
-      allow read: if isAuthenticated() && (
-        isAdmin() || 
-        isAuditor() ||
-        (isBusinessOwner() && isOwner(resource.data))
-      );
-      allow create: if isAuthenticated() && isBusinessOwner();
-      allow update: if isAuthenticated() && (
-        isAdmin() || 
-        (isBusinessOwner() && isOwner(resource.data))
-      );
-      allow delete: if isAdmin();
-    }
+    // NOTA: En el modelo de datos actual, los `registers` están embebidos dentro 
+    // de `responses` como parte del array `answers.register`, no como colección separada.
+    // Las reglas de acceso a registers se manejan a través de las reglas de `responses`.
+    
+    // Colección de registros (evidencias) - DEPRECATED: Ahora embebidos en responses
+    // match /registers/{registerId} {
+    //   allow read: if isAuthenticated() && (
+    //     isAdmin() || 
+    //     isAuditor() ||
+    //     (isBusinessOwner() && isOwner(resource.data))
+    //   );
+    //   allow create: if isAuthenticated() && isBusinessOwner();
+    //   allow update: if isAuthenticated() && (
+    //     isAdmin() || 
+    //     (isBusinessOwner() && isOwner(resource.data))
+    //   );
+    //   allow delete: if isAdmin();
+    // }
 
     // Colección de recursos
     match /resources/{resourceId} {
@@ -1601,8 +1628,8 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Colección de respuestas estándar
-    match /standard_responses/{responseId} {
+    // Colección de respuestas de empresas a estándares
+    match /responses/{responseId} {
       allow read: if isAuthenticated() && (isAdmin() || isAuditor());
       allow write: if isAdmin();
     }
@@ -2682,24 +2709,27 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Registers - Acceso basado en business ownership o auditor assignment
-    match /registers/{registerId} {
-      allow read: if isAuthenticated() && (
-        isAdmin() ||
-        (isBusinessOwner() && getUserData().businessProfile.rut == resource.data.business_rut) ||
-        (isAuditor() && resource.data.business_rut in getUserData().auditorProfile.assigned_businesses)
-      );
-      
-      allow create: if isAuthenticated() && (
-        isAdmin() ||
-        isAuditor()
-      );
-      
-      allow update: if isAuthenticated() && (
-        isAdmin() ||
-        (isAuditor() && resource.data.business_rut in getUserData().auditorProfile.assigned_businesses)
-      );
-    }
+    // NOTA: Registers están embebidos en responses.answers.register
+    // Las reglas de acceso se manejan a través de las reglas de responses
+    
+    // Registers - DEPRECATED: Ahora embebidos en responses
+    // match /registers/{registerId} {
+    //   allow read: if isAuthenticated() && (
+    //     isAdmin() ||
+    //     (isBusinessOwner() && getUserData().businessProfile.rut == resource.data.business_rut) ||
+    //     (isAuditor() && resource.data.business_rut in getUserData().auditorProfile.assigned_businesses)
+    //   );
+    //   
+    //   allow create: if isAuthenticated() && (
+    //     isAdmin() ||
+    //     isAuditor()
+    //   );
+    //   
+    //   allow update: if isAuthenticated() && (
+    //     isAdmin() ||
+    //     (isAuditor() && resource.data.business_rut in getUserData().auditorProfile.assigned_businesses)
+    //   );
+    // }
 
     // Resources - Solo lectura para usuarios autenticados
     match /resources/{resourceId} {
@@ -2713,8 +2743,8 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Standard responses - Solo lectura para usuarios autenticados
-    match /standard_responses/{responseId} {
+    // Responses - Solo lectura para usuarios autenticados
+    match /responses/{responseId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }

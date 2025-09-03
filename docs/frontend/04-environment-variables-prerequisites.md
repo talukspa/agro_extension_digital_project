@@ -47,7 +47,9 @@ Estas variables se obtienen desde la consola de Firebase (`https://console.fireb
 
 ## 2. Variables del Sistema Backend
 
-### 🤖 WhatsApp & Facebook
+### 🤖 WhatsApp & Facebook (Para Agente Virtual)
+
+**Nota**: Estas variables son para la integración con WhatsApp Business que permite a las empresas agrícolas interactuar con el sistema a través de un agente virtual para consultar estándares, subir evidencia, y recibir notificaciones sobre el estado de sus auditorías.
 
 1. **WSP_TOKEN** *(Obligatorio)*
    - **Descripción**: Token de acceso de WhatsApp Business API
@@ -58,6 +60,7 @@ Estas variables se obtienen desde la consola de Firebase (`https://console.fireb
    - **Descripción**: Token de verificación del webhook de WhatsApp
    - **Dónde obtenerla**: Se genera manualmente (string aleatorio seguro)
    - **Formato**: String alfanumérico de 32+ caracteres
+   - **Uso**: Verificación de webhooks entre WhatsApp y la aplicación webhook-application/
 
 ## 3. Comandos para Configurar Secretos
 
@@ -69,7 +72,7 @@ Estas variables se obtienen desde la consola de Firebase (`https://console.fireb
 # Script para configurar todos los secretos de Firebase y WhatsApp
 PROJECT_ID="agro-extension-digital-npe"
 
-echo "🔐 Configurando secretos para CiruelaCertificada..."
+echo "🔐 Configurando secretos para Agro Extension Digital..."
 
 # Función para crear o actualizar un secreto
 create_or_update_secret() {
@@ -277,6 +280,8 @@ gcloud auth application-default login
 2. **Rotación**: Rotar secretos regularmente, especialmente tokens de WhatsApp.
 3. **Environments**: Los mismos secretos se usan en dev y prod (Firebase maneja esto internamente).
 4. **Backup**: Mantener un backup seguro de los valores de secretos.
+5. **Integración WhatsApp**: Los tokens de WhatsApp son para el agente virtual que permite a empresas agrícolas interactuar con el sistema de estándares sin necesidad de acceder directamente a la interfaz web.
+6. **Base de Datos**: Firebase se conecta automáticamente a la base de datos `agro-extension-db` configurada para gestionar business_profiles, auditors, responses, y standards.
 
 ## 🔗 Enlaces Útiles
 

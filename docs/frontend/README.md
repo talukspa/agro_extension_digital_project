@@ -1,18 +1,40 @@
 # 📚 Índice de Documentación - CiruelaCertificada
 
 **Proyecto**: agro-extension-digital-npe  
-**Fecha**: 2025-08-19  
-**Estado**: 🚀 LISTO PARA IMPLEMENTACIÓN
+**Fecha**: 2025-09-01  
+**Estado**: 🚀 ACTUALIZADO CON MODELO DE DATOS NoSQL v3.0
 
 ---
 
 ## 🎯 Resumen Ejecutivo
 
-Hemos completado la preparación integral del sistema de autenticación, autorización y base de datos actualizada para CiruelaCertificada. Todos los componentes están documentados, scripts automatizados listos, y la infraestructura preparada para despliegue.
+Se ha actualizado completamente la documentación para reflejar el nuevo modelo de datos NoSQL optimizado para Firestore. El sistema ahora utiliza documentos embebidos para maximizar el rendimiento y simplificar las consultas.
 
-### ⏱️ Tiempo Total de Implementación: 3-4 horas
-### 👥 Recursos Requeridos: 2-3 personas técnicas
-### 🎯 Objetivo: Sistema completo AuthN/AuthZ con DB v2.0
+### ⚡ Cambios Principales
+
+- **📦 Modelo Embebido**: Preguntas y evidencias ahora se almacenan dentro de las respuestas
+- **🔧 4 Colecciones**: Simplificación de 8 colecciones a 4 colecciones principales
+- **🚀 Rendimiento**: Una consulta obtiene toda la información necesaria
+- **📋 Flexibilidad**: Soporte mejorado para diferentes tipos de evidencia
+
+### ⏱️ Tiempo de Implementación: 3-4 semanas
+### 👥 Recursos Requeridos: 2-3 desarrolladores frontend
+### 🎯 Objetivo: Sistema completo con modelo NoSQL optimizado
+
+---
+
+## 📖 Documentos Actualizados
+
+### 🆕 **NUEVOS DOCUMENTOS**
+📄 **[11-data-model-implementation-plan.md](./11-data-model-implementation-plan.md)**
+- **Propósito**: Plan completo de implementación del modelo NoSQL por fases
+- **Contenido**: Código TypeScript, componentes React, cronograma detallado
+- **Audiencia**: Desarrolladores frontend y lead técnico
+- **Estado**: 🆕 NUEVO - Implementación lista para iniciar
+
+### 📝 **DOCUMENTOS ACTUALIZADOS**
+📄 **[data-schema.md](./data-schema.md)** - Completamente reescrito para modelo NoSQL  
+📄 **[07-updated-database-schema.md](./07-updated-database-schema.md)** - Migración y reglas de seguridad
 
 ---
 
@@ -76,6 +98,32 @@ Hemos completado la preparación integral del sistema de autenticación, autoriz
 - **Contenido**: Fases de migración, validación, rollback
 - **Audiencia**: Database administrators y DevOps
 - **Estado**: ✅ Integrado en plan master
+
+### 🗄️ **Documentación de Base de Datos y Modelo de Datos**
+
+#### 📄 [data-schema.md](./data-schema.md)
+- **Propósito**: Esquema de datos NoSQL optimizado para Firestore
+- **Contenido**: Estructura de colecciones, documentos embebidos, ejemplos
+- **Audiencia**: Desarrolladores y arquitectos de datos
+- **Estado**: ✅ Actualizado al modelo v3.0 NoSQL embebido
+
+#### 📄 [07-updated-database-schema.md](./07-updated-database-schema.md)
+- **Propósito**: Esquema detallado con migración desde modelo anterior
+- **Contenido**: Estructura embebida, scripts de migración, reglas de seguridad
+- **Audiencia**: Equipo técnico completo
+- **Estado**: ✅ Actualizado al modelo NoSQL optimizado
+
+#### 📄 [11-data-model-implementation-plan.md](./11-data-model-implementation-plan.md)
+- **Propósito**: Plan de implementación por fases del nuevo modelo de datos
+- **Contenido**: Fases, código de ejemplo, cronograma, criterios de aceptación
+- **Audiencia**: Desarrolladores frontend y lead técnico
+- **Estado**: 🆕 NUEVO - Plan completo de implementación NoSQL
+
+#### 📄 [12-migration-guide.md](./12-migration-guide.md)
+- **Propósito**: Guía práctica para migrar del modelo anterior al NoSQL embebido
+- **Contenido**: Pasos de migración, ejemplos de conversión, rollback plan
+- **Audiencia**: Desarrolladores ejecutando la migración
+- **Estado**: 🆕 NUEVO - Guía paso a paso lista
 
 #### 📄 [06-database-management.md](./06-database-management.md)
 - **Propósito**: Gestión y operaciones de base de datos

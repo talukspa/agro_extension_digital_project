@@ -26,15 +26,56 @@ Enable Authentication: In your new project, navigate to the Authentication secti
 
 Set up Firestore: Go to the Firestore Database section and create your database. You will be working with the database named agro-extension-db.
 
-Create a users Collection: In Firestore, create a collection named users. Each document in this collection will have an ID that matches a user's Firebase uid. Inside each document, you can store custom authorization fields for your different user types:
+Create User Collections: In Firestore, you'll work with the existing data model collections:
 
-{
-  "role": "business_owner",
-  "displayName": "John Doe",
-  "companyId": "company-123"
-}
+**Primary User Collections:**
 
-Another user might have "role": "auditor" or "role": "admin".
+1. **`business_profiles`** - Business owners and managers
+   - **Document ID**: Business RUT (e.g., `76.432.187-4`)
+   - **Firebase UID Mapping**: Add `firebase_uid` field to link Firebase Auth with business profile
+   ```json
+   {
+     "rut": "76.432.187-4",
+     "firebase_uid": "firebase-user-uid-here",
+     "legal_name": "Exportadora de Ciruelas Paine",
+     "owner_name": "Juan Rojas",
+     "owner_email": "contacto@exportadorapaine.cl",
+     "owner_phone": "+56987654321",
+     "role": "business_owner",
+     "commune": "Paine",
+     "region": "Metropolitana",
+     "business_size": "Microempresa",
+     "process_type": "Producción Primaria"
+   }
+   ```
+
+2. **`auditors`** - Auditors who review responses
+   - **Document ID**: Auditor ID (e.g., `1`, `2`)
+   - **Firebase UID Mapping**: Add `firebase_uid` field
+   ```json
+   {
+     "auditor_id": 1,
+     "firebase_uid": "firebase-auditor-uid-here",
+     "auditor_name": "Carlos Ruiz",
+     "auditor_email": "carlos.ruiz@auditcorp.com",
+     "role": "auditor",
+     "assigned_businesses": ["76.432.187-4"]
+   }
+   ```
+
+3. **`admin_users`** - System administrators (new collection)
+   - **Document ID**: Admin ID
+   - **Firebase UID Mapping**: Add `firebase_uid` field
+   ```json
+   {
+     "admin_id": "admin-1",
+     "firebase_uid": "firebase-admin-uid-here",
+     "admin_name": "System Administrator",
+     "admin_email": "admin@agroextension.com",
+     "role": "admin",
+     "permissions": ["manage_users", "manage_standards", "view_all_responses"]
+   }
+   ```
 
 2. Frontend Integration (Next.js Client-Side) 🔐
 You'll use the firebase client SDK to manage user state. A common and effective pattern is to use a React Context to make the auth state available throughout your app.
@@ -95,7 +136,7 @@ npm install firebase-admin
 
 Initialize the Admin SDK: Create a server-side utility file. You'll need your Firebase service account credentials. Best Practice: Store these credentials as a secret in Google Secret Manager and access them in your Cloud Run environment.
 
-Create Middleware (/middleware.js): This file will intercept requests to protected routes to verify the user's token and role.
+Create Middleware (/middleware.js): This file will intercept requests to protected routes to verify the user's token and role. Updated to work with the agricultural standards data model.
 
 import { NextResponse } from 'next/server';
 import { adminAuth } from './lib/firebase-admin'; // Your admin SDK initialization file
@@ -112,36 +153,115 @@ export async function middleware(req) {
   try {
     // 1. AUTHENTICATION: Verify the token
     const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const { uid } = decodedToken;
+    const { uid, email } = decodedToken;
 
-    // 2. AUTHORIZATION: Fetch user permissions from Firestore
-    const userDoc = await db.collection('users').doc(uid).get();
-    if (!userDoc.exists) {
-       return new Response(JSON.stringify({ error: 'Forbidden: User not found' }), { status: 403 });
+    // 2. AUTHORIZATION: Determine user role and fetch permissions
+    let userRole = null;
+    let userData = null;
+    let userId = null;
+
+    // Check if user is a business owner
+    const businessQuery = await db.collection('business_profiles')
+      .where('firebase_uid', '==', uid)
+      .limit(1)
+      .get();
+
+    if (!businessQuery.empty) {
+      const businessDoc = businessQuery.docs[0];
+      userData = businessDoc.data();
+      userRole = 'business_owner';
+      userId = businessDoc.id; // This will be the business RUT
+    } else {
+      // Check if user is an auditor
+      const auditorQuery = await db.collection('auditors')
+        .where('firebase_uid', '==', uid)
+        .limit(1)
+        .get();
+
+      if (!auditorQuery.empty) {
+        const auditorDoc = auditorQuery.docs[0];
+        userData = auditorDoc.data();
+        userRole = 'auditor';
+        userId = auditorDoc.id; // This will be the auditor_id
+      } else {
+        // Check if user is an admin
+        const adminQuery = await db.collection('admin_users')
+          .where('firebase_uid', '==', uid)
+          .limit(1)
+          .get();
+
+        if (!adminQuery.empty) {
+          const adminDoc = adminQuery.docs[0];
+          userData = adminDoc.data();
+          userRole = 'admin';
+          userId = adminDoc.id;
+        }
+      }
     }
 
-    const userRole = userDoc.data().role;
+    if (!userRole) {
+      return new Response(JSON.stringify({ 
+        error: 'Forbidden: User not registered in system' 
+      }), { status: 403 });
+    }
+
     const requestedPath = req.nextUrl.pathname;
 
-    // Define which roles can access which paths
+    // Define role-based access control for agricultural standards system
     const allowedRoles = {
-        '/api/admin/': ['admin'],
-        '/api/business/': ['admin', 'business_owner'],
-        '/api/audit/': ['admin', 'auditor']
+      '/api/admin/': ['admin'],
+      '/api/business/': ['admin', 'business_owner'],
+      '/api/audit/': ['admin', 'auditor'],
+      '/api/standards/': ['admin', 'business_owner', 'auditor'], // All can view standards
+      '/api/responses/': ['admin', 'business_owner', 'auditor'], // Context-dependent access
+      '/api/business-profiles/': ['admin'],
+      '/api/reports/': ['admin', 'auditor']
     };
 
     const isAllowed = Object.entries(allowedRoles).some(([path, roles]) =>
-        requestedPath.startsWith(path) && roles.includes(userRole)
+      requestedPath.startsWith(path) && roles.includes(userRole)
     );
 
     if (!isAllowed) {
-        return new Response(JSON.stringify({ error: 'Forbidden: Insufficient permissions for this role' }), { status: 403 });
+      return new Response(JSON.stringify({ 
+        error: `Forbidden: Role '${userRole}' cannot access '${requestedPath}'` 
+      }), { status: 403 });
+    }
+
+    // Additional authorization for specific endpoints
+    if (requestedPath.startsWith('/api/responses/')) {
+      // Business owners can only access their own responses
+      if (userRole === 'business_owner') {
+        const businessRut = userId;
+        // Check if the requested response belongs to this business
+        // This would be implemented in the actual API route handler
+      }
+      
+      // Auditors can only access responses assigned to them
+      if (userRole === 'auditor') {
+        const auditorId = parseInt(userId);
+        // Check if the auditor is assigned to the requested response
+        // This would be implemented in the actual API route handler
+      }
     }
 
     // Attach user info to the request for use in API routes
     const requestHeaders = new Headers(req.headers);
-    requestHeaders.set('x-user-id', uid);
+    requestHeaders.set('x-user-id', userId);
     requestHeaders.set('x-user-role', userRole);
+    requestHeaders.set('x-firebase-uid', uid);
+    
+    // Add business-specific headers for business owners
+    if (userRole === 'business_owner') {
+      requestHeaders.set('x-business-rut', userId);
+      requestHeaders.set('x-business-name', userData.legal_name);
+    }
+    
+    // Add auditor-specific headers for auditors
+    if (userRole === 'auditor') {
+      requestHeaders.set('x-auditor-id', userId);
+      requestHeaders.set('x-assigned-businesses', JSON.stringify(userData.assigned_businesses || []));
+    }
 
     return NextResponse.next({
       request: { headers: requestHeaders },
@@ -155,7 +275,15 @@ export async function middleware(req) {
 
 // Define which paths the middleware should apply to
 export const config = {
-  matcher: ['/api/admin/:path*', '/api/business/:path*', '/api/audit/:path*'],
+  matcher: [
+    '/api/admin/:path*', 
+    '/api/business/:path*', 
+    '/api/audit/:path*',
+    '/api/standards/:path*',
+    '/api/responses/:path*',
+    '/api/business-profiles/:path*',
+    '/api/reports/:path*'
+  ],
 };
 
 Process Breakdown: Manual vs. Automated Steps
@@ -195,7 +323,198 @@ Writing the Firebase Admin SDK initialization logic (/lib/firebase-admin.js), wh
 
 Implementing the Next.js Middleware (/middleware.js) to verify tokens and check permissions. This is pure code.
 
-4. Creating User Documents in Firestore (Code): While the users collection is set up manually, the process of adding a new user document to Firestore when a user signs up for the first time should be automated. This is typically handled by a server-side function (e.g., a Cloud Function triggered on user creation or an API endpoint in your Next.js app).
+4. Creating User Documents in Firestore (Code): While the business_profiles and auditors collections exist with business data, the process of linking Firebase Auth users to existing profiles should be automated. This is typically handled by a server-side function.
+
+**User Registration and Linking Process:**
+
+For **Business Owners**:
+```javascript
+// API endpoint: /api/auth/link-business-profile
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { businessRut, firebaseUid } = req.body;
+
+  try {
+    // Verify the Firebase user exists
+    const userRecord = await adminAuth.getUser(firebaseUid);
+    
+    // Update the business profile with Firebase UID
+    const businessRef = db.collection('business_profiles').doc(businessRut);
+    const businessDoc = await businessRef.get();
+    
+    if (!businessDoc.exists) {
+      return res.status(404).json({ error: 'Business profile not found' });
+    }
+
+    // Link Firebase UID to business profile
+    await businessRef.update({
+      firebase_uid: firebaseUid,
+      auth_setup_date: new Date().toISOString(),
+      owner_email: userRecord.email // Sync email from Firebase Auth
+    });
+
+    res.status(200).json({ 
+      message: 'Business profile linked successfully',
+      businessRut,
+      role: 'business_owner'
+    });
+  } catch (error) {
+    console.error('Error linking business profile:', error);
+    res.status(500).json({ error: 'Failed to link business profile' });
+  }
+}
+```
+
+For **Auditors**:
+```javascript
+// API endpoint: /api/auth/link-auditor-profile
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { auditorId, firebaseUid } = req.body;
+
+  try {
+    // Verify the Firebase user exists
+    const userRecord = await adminAuth.getUser(firebaseUid);
+    
+    // Update the auditor profile with Firebase UID
+    const auditorRef = db.collection('auditors').doc(auditorId.toString());
+    const auditorDoc = await auditorRef.get();
+    
+    if (!auditorDoc.exists) {
+      return res.status(404).json({ error: 'Auditor profile not found' });
+    }
+
+    // Link Firebase UID to auditor profile
+    await auditorRef.update({
+      firebase_uid: firebaseUid,
+      auth_setup_date: new Date().toISOString(),
+      auditor_email: userRecord.email // Sync email from Firebase Auth
+    });
+
+    res.status(200).json({ 
+      message: 'Auditor profile linked successfully',
+      auditorId,
+      role: 'auditor'
+    });
+  } catch (error) {
+    console.error('Error linking auditor profile:', error);
+    res.status(500).json({ error: 'Failed to link auditor profile' });
+  }
+}
+```
+
+**Frontend Registration Flow:**
+```javascript
+// components/RegistrationForm.jsx
+import { useState } from 'react';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../lib/firebase';
+
+export function BusinessRegistrationForm() {
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    businessRut: '',
+    registrationType: 'business' // or 'auditor'
+  });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      // 1. Create Firebase Auth user
+      const userCredential = await createUserWithEmailAndPassword(
+        auth, 
+        formData.email, 
+        formData.password
+      );
+      
+      const firebaseUid = userCredential.user.uid;
+
+      // 2. Link to existing business/auditor profile
+      const linkEndpoint = formData.registrationType === 'business' 
+        ? '/api/auth/link-business-profile'
+        : '/api/auth/link-auditor-profile';
+
+      const linkPayload = formData.registrationType === 'business'
+        ? { businessRut: formData.businessRut, firebaseUid }
+        : { auditorId: formData.auditorId, firebaseUid };
+
+      const response = await fetch(linkEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(linkPayload)
+      });
+
+      if (response.ok) {
+        // Registration successful, redirect to dashboard
+        window.location.href = '/dashboard';
+      } else {
+        const error = await response.json();
+        alert(`Registration failed: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      alert('Registration failed. Please try again.');
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="email"
+        placeholder="Email"
+        value={formData.email}
+        onChange={(e) => setFormData({...formData, email: e.target.value})}
+        required
+      />
+      <input
+        type="password"
+        placeholder="Password"
+        value={formData.password}
+        onChange={(e) => setFormData({...formData, password: e.target.value})}
+        required
+      />
+      
+      <select 
+        value={formData.registrationType}
+        onChange={(e) => setFormData({...formData, registrationType: e.target.value})}
+      >
+        <option value="business">Business Owner</option>
+        <option value="auditor">Auditor</option>
+      </select>
+
+      {formData.registrationType === 'business' && (
+        <input
+          type="text"
+          placeholder="Business RUT (e.g., 76.432.187-4)"
+          value={formData.businessRut}
+          onChange={(e) => setFormData({...formData, businessRut: e.target.value})}
+          required
+        />
+      )}
+
+      {formData.registrationType === 'auditor' && (
+        <input
+          type="number"
+          placeholder="Auditor ID"
+          value={formData.auditorId}
+          onChange={(e) => setFormData({...formData, auditorId: e.target.value})}
+          required
+        />
+      )}
+
+      <button type="submit">Register</button>
+    </form>
+  );
+}
+```
 
 5. Deployment: The entire Next.js application, including all the automated code, is deployed to Cloud Run via a script or command-line instruction. For your project, the command would be:
 
