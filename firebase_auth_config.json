@@ -1,0 +1,11 @@
+{
+  "signIn": {
+    "allowDuplicateEmails": false
+  },
+  "authorizedDomains": [
+    "localhost",
+    "agro-extension-digital-npe.firebaseapp.com",
+    "agro-extension-digital-npe.web.app",
+    "frontend-dev-890639421110.us-central1.run.app"
+  ]
+}

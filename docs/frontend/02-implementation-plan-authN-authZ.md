@@ -33,22 +33,65 @@ Este documento describe un plan detallado para implementar la autenticación (Au
   - [ ] (Opcional) Otros proveedores según necesidades
 
 #### 1.2 Configuración de Firestore
-- [ ] Crear/verificar base de datos `agro-extension-db`
-- [ ] Crear colección `users` con estructura:
+- [ ] Verificar base de datos `agro-extension-db` existente
+- [ ] Actualizar colecciones existentes para autenticación:
+
+**Actualizar `business_profiles` collection:**
 ```javascript
+// Document ID: Business RUT (e.g., "76.432.187-4")
 {
-  "uid": "firebase-user-id", // Document ID
-  "role": "business_owner|auditor|admin",
-  "displayName": "Nombre Usuario",
-  "email": "usuario@ejemplo.com",
-  "companyId": "company-123", // Para business_owner
-  "permissions": {
-    "canViewReports": true,
-    "canEditData": false,
-    "canManageUsers": false
-  },
-  "createdAt": "timestamp",
-  "lastLogin": "timestamp"
+  "rut": "76.432.187-4",
+  "firebase_uid": "firebase-user-id", // AÑADIR ESTE CAMPO
+  "legal_name": "Exportadora de Ciruelas Paine",
+  "owner_name": "Juan Rojas",
+  "owner_email": "contacto@exportadorapaine.cl",
+  "owner_phone": "+56987654321",
+  "role": "business_owner", // AÑADIR ESTE CAMPO
+  "commune": "Paine",
+  "region": "Metropolitana",
+  "address": "Av. Gral. Baquedano 108",
+  "business_size": "Microempresa",
+  "process_type": "Producción Primaria",
+  "digital_tools_used_at_work": ["WhatsApp", "Facebook"],
+  "digital_tools_experienced": ["WhatsApp", "Facebook"],
+  "auth_setup_date": "timestamp", // AÑADIR ESTE CAMPO
+  "last_login": "timestamp" // AÑADIR ESTE CAMPO
+}
+```
+
+**Actualizar `auditors` collection:**
+```javascript
+// Document ID: Auditor ID (e.g., "1", "2")
+{
+  "auditor_id": 1,
+  "firebase_uid": "firebase-auditor-uid", // AÑADIR ESTE CAMPO
+  "auditor_name": "Carlos Ruiz",
+  "auditor_email": "carlos.ruiz@auditcorp.com",
+  "role": "auditor", // AÑADIR ESTE CAMPO
+  "assigned_businesses": ["76.432.187-4"], // AÑADIR ESTE CAMPO
+  "auth_setup_date": "timestamp", // AÑADIR ESTE CAMPO
+  "last_login": "timestamp" // AÑADIR ESTE CAMPO
+}
+```
+
+**Crear nueva `admin_users` collection:**
+```javascript
+// Document ID: Admin ID (e.g., "admin-1")
+{
+  "admin_id": "admin-1",
+  "firebase_uid": "firebase-admin-uid",
+  "admin_name": "System Administrator",
+  "admin_email": "admin@agroextension.com",
+  "role": "admin",
+  "permissions": [
+    "manage_users",
+    "manage_standards", 
+    "view_all_responses",
+    "manage_auditors",
+    "generate_reports"
+  ],
+  "auth_setup_date": "timestamp",
+  "last_login": "timestamp"
 }
 ```
 
@@ -69,12 +112,47 @@ Este documento describe un plan detallado para implementar la autenticación (Au
 ```typescript
 interface AuthContextType {
   user: User | null;
-  userRole: string | null;
+  userRole: 'business_owner' | 'auditor' | 'admin' | null;
+  userData: BusinessProfile | Auditor | AdminUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, userData: any) => Promise<void>;
+  signUp: (email: string, password: string, userType: 'business' | 'auditor') => Promise<void>;
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  linkBusinessProfile: (businessRut: string) => Promise<void>;
+  linkAuditorProfile: (auditorId: number) => Promise<void>;
+}
+
+// Tipos específicos del sistema agrícola
+interface BusinessProfile {
+  rut: string;
+  firebase_uid: string;
+  legal_name: string;
+  owner_name: string;
+  owner_email: string;
+  role: 'business_owner';
+  process_type: 'Producción Primaria' | 'Procesamiento Agroindustrial';
+  business_size: 'Microempresa' | 'Pequeña empresa' | 'Mediana empresa' | 'Gran empresa';
+  commune: string;
+  region: string;
+}
+
+interface Auditor {
+  auditor_id: number;
+  firebase_uid: string;
+  auditor_name: string;
+  auditor_email: string;
+  role: 'auditor';
+  assigned_businesses: string[];
+}
+
+interface AdminUser {
+  admin_id: string;
+  firebase_uid: string;
+  admin_name: string;
+  admin_email: string;
+  role: 'admin';
+  permissions: string[];
 }
 ```
 
@@ -86,7 +164,8 @@ interface AuthContextType {
 
 #### 2.4 Páginas de Autenticación
 - [ ] Crear `/src/app/auth/login/page.tsx`
-- [ ] Crear `/src/app/auth/register/page.tsx`
+- [ ] Crear `/src/app/auth/register/page.tsx` (con formularios específicos para business/auditor)
+- [ ] Crear `/src/app/auth/link-profile/page.tsx` (para vincular Firebase con perfiles existentes)
 - [ ] Crear `/src/app/auth/profile/page.tsx`
 
 #### 2.5 Hook personalizado
@@ -109,21 +188,36 @@ interface AuthContextType {
   - Headers personalizados para API routes
 
 #### 3.3 API Routes Protegidas
-- [ ] Crear estructura de rutas:
+- [ ] Crear estructura de rutas específicas para el sistema agrícola:
 ```
 /src/app/api/
 ├── auth/
 │   ├── register/route.ts
+│   ├── link-business-profile/route.ts
+│   ├── link-auditor-profile/route.ts
 │   └── profile/route.ts
 ├── admin/
 │   ├── users/route.ts
+│   ├── business-profiles/route.ts
+│   ├── auditors/route.ts
+│   ├── standards/route.ts
 │   └── analytics/route.ts
 ├── business/
-│   ├── reports/route.ts
-│   └── data/route.ts
-└── audit/
-    ├── reviews/route.ts
-    └── compliance/route.ts
+│   ├── profile/route.ts
+│   ├── responses/route.ts
+│   ├── standards/route.ts
+│   └── reports/route.ts
+├── audit/
+│   ├── assigned-businesses/route.ts
+│   ├── responses/route.ts
+│   ├── reviews/route.ts
+│   └── validation/route.ts
+├── standards/
+│   ├── templates/route.ts
+│   └── [templateName]/route.ts
+└── responses/
+    ├── [responseId]/route.ts
+    └── by-business/[businessRut]/route.ts
 ```
 
 #### 3.4 Utilidades del Servidor
@@ -195,66 +289,152 @@ frontend/src/
 │   ├── auth/
 │   │   ├── login/page.tsx
 │   │   ├── register/page.tsx
+│   │   ├── link-profile/page.tsx
 │   │   └── profile/page.tsx
 │   ├── api/
 │   │   ├── auth/
+│   │   │   ├── register/route.ts
+│   │   │   ├── link-business-profile/route.ts
+│   │   │   └── link-auditor-profile/route.ts
 │   │   ├── admin/
+│   │   │   ├── users/route.ts
+│   │   │   ├── business-profiles/route.ts
+│   │   │   ├── auditors/route.ts
+│   │   │   └── standards/route.ts
 │   │   ├── business/
-│   │   └── audit/
+│   │   │   ├── profile/route.ts
+│   │   │   ├── responses/route.ts
+│   │   │   └── standards/route.ts
+│   │   ├── audit/
+│   │   │   ├── assigned-businesses/route.ts
+│   │   │   ├── responses/route.ts
+│   │   │   └── validation/route.ts
+│   │   ├── standards/
+│   │   │   └── templates/route.ts
+│   │   └── responses/
+│   │       └── [responseId]/route.ts
 │   ├── dashboard/
 │   │   ├── admin/
+│   │   │   ├── page.tsx
+│   │   │   ├── users/page.tsx
+│   │   │   ├── standards/page.tsx
+│   │   │   └── analytics/page.tsx
 │   │   ├── business/
+│   │   │   ├── page.tsx
+│   │   │   ├── profile/page.tsx
+│   │   │   ├── standards/page.tsx
+│   │   │   ├── responses/page.tsx
+│   │   │   └── reports/page.tsx
 │   │   └── audit/
+│   │       ├── page.tsx
+│   │       ├── assigned-businesses/page.tsx
+│   │       ├── responses/page.tsx
+│   │       └── validation/page.tsx
 │   └── layout.tsx (con AuthProvider)
 ├── components/
 │   ├── auth/
 │   │   ├── AuthGuard.tsx
 │   │   ├── RoleGuard.tsx
 │   │   ├── LoginForm.tsx
-│   │   └── RegisterForm.tsx
-│   └── ui/
+│   │   ├── RegisterForm.tsx
+│   │   └── LinkProfileForm.tsx
+│   ├── business/
+│   │   ├── ProfileForm.tsx
+│   │   ├── StandardsView.tsx
+│   │   └── ResponseForm.tsx
+│   ├── audit/
+│   │   ├── AssignedBusinesses.tsx
+│   │   ├── ResponseValidation.tsx
+│   │   └── ValidationForm.tsx
+│   └── admin/
+│       ├── UserManagement.tsx
+│       ├── StandardsManagement.tsx
+│       └── Analytics.tsx
 ├── contexts/
 │   └── AuthContext.tsx
 ├── hooks/
-│   └── useAuth.ts
+│   ├── useAuth.ts
+│   ├── useBusinessProfile.ts
+│   ├── useAuditorData.ts
+│   └── useStandardResponses.ts
 ├── lib/
 │   └── firebase/
 │       ├── config.ts
 │       ├── server.ts
+│       ├── firestore.ts
 │       └── index.ts
+├── types/
+│   ├── auth.ts
+│   ├── firestore.ts
+│   └── api.ts
 ├── utils/
 │   ├── auth-server.ts
+│   ├── validation.ts
 │   └── constants.ts
 └── middleware.ts
 ```
 
 ## Roles y Permisos
 
-### Definición de Roles
+### Definición de Roles del Sistema Agrícola
 
-#### 1. Admin
-- **Descripción**: Acceso completo al sistema
+#### 1. Admin (Administrador del Sistema)
+- **Descripción**: Acceso completo al sistema de estándares agrícolas
 - **Permisos**:
-  - Gestión de usuarios
-  - Acceso a todas las funcionalidades
+  - Gestión de usuarios (business_profiles, auditors, admin_users)
+  - Administración de plantillas de estándares (standards collection)
+  - Acceso a todas las respuestas y auditorías
+  - Generación de reportes globales
   - Configuración del sistema
-  - Reportes globales
+  - Asignación de auditores a empresas
 
-#### 2. Business Owner
-- **Descripción**: Propietario de empresa con datos en el sistema
+#### 2. Business Owner (Propietario de Empresa)
+- **Descripción**: Propietario de empresa agrícola con perfil en business_profiles
 - **Permisos**:
-  - Ver sus propios datos y reportes
-  - Gestionar información de su empresa
-  - Acceso a auditorías de su empresa
-  - Dashboard empresarial
+  - Ver y actualizar su propio perfil de empresa (business_profiles[rut])
+  - Acceso a estándares aplicables a su tipo de proceso
+  - Crear y gestionar respuestas a estándares (responses collection)
+  - Ver auditorías y validaciones de sus respuestas
+  - Dashboard empresarial con métricas de cumplimiento
+  - Acceso solo a sus propios datos y reportes
 
-#### 3. Auditor
-- **Descripción**: Auditor externo con acceso a datos específicos
+#### 3. Auditor (Auditor Externo)
+- **Descripción**: Auditor asignado para revisar respuestas de empresas específicas
 - **Permisos**:
-  - Ver datos de empresas asignadas
-  - Crear reportes de auditoría
-  - Acceso de solo lectura a la mayoría de datos
-  - Dashboard de auditoría
+  - Ver perfiles de empresas asignadas (según assigned_businesses)
+  - Acceso de solo lectura a responses de empresas asignadas
+  - Validar evidencia en registers (fotos, documentos, bitácoras)
+  - Crear comentarios de auditoría (auditor_comments)
+  - Cambiar validation_status de registers
+  - Dashboard de auditoría con empresas asignadas
+  - Generar reportes de auditoría para empresas asignadas
+
+### Matriz de Permisos por Colección
+
+| Colección | Admin | Business Owner | Auditor |
+|-----------|-------|----------------|---------|
+| `business_profiles` | CRUD All | Read/Update Own | Read Assigned |
+| `standards` | CRUD All | Read All | Read All |
+| `responses` | Read All | CRUD Own | Read/Update Assigned |
+| `auditors` | CRUD All | None | Read Own |
+| `admin_users` | CRUD All | None | None |
+
+### Reglas de Acceso Específicas
+
+#### Business Owner
+- Solo puede acceder a responses donde `business_rut` = su RUT
+- Solo puede ver estándares aplicables a su `process_type`
+- No puede modificar `validation_status` en registers
+
+#### Auditor  
+- Solo puede acceder a responses de empresas en su `assigned_businesses`
+- Puede modificar `validation_status` y `auditor_comments` en registers
+- No puede crear nuevas responses, solo revisar existentes
+
+#### Admin
+- Acceso completo a todas las colecciones
+- Puede asignar/desasignar auditores a empresas
+- Puede crear nuevas plantillas de estándares
 
 ## Consideraciones de Seguridad
 
@@ -268,19 +448,114 @@ frontend/src/
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can only read/write their own user document
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    
+    // Business Profiles - only own profile access for business owners
+    match /business_profiles/{businessRut} {
+      allow read: if request.auth != null && (
+        // Admin can read all
+        getUserRole(request.auth.uid) == 'admin' ||
+        // Business owner can read own profile
+        (getUserRole(request.auth.uid) == 'business_owner' && resource.data.firebase_uid == request.auth.uid) ||
+        // Auditor can read assigned businesses
+        (getUserRole(request.auth.uid) == 'auditor' && businessRut in getAuditorAssignedBusinesses(request.auth.uid))
+      );
+      
+      allow write: if request.auth != null && (
+        // Admin can write all
+        getUserRole(request.auth.uid) == 'admin' ||
+        // Business owner can update own profile (except firebase_uid)
+        (getUserRole(request.auth.uid) == 'business_owner' && 
+         resource.data.firebase_uid == request.auth.uid &&
+         request.resource.data.firebase_uid == resource.data.firebase_uid)
+      );
     }
     
-    // Business data access based on role and company
-    match /companies/{companyId} {
-      allow read: if request.auth != null && 
-        (resource.data.ownerId == request.auth.uid || 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-      allow write: if request.auth != null && 
-        (resource.data.ownerId == request.auth.uid || 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    // Standards - read access for all authenticated users
+    match /standards/{standardId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && getUserRole(request.auth.uid) == 'admin';
+    }
+    
+    // Responses - access based on business ownership and auditor assignment
+    match /responses/{responseId} {
+      allow read: if request.auth != null && (
+        // Admin can read all
+        getUserRole(request.auth.uid) == 'admin' ||
+        // Business owner can read own responses
+        (getUserRole(request.auth.uid) == 'business_owner' && 
+         resource.data.business_rut == getBusinessRutByFirebaseUid(request.auth.uid)) ||
+        // Auditor can read responses from assigned businesses
+        (getUserRole(request.auth.uid) == 'auditor' && 
+         resource.data.business_rut in getAuditorAssignedBusinesses(request.auth.uid))
+      );
+      
+      allow create: if request.auth != null && (
+        // Admin can create all
+        getUserRole(request.auth.uid) == 'admin' ||
+        // Business owner can create own responses
+        (getUserRole(request.auth.uid) == 'business_owner' && 
+         request.resource.data.business_rut == getBusinessRutByFirebaseUid(request.auth.uid))
+      );
+      
+      allow update: if request.auth != null && (
+        // Admin can update all
+        getUserRole(request.auth.uid) == 'admin' ||
+        // Business owner can update own responses (except auditor fields)
+        (getUserRole(request.auth.uid) == 'business_owner' && 
+         resource.data.business_rut == getBusinessRutByFirebaseUid(request.auth.uid) &&
+         !('auditor_id' in request.resource.data.diff(resource.data).affectedKeys())) ||
+        // Auditor can update validation status and comments
+        (getUserRole(request.auth.uid) == 'auditor' && 
+         resource.data.business_rut in getAuditorAssignedBusinesses(request.auth.uid))
+      );
+    }
+    
+    // Auditors - admins manage, auditors read own
+    match /auditors/{auditorId} {
+      allow read: if request.auth != null && (
+        getUserRole(request.auth.uid) == 'admin' ||
+        (getUserRole(request.auth.uid) == 'auditor' && resource.data.firebase_uid == request.auth.uid)
+      );
+      allow write: if request.auth != null && getUserRole(request.auth.uid) == 'admin';
+    }
+    
+    // Admin Users - only admins can access
+    match /admin_users/{adminId} {
+      allow read, write: if request.auth != null && getUserRole(request.auth.uid) == 'admin';
+    }
+    
+    // Helper functions
+    function getUserRole(firebaseUid) {
+      // Check in business_profiles
+      let businessQuery = exists(/databases/$(database)/documents/business_profiles/$(firebaseUid));
+      if (businessQuery) {
+        return 'business_owner';
+      }
+      
+      // Check in auditors
+      let auditorQuery = exists(/databases/$(database)/documents/auditors/$(firebaseUid));
+      if (auditorQuery) {
+        return 'auditor';
+      }
+      
+      // Check in admin_users
+      let adminQuery = exists(/databases/$(database)/documents/admin_users/$(firebaseUid));
+      if (adminQuery) {
+        return 'admin';
+      }
+      
+      return null;
+    }
+    
+    function getBusinessRutByFirebaseUid(firebaseUid) {
+      // This would need to be implemented based on your indexing strategy
+      // For now, assume the business profile document ID is stored somewhere accessible
+      return get(/databases/$(database)/documents/business_profiles/$(firebaseUid)).data.rut;
+    }
+    
+    function getAuditorAssignedBusinesses(firebaseUid) {
+      // Get the assigned businesses for this auditor
+      return get(/databases/$(database)/documents/auditors/$(firebaseUid)).data.assigned_businesses;
     }
   }
 }

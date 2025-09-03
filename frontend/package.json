@@ -13,15 +13,20 @@
     "@google-cloud/storage": "^7.16.0",
     "dotenv": "^17.2.1",
     "firebase": "^12.1.0",
+    "firebase-admin": "^13.5.0",
     "next": "15.4.6",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.12",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.21",
     "firebase-tools": "^14.12.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.12",
     "typescript": "^5"
   }
 }
