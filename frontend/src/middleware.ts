@@ -3,9 +3,9 @@ import { USER_TYPES, ROUTE_PERMISSIONS } from '@/lib/types/permissions';
 
 // Define protected routes and their required roles
 const protectedRoutes = {
-  '/dashboard': [USER_TYPES.BUSINESS_USER, USER_TYPES.AUDITOR, USER_TYPES.ADMIN],
-  '/business': [USER_TYPES.BUSINESS_USER, USER_TYPES.ADMIN],
-  '/audits': [USER_TYPES.BUSINESS_USER, USER_TYPES.AUDITOR, USER_TYPES.ADMIN],
+  '/dashboard': [USER_TYPES.BUSINESS_USER, USER_TYPES.BUSINESS_OWNER, USER_TYPES.AUDITOR, USER_TYPES.ADMIN],
+  '/business': [USER_TYPES.BUSINESS_USER, USER_TYPES.BUSINESS_OWNER, USER_TYPES.ADMIN],
+  '/audits': [USER_TYPES.BUSINESS_USER, USER_TYPES.BUSINESS_OWNER, USER_TYPES.AUDITOR, USER_TYPES.ADMIN],
   '/admin': [USER_TYPES.ADMIN],
   '/profile': [], // Any authenticated user
 } as const;

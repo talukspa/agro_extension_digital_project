@@ -93,7 +93,13 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Redirect based on user type and status
-    if (user && userType && !loading) {
+    if (user && !loading) {
+      // If user doesn't have a userType, redirect to onboarding
+      if (!userType) {
+        router.push('/onboarding/user-type');
+        return;
+      }
+
       if (user.status === 'pending') {
         router.push('/pending-approval');
         return;
@@ -111,13 +117,23 @@ export default function DashboardPage() {
             // Admins stay on dashboard with admin features
             break;
           case USER_TYPES.AUDITOR:
-            router.push('/auditor');
-            return;
+            // TODO: Uncomment when auditor page is ready
+            // router.push('/auditor');
+            // return;
+            break;
           case USER_TYPES.BUSINESS_USER:
-            if (!activeBusiness) {
-              router.push('/business-setup');
-              return;
-            }
+            // TODO: Uncomment when business setup flow is ready
+            // if (!activeBusiness) {
+            //   router.push('/business-setup');
+            //   return;
+            // }
+            break;
+          case USER_TYPES.BUSINESS_OWNER:
+            // TODO: Uncomment when business setup flow is ready
+            // if (!activeBusiness) {
+            //   router.push('/business-setup');
+            //   return;
+            // }
             // Stay on dashboard for business users with active business
             break;
         }
@@ -255,6 +271,18 @@ export default function DashboardPage() {
 
   if (!user) {
     return null; // Will redirect to login
+  }
+
+  if (!userType) {
+    // This should redirect to onboarding, but show loading in case of race condition
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Configurando perfil...</p>
+        </div>
+      </div>
+    );
   }
 
   const getStatusColor = (status: string) => {

@@ -36,6 +36,14 @@ const userTypes = [
     isActive: true
   },
   {
+    id: USER_TYPES.BUSINESS_OWNER,
+    name: USER_TYPES.BUSINESS_OWNER,
+    displayName: USER_TYPE_DISPLAY_NAMES[USER_TYPES.BUSINESS_OWNER],
+    description: USER_TYPE_DESCRIPTIONS[USER_TYPES.BUSINESS_OWNER],
+    permissions: USER_TYPE_PERMISSIONS[USER_TYPES.BUSINESS_OWNER],
+    isActive: true
+  },
+  {
     id: USER_TYPES.AUDITOR,
     name: USER_TYPES.AUDITOR,
     displayName: USER_TYPE_DISPLAY_NAMES[USER_TYPES.AUDITOR],
