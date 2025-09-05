@@ -3,10 +3,11 @@
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, ReactNode } from 'react';
+import { USER_TYPES, type UserTypeId, isValidUserType } from '@/lib/types/permissions';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  requiredUserTypes?: string[]; // 'admin', 'auditor', 'business_owner', 'viewer'
+  requiredUserTypes?: UserTypeId[]; // 'admin', 'auditor', 'business_user', 'business_owner'
   requireApproval?: boolean; // Whether the user needs to be approved
   fallbackUrl?: string;
   showUnauthorized?: boolean;
@@ -39,7 +40,8 @@ export default function ProtectedRoute({
 
       if (requiredUserTypes.length > 0) {
         // Check if user has any of the required user types
-        const hasRequiredType = requiredUserTypes.includes(userType?.name || '');
+        const userTypeName = userType?.name;
+        const hasRequiredType = userTypeName && isValidUserType(userTypeName) && requiredUserTypes.includes(userTypeName);
 
         if (!hasRequiredType) {
           if (showUnauthorized) {
@@ -77,7 +79,8 @@ export default function ProtectedRoute({
 
   // Check user type requirements
   if (requiredUserTypes.length > 0) {
-    const hasRequiredType = requiredUserTypes.includes(userType?.name || '');
+    const userTypeName = userType?.name;
+    const hasRequiredType = userTypeName && isValidUserType(userTypeName) && requiredUserTypes.includes(userTypeName);
     
     if (!hasRequiredType) {
       return null;
@@ -90,7 +93,7 @@ export default function ProtectedRoute({
 // Higher-order component version
 export function withProtection<P extends object>(
   Component: React.ComponentType<P>,
-  requiredUserTypes?: string[],
+  requiredUserTypes?: UserTypeId[],
   requireApproval?: boolean
 ) {
   return function ProtectedComponent(props: P) {

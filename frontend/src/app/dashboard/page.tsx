@@ -1,6 +1,8 @@
 'use client';
 
+import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { USER_TYPES } from '@/lib/types/permissions';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { 
@@ -91,7 +93,13 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Redirect based on user type and status
-    if (user && userType && !loading) {
+    if (user && !loading) {
+      // If user doesn't have a userType, redirect to onboarding
+      if (!userType) {
+        router.push('/onboarding/user-type');
+        return;
+      }
+
       if (user.status === 'pending') {
         router.push('/pending-approval');
         return;
@@ -105,21 +113,28 @@ export default function DashboardPage() {
       // Redirect approved users to their appropriate panels
       if (user.status === 'approved') {
         switch (userType.name) {
-          case 'admin':
+          case USER_TYPES.ADMIN:
             // Admins stay on dashboard with admin features
             break;
-          case 'auditor':
-            router.push('/auditor');
-            return;
-          case 'business_owner':
-            if (!activeBusiness) {
-              router.push('/business-setup');
-              return;
-            }
-            // Stay on dashboard for business owners with active business
+          case USER_TYPES.AUDITOR:
+            // TODO: Uncomment when auditor page is ready
+            // router.push('/auditor');
+            // return;
             break;
-          case 'viewer':
-            // Viewers stay on basic dashboard
+          case USER_TYPES.BUSINESS_USER:
+            // TODO: Uncomment when business setup flow is ready
+            // if (!activeBusiness) {
+            //   router.push('/business-setup');
+            //   return;
+            // }
+            break;
+          case USER_TYPES.BUSINESS_OWNER:
+            // TODO: Uncomment when business setup flow is ready
+            // if (!activeBusiness) {
+            //   router.push('/business-setup');
+            //   return;
+            // }
+            // Stay on dashboard for business users with active business
             break;
         }
       }
@@ -256,6 +271,18 @@ export default function DashboardPage() {
 
   if (!user) {
     return null; // Will redirect to login
+  }
+
+  if (!userType) {
+    // This should redirect to onboarding, but show loading in case of race condition
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Configurando perfil...</p>
+        </div>
+      </div>
+    );
   }
 
   const getStatusColor = (status: string) => {
@@ -808,20 +835,17 @@ export default function DashboardPage() {
                   </h3>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <button 
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium disabled:bg-gray-400"
-                      disabled={userType?.name === 'viewer'}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
                     >
                       Ver Estándares
                     </button>
                     <button 
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium disabled:bg-gray-400"
-                      disabled={userType?.name === 'viewer'}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
                     >
                       Subir Evidencia
                     </button>
                     <button 
-                      className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium disabled:bg-gray-400"
-                      disabled={userType?.name === 'viewer'}
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium"
                     >
                       Ver Auditorías
                     </button>

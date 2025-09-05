@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { USER_TYPES, ROUTE_PERMISSIONS } from '@/lib/types/permissions';
 
 // Define protected routes and their required roles
-const PROTECTED_ROUTES = {
-  '/dashboard': ['business_owner', 'auditor', 'admin'],
-  '/business': ['business_owner', 'admin'],
-  '/audits': ['business_owner', 'auditor', 'admin'],
-  '/admin': ['admin'],
+const protectedRoutes = {
+  '/dashboard': [USER_TYPES.BUSINESS_USER, USER_TYPES.BUSINESS_OWNER, USER_TYPES.AUDITOR, USER_TYPES.ADMIN],
+  '/business': [USER_TYPES.BUSINESS_USER, USER_TYPES.BUSINESS_OWNER, USER_TYPES.ADMIN],
+  '/audits': [USER_TYPES.BUSINESS_USER, USER_TYPES.BUSINESS_OWNER, USER_TYPES.AUDITOR, USER_TYPES.ADMIN],
+  '/admin': [USER_TYPES.ADMIN],
   '/profile': [], // Any authenticated user
 } as const;
 
