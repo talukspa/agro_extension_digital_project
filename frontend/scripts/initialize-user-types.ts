@@ -1,10 +1,12 @@
 /**
  * Script para inicializar los tipos de usuario en Firestore
  * Ejecutar una vez para configurar los tipos de usuario base
+ * Nota: Este script ahora está sincronizado con la estructura real de la base de datos
  */
 
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, doc, setDoc, getDocs, query, where } from 'firebase/firestore';
+import { USER_TYPES, USER_TYPE_DISPLAY_NAMES, USER_TYPE_DESCRIPTIONS, USER_TYPE_PERMISSIONS } from '../src/lib/types/permissions';
 
 // Configuración de Firebase (usar las mismas credenciales del proyecto)
 const firebaseConfig = {
@@ -15,59 +17,30 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// User types configuration - matches what's in the database
 const userTypes = [
   {
-    id: 'admin',
-    name: 'admin',
-    displayName: 'Administrador',
-    description: 'Administrador del sistema con acceso completo a todas las funcionalidades',
-    permissions: [
-      'manage_users',
-      'manage_businesses', 
-      'manage_auditors',
-      'approve_requests',
-      'system_settings',
-      'view_all_data'
-    ],
+    id: USER_TYPES.ADMIN,
+    name: USER_TYPES.ADMIN,
+    displayName: USER_TYPE_DISPLAY_NAMES[USER_TYPES.ADMIN],
+    description: USER_TYPE_DESCRIPTIONS[USER_TYPES.ADMIN],
+    permissions: USER_TYPE_PERMISSIONS[USER_TYPES.ADMIN],
     isActive: true
   },
   {
-    id: 'business_owner',
-    name: 'business_owner',
-    displayName: 'Propietario de Empresa',
-    description: 'Propietario de empresa que puede gestionar su negocio y certificaciones',
-    permissions: [
-      'manage_own_business',
-      'request_certifications',
-      'upload_evidence',
-      'view_own_audits',
-      'manage_business_users'
-    ],
+    id: USER_TYPES.BUSINESS_USER,
+    name: USER_TYPES.BUSINESS_USER,
+    displayName: USER_TYPE_DISPLAY_NAMES[USER_TYPES.BUSINESS_USER],
+    description: USER_TYPE_DESCRIPTIONS[USER_TYPES.BUSINESS_USER],
+    permissions: USER_TYPE_PERMISSIONS[USER_TYPES.BUSINESS_USER],
     isActive: true
   },
   {
-    id: 'auditor',
-    name: 'auditor',
-    displayName: 'Auditor',
-    description: 'Auditor certificado que puede revisar y validar certificaciones',
-    permissions: [
-      'conduct_audits',
-      'validate_evidence',
-      'generate_reports',
-      'view_assigned_businesses',
-      'manage_audit_schedule'
-    ],
-    isActive: true
-  },
-  {
-    id: 'viewer',
-    name: 'viewer',
-    displayName: 'Visualizador',
-    description: 'Usuario con permisos de solo lectura',
-    permissions: [
-      'view_public_data',
-      'view_own_profile'
-    ],
+    id: USER_TYPES.AUDITOR,
+    name: USER_TYPES.AUDITOR,
+    displayName: USER_TYPE_DISPLAY_NAMES[USER_TYPES.AUDITOR],
+    description: USER_TYPE_DESCRIPTIONS[USER_TYPES.AUDITOR],
+    permissions: USER_TYPE_PERMISSIONS[USER_TYPES.AUDITOR],
     isActive: true
   }
 ];

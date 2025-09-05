@@ -1,6 +1,8 @@
 'use client';
 
+import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { USER_TYPES } from '@/lib/types/permissions';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { 
@@ -105,21 +107,18 @@ export default function DashboardPage() {
       // Redirect approved users to their appropriate panels
       if (user.status === 'approved') {
         switch (userType.name) {
-          case 'admin':
+          case USER_TYPES.ADMIN:
             // Admins stay on dashboard with admin features
             break;
-          case 'auditor':
+          case USER_TYPES.AUDITOR:
             router.push('/auditor');
             return;
-          case 'business_owner':
+          case USER_TYPES.BUSINESS_USER:
             if (!activeBusiness) {
               router.push('/business-setup');
               return;
             }
-            // Stay on dashboard for business owners with active business
-            break;
-          case 'viewer':
-            // Viewers stay on basic dashboard
+            // Stay on dashboard for business users with active business
             break;
         }
       }
@@ -808,20 +807,17 @@ export default function DashboardPage() {
                   </h3>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <button 
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium disabled:bg-gray-400"
-                      disabled={userType?.name === 'viewer'}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
                     >
                       Ver Estándares
                     </button>
                     <button 
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium disabled:bg-gray-400"
-                      disabled={userType?.name === 'viewer'}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
                     >
                       Subir Evidencia
                     </button>
                     <button 
-                      className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium disabled:bg-gray-400"
-                      disabled={userType?.name === 'viewer'}
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium"
                     >
                       Ver Auditorías
                     </button>
