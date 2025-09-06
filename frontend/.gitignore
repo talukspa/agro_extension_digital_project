@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Re-include local frontend library folder which is unintentionally matched by the
+# top-level `lib/` ignore rule (see repo root .gitignore). This allows tracking
+# files under frontend/src/lib
+!src/lib/
