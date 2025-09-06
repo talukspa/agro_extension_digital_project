@@ -205,18 +205,18 @@ export default function DashboardPage() {
     }
   };
 
-  const handleApproveBusinessUser = async (businessId: string, userId: string) => {
+  const handleApproveBusinessUser = async (requestId: string) => {
     try {
-      await approveBusinessUser(businessId, userId, user!.uid);
+      await approveBusinessUser(requestId, user!.uid);
       await loadAdminData();
     } catch (error) {
       console.error('Error approving business user:', error);
     }
   };
 
-  const handleRejectBusinessUser = async (businessId: string, userId: string, reason: string) => {
+  const handleRejectBusinessUser = async (requestId: string, reason: string) => {
     try {
-      await rejectBusinessUser(businessId, userId, user!.uid, reason);
+      await rejectBusinessUser(requestId, user!.uid, reason);
       await loadAdminData();
     } catch (error) {
       console.error('Error rejecting business user:', error);
@@ -568,6 +568,28 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
+                  {/* Information Banner */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium text-blue-800">
+                          Proceso de Aprobación de Empresas
+                        </h3>
+                        <div className="mt-2 text-sm text-blue-700">
+                          <p>
+                            Cuando apruebas una empresa, automáticamente se aprueba también el propietario (business_owner). 
+                            Si rechazas la empresa, el propietario también será rechazado.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Admin Quick Actions */}
                   <div className="bg-white shadow rounded-lg mb-6">
                     <div className="px-4 py-5 sm:p-6">
@@ -681,14 +703,23 @@ export default function DashboardPage() {
                           <div className="space-y-3">
                             {pendingBusinesses.slice(0, 5).map((business) => (
                               <div key={business.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                <div>
+                                <div className="flex-1">
                                   <p className="font-medium text-gray-900">{business.businessName}</p>
                                   <p className="text-sm text-gray-500">{business.businessType}</p>
+                                  {(business as any).ownerInfo && (
+                                    <p className="text-xs text-blue-600 mt-1">
+                                      Propietario: {(business as any).ownerInfo.displayName || (business as any).ownerInfo.email}
+                                      {(business as any).ownerInfo.status === 'pending' && (
+                                        <span className="ml-1 text-orange-600">(También pendiente)</span>
+                                      )}
+                                    </p>
+                                  )}
                                 </div>
                                 <div className="flex space-x-2">
                                   <button
                                     onClick={() => handleApproveBusiness(business.id)}
                                     className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                                    title={(business as any).ownerInfo?.status === 'pending' ? 'Aprobará tanto la empresa como el propietario' : 'Aprobar empresa'}
                                   >
                                     Aprobar
                                   </button>
@@ -700,6 +731,7 @@ export default function DashboardPage() {
                                       }
                                     }}
                                     className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+                                    title={(business as any).ownerInfo?.status === 'pending' ? 'Rechazará tanto la empresa como el propietario' : 'Rechazar empresa'}
                                   >
                                     Rechazar
                                   </button>
@@ -786,7 +818,7 @@ export default function DashboardPage() {
                                 </div>
                                 <div className="flex space-x-2">
                                   <button
-                                    onClick={() => handleApproveBusinessUser(request.businessId, request.userId)}
+                                    onClick={() => handleApproveBusinessUser(request.id)}
                                     className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
                                   >
                                     Aprobar
@@ -795,7 +827,7 @@ export default function DashboardPage() {
                                     onClick={() => {
                                       const reason = prompt('Razón del rechazo (opcional):');
                                       if (reason !== null) {
-                                        handleRejectBusinessUser(request.businessId, request.userId, reason);
+                                        handleRejectBusinessUser(request.id, reason);
                                       }
                                     }}
                                     className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"

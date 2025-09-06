@@ -135,18 +135,18 @@ function AdminDashboard() {
     }
   };
 
-  const handleApproveBusinessUser = async (businessId: string, userId: string) => {
+  const handleApproveBusinessUser = async (requestId: string) => {
     try {
-      await approveBusinessUser(businessId, userId, user!.uid);
+      await approveBusinessUser(requestId, user!.uid);
       await loadPendingData();
     } catch (error) {
       console.error('Error approving business user:', error);
     }
   };
 
-  const handleRejectBusinessUser = async (businessId: string, userId: string, reason: string) => {
+  const handleRejectBusinessUser = async (requestId: string, reason: string) => {
     try {
-      await rejectBusinessUser(businessId, userId, user!.uid, reason);
+      await rejectBusinessUser(requestId, user!.uid, reason);
       await loadPendingData();
     } catch (error) {
       console.error('Error rejecting business user:', error);
@@ -663,7 +663,7 @@ function AdminDashboard() {
                             </div>
                             <div className="flex space-x-2">
                               <button
-                                onClick={() => handleApproveBusinessUser(request.businessId, request.userId)}
+                                onClick={() => handleApproveBusinessUser(request.id)}
                                 className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
                               >
                                 Aprobar
@@ -672,7 +672,7 @@ function AdminDashboard() {
                                 onClick={() => {
                                   const reason = prompt('Razón del rechazo (opcional):');
                                   if (reason !== null) {
-                                    handleRejectBusinessUser(request.businessId, request.userId, reason);
+                                    handleRejectBusinessUser(request.id, reason);
                                   }
                                 }}
                                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
