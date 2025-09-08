@@ -1,140 +1,373 @@
-# Project: Standardization of Agricultural and Agro-industrial Standards Data for Firestore
+# AgroExtensión Digital - Modelo de Datos Firestore
 
-This project involves the standardization of agricultural and agro-industrial standards data, designed to be stored in **Firestore**. The following conceptual data model describes the collections, documents, and their relationships, aiming for consistency and clarity in a NoSQL context.
+Este proyecto implementa el modelo de datos para **AgroExtensión Digital**, una plataforma multi-tenant de extensión agrícola diseñada para gestionar certificaciones y estándares agro-industriales usando **Google Firestore**.
 
-### High-Level Overview: A NoSQL Approach for Flexibility
+## Arquitectura General
 
-This data model is designed for Firestore, a NoSQL document database. Instead of rigid tables with rows and columns, we use **collections** that hold individual **documents**. Think of a collection like a folder, and a document like a file with its own unique structure.
+### Paradigma NoSQL Multi-tenant
+El sistema utiliza Firestore (base de datos NoSQL) con un diseño multi-tenant que permite a múltiples empresas (tenants) operar de forma independiente dentro de la misma instancia de la plataforma.
 
-This approach offers two key advantages:
+**Ventajas del diseño NoSQL:**
+1. **Flexibilidad**: Cada documento puede tener estructura ligeramente diferente
+2. **Rendimiento**: Datos relacionados embebidos reducen operaciones de lectura
+3. **Escalabilidad**: Diseño multi-tenant eficiente
 
-1.  **Flexibility**: Each document can have a slightly different structure. This is perfect for our case, where different standards may require different kinds of data.
-2.  **Performance**: By embedding related data within a single document (e.g., embedding answers within a response), we can often retrieve all the information we need in a single read operation, which is much faster and more cost-effective in Firestore.
-
-We use two main techniques to relate data:
-
-*   **Embedding**: Placing an object or an array of objects directly inside a document. We do this when the data is tightly coupled and usually accessed together (e.g., the answers within a single response).
-*   **Referencing**: Storing the ID of a document from another collection. We do this when data is shared or accessed independently (e.g., referencing an `auditor` from multiple `responses`).
-
----
-
-### Detailed Breakdown of Collections and Documents
-
-#### 1. `business_profiles` (Collection)
-
-*   **Purpose**: This is the master list of all businesses in the system. It acts as the single source of truth for business information.
-*   **Document ID**: The business's unique tax identifier (`rut`). Using a natural identifier like the RUT as the document ID makes it very easy and efficient to look up a specific business.
-*   **Fields**: Contains static information about the business, such as its name, address, size, and contact details for the owner.
-
-#### 2. `standards` (Collection)
-
-*   **Purpose**: This collection holds the master templates for all the different standards (e.g., "Agricultural Agreement for Plums", "Primary Production for Plums").
-*   **Document ID**: A descriptive name for the template (e.g., `ciruelas-aa`).
-*   **Fields**:
-    *   `description`: A human-readable description of the standard.
-    *   `questions`: This is an **array of embedded `action` objects**. It contains every question, requirement, and piece of information that defines that specific standard. By embedding the questions, we ensure that a single read of a `standard` document gives us the entire template.
-
-#### 3. `auditors` (Collection)
-
-*   **Purpose**: A central registry for all auditors who can verify responses.
-*   **Document ID**: The auditor's unique ID (`auditor_id`).
-*   **Fields**: Contains the auditor's name and contact information, as well as a list of business RUTs they are assigned to, which allows for easily querying all businesses for a specific auditor.
-
-#### 4. `responses` (Collection)
-
-*   **Purpose**: This is the most dynamic collection. It stores the answers provided by a business for a specific standard. Each document represents a single business's attempt to complete a standard.
-*   **Document ID**: An auto-generated unique ID from Firestore. We don't use a natural ID here because a business might have multiple responses over time.
-*   **Fields**:
-    *   `business_rut`: A **reference** to the `business_profiles` collection. This links the response back to the business that provided it.
-    *   `auditor_id`: A **reference** to the `auditors` collection. This assigns an auditor to review this specific response.
-    *   `is_completed` and `date`: Metadata for tracking the status and timestamp of the response.
-    *   `answers`: This is the core of the response document. It's an **array of embedded `answer` objects**, where each object represents the business's answer to a single question from the standard.
+**Técnicas de relacionamiento:**
+- **Embebido**: Objetos anidados para datos fuertemente acoplados
+- **Referenciado**: IDs de documentos para datos independientes o compartidos
 
 ---
 
-### Deep Dive: `answer`, `register`, and `logs`
+## Colecciones Principales
 
-This is where the model's flexibility really shines. The goal is to handle different kinds of verification for different questions within the same structure. A question might require a simple "Yes/No" answer, a photograph, a PDF document, or a detailed log of activities.
+### 1. `user_types` (Collection)
+**Propósito**: Define los tipos de usuario válidos en el sistema con sus permisos correspondientes.
 
-#### The `answer` Object (Embedded in `response`)
+**Document ID**: ID del tipo de usuario (debe coincidir con `id` y `name`)
 
-The `answer` object is the bridge between a question and its response.
+**Estructura crítica**: `document_id = id = name` (patrón requerido para sincronización frontend/backend)
 
-*   `action`: It **embeds a full copy of the `action` (question) object** from the `standard` template. This is a crucial design choice. It "freezes" the question as it was when the user answered it. If the master `standard` template is updated later, it won't affect the historical record of this response, which is essential for auditing and compliance.
-*   `answer_value`: This holds the direct answer from the user (e.g., "Yes", "No", a number, or a text selection).
-*   `register`: This field only exists if the question requires verification (i.e., the `verification_type` in the `action` object is set to `image`, `document`, or `log`). It **embeds a `register` object**.
+**Tipos de usuario definidos**:
+- `admin`: Administrador del sistema
+- `auditor`: Auditor de certificación  
+- `business_user`: Usuario de empresa
+- `business_owner`: Propietario de empresa
 
-#### The `register` Object (Embedded in `answer`)
+```typescript
+interface UserType {
+  id: string;           // debe coincidir con document_id y name
+  name: string;         // debe coincidir con document_id e id
+  description: string;
+  permissions: string[];
+  routes: string[];
+}
+```
 
-The `register` object is a container for the evidence provided by the user. Its structure is polymorphic, meaning it changes based on the type of verification required.
+### 2. `users` (Collection)
+**Propósito**: Perfiles de todos los usuarios del sistema con asociaciones multi-tenant.
 
-*   **Common Fields**:
-    *   `upload_timestamp`, `validation_status`, `auditor_comments`: These are metadata fields used by the auditor to track the verification process for this specific piece of evidence.
+**Document ID**: Firebase Auth UID
 
-*   **Conditional Fields**: This is the key to its flexibility.
-    *   If `verification_type` was `image`, the `register` object will contain an `image_url` field pointing to the uploaded photo in a storage service (like Google Cloud Storage).
-    *   If `verification_type` was `document`, it will contain a `document_url` field pointing to the uploaded PDF, Word document, etc.
-    *   If `verification_type` was `log`, it will contain a `logs` field.
+```typescript
+interface User {
+  uid: string;
+  name: string;
+  email: string;
+  userType: UserTypeId; // referencia a user_types
+  businesses: string[]; // array de business IDs para multi-tenant
+  createdAt: Timestamp;
+  lastLogin: Timestamp;
+  status: 'active' | 'inactive' | 'pending';
+}
+```
 
-#### The `logs` Object (Embedded in `register`)
+### 3. `businesses` (Collection)
+**Propósito**: Entidades tenant del sistema (empresas/organizaciones).
 
-The `logs` field is not a single object, but an **array of `log` entry objects**. This is designed for structured, repeatable data that would be cumbersome to upload as a single document, like a maintenance log or a record of fertilizer application.
+**Document ID**: ID único generado automáticamente
 
-*   **Purpose**: It allows users to enter structured data directly into the application, which is then stored as an array of objects. This is far more powerful than uploading a spreadsheet because the data is now queryable.
-*   **Structure**: Each `log` entry in the array has two fields:
-    *   `standard_code`: This indicates which question the log entry is for.
-    *   `data`: This is a JSON object whose schema is **strictly defined by the `standard_code`**.
+```typescript
+interface Business {
+  id: string;
+  rut: string;          // identificador tributario único
+  legal_name: string;
+  address: string;
+  region: string;
+  commune: string;
+  business_size: string;
+  process_type: string;
+  owner_name: string;
+  owner_email: string;
+  owner_phone: string;
+  owner_role: string;
+  digital_tools_used_at_work: string[];
+  digital_tools_experienced: string[];
+  members: string[];    // array de user UIDs
+  status: 'active' | 'suspended' | 'inactive';
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+```
 
-*   **Example**: Let's look at `standard_code: "A001"` (Water Consumption).
-    A `log` entry for this standard will have a `data` object with the following fields:
-    *   `supply_source`: "Canal"
-    *   `monthly_consumption_m3`: 150
-    *   `process_use_type`: "Irrigation"
+### 4. `auditor_profiles` (Collection)
+**Propósito**: Perfiles específicos para auditores con certificaciones y asignaciones.
 
-    For `standard_code: "A033"` (Fertilizer Application), a `log` entry would look completely different:
-    *   `product_name`: "Super Grow"
-    *   `lot_number`: 12345
-    *   `application_date`: "2025-08-28T10:00:00Z"
-    *   `dose_applied`: 2.5
+**Document ID**: Firebase Auth UID del auditor
 
-This structure allows the application to present a specific form to the user based on the `standard_code` of the question they are answering, ensuring that the data collected is always structured, valid, and ready for analysis.
+```typescript
+interface AuditorProfile {
+  userId: string;       // referencia a users collection
+  certifications: string[];
+  specializations: string[];
+  assignedBusinesses: string[]; // business IDs asignados
+  status: 'active' | 'inactive';
+  createdAt: Timestamp;
+}
+```
 
-### Summary of the Data Flow
+### 5. `standards` (Collection)
+**Propósito**: Plantillas maestras de estándares de certificación.
 
-1.  A **business** logs in (document in `business_profiles`).
-2.  They choose a **standard** to complete (document in `standards`).
-3.  A new **response** document is created in the `responses` collection, referencing the business.
-4.  For each question (`action`) in the standard, an `answer` object is created in the `response` document.
-5.  If a question requires verification:
-    *   A `register` object is created inside the `answer`.
-    *   If it's a photo/document, a URL is stored in the `register` object.
-    *   If it's a log, the user fills out a form, and the structured data is stored as an array of `logs` objects inside the `register` object.
-6.  An **auditor** is assigned to the `response` (a reference in the `response` document).
-7.  The auditor reviews each `register` object, updates its `validation_status`, and adds comments.
+**Document ID**: Nombre descriptivo del estándar (ej: `adecuacion-agroindustrial`)
 
-This model provides a robust and scalable way to manage complex, evolving standards while keeping the data structured and easy to query.
+```typescript
+interface Standard {
+  template_name: string;
+  description: string;
+  actions: Action[];    // array embebido de preguntas/acciones
+  version: string;
+  status: 'active' | 'deprecated';
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
 
-### Data Structure Diagram
+interface Action {
+  standard_code: string;  // código único (ej: "A001")
+  level: 'Fundamental' | 'Básico' | 'Avanzado';
+  points: number;
+  dimension: string;
+  theme: string;
+  good_practice: string;
+  action: string;
+  verification_detail: string;
+  verification_type: 'log' | 'image' | 'document' | 'none';
+  valid_answers: string[];
+  link: string;
+  resources: Resource[];  // array embebido de recursos
+}
+
+interface Resource {
+  type: string;         // 'Guía' | 'Curso' | 'Estándar' | 'Registro'
+  detail: string;
+  urls: {
+    web?: string;
+    pdf?: string;
+    curso?: string;
+  };
+}
+```
+
+### 6. `responses` (Collection)
+**Propósito**: Respuestas de empresas a estándares específicos (núcleo del sistema de certificación).
+
+**Document ID**: ID único generado automáticamente
+
+```typescript
+interface Response {
+  id: string;
+  business_rut: string;     // referencia a business
+  standard_template: string; // referencia a standard
+  auditor_id?: string;      // referencia opcional a auditor
+  is_completed: boolean;
+  date: Timestamp;
+  answers: Answer[];        // array embebido de respuestas
+  status: 'draft' | 'submitted' | 'under_review' | 'approved' | 'rejected';
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+interface Answer {
+  action: Action;          // copia embebida del action original (snapshot)
+  answer_value: string;    // respuesta del usuario
+  register?: Register;     // evidencia opcional embebida
+}
+
+interface Register {
+  upload_timestamp: Timestamp;
+  validation_status: 'pending' | 'validated' | 'rejected';
+  validation_timestamp?: Timestamp;
+  auditor_id?: string;
+  auditor_comments?: string;
+  
+  // Campos condicionales según verification_type
+  image_url?: string;      // si verification_type = 'image'
+  document_url?: string;   // si verification_type = 'document'  
+  logs?: LogEntry[];       // si verification_type = 'log'
+}
+
+interface LogEntry {
+  standard_code: string;   // referencia al action
+  data: Record<string, any>; // esquema definido por standard_code
+  timestamp: Timestamp;
+}
+```
+
+---
+
+## Patrones de Diseño Críticos
+
+### Multi-tenancy
+- Cada operación debe incluir `businessId` para scope
+- Usuarios pueden pertenecer a múltiples businesses
+- Validación de permisos tanto client-side como server-side
+
+### Snapshot Pattern (Respuestas)
+- Cada `answer` embebe una copia completa del `action` original
+- Garantiza inmutabilidad histórica aunque el estándar cambie
+- Permite auditoría completa de lo que se preguntó vs. lo que se respondió
+
+### Verificación Polimórfica
+- El objeto `register` cambia estructura según `verification_type`
+- `log`: estructura de datos definida por `standard_code`
+- `image`/`document`: URLs a Firebase Storage
+- Flexibilidad para nuevos tipos de verificación
+
+### Consistencia de IDs
+- `user_types`: `document_id = id = name` (requerido para sync frontend/backend)
+- Otros documentos usan IDs autogenerados o naturales según contexto
+
+---
+
+## Flujo de Datos Principal
+
+1. **Business** se registra → documento en `businesses`
+2. **Users** se asocian al business → documentos en `users` con `businesses[]`
+3. **Standard** se selecciona → documento de `standards`
+4. **Response** se crea → documento en `responses` referenciando business y standard
+5. Para cada `action` del standard:
+   - Se crea `answer` embebido con snapshot del `action`
+   - Si requiere verificación → se crea `register` embebido
+   - Para logs → array de `LogEntry` con esquema específico
+6. **Auditor** revisa → actualiza `validation_status` en cada `register`
+
+---
+
+## Scripts de Verificación
+
+### Sincronización Frontend/Backend
+```bash
+cd data_model && uv run verify_basic_types_sync.py
+```
+Verifica que los `USER_TYPES` del frontend coincidan con documentos en Firestore.
+
+### Normalización de Formato
+```bash
+cd data_model && uv run normalize_user_types_format.py  
+```
+Corrige formato de IDs en `user_types` collection.
+
+---
+
+## Consideraciones de Rendimiento
+
+### Lecturas Optimizadas
+- Embedding reduce operaciones: 1 read para response completa
+- Indices en campos de query frecuente: `business_rut`, `standard_template`
+
+### Escrituras Escalables
+- Batch operations para updates masivos
+- Transacciones para operaciones críticas (assign auditor + update status)
+
+### Storage
+- Archivos grandes en Firebase Storage con URLs en Firestore
+- Compresión automática de imágenes
+- Limpieza periódica de archivos huérfanos
+
+---
+
+## Evolución y Mantenimiento
+
+### Versionado de Estándares
+- Campo `version` en standards
+- Snapshot pattern preserva consistencia histórica
+- Migración gradual entre versiones
+
+### Escalabilidad Multi-tenant
+- Sharding por región geográfica si es necesario
+- Indices compuestos para queries multi-tenant eficientes
+- Monitoring por tenant para detectar hot spots
+
+### Compliance y Auditoría
+- Immutable audit trail en `register` objects
+- Logs de todas las operaciones administrativas
+- Backup incremental con retención por requerimientos legales
+---
+
+## Diagrama de Estructura de Datos
 
 ```mermaid
 graph TD
-    subgraph Collections
-        A(business_profiles) --> B(responses)
-        C(standards) --> B
-        D(auditors) --> B
+    subgraph "Collections Principales"
+        UT[user_types] 
+        U[users]
+        B[businesses]
+        AP[auditor_profiles]
+        S[standards]
+        R[responses]
     end
 
-    subgraph "Response Document"
-        B -- embeds --> E(answers)
-        E -- embeds --> F(register)
-        F -- embeds --> G(logs)
+    subgraph "Documentos Embebidos"
+        R --> A[answers]
+        A --> REG[register]
+        REG --> L[logs]
+        S --> AC[actions]
+        AC --> RES[resources]
     end
 
-    subgraph "Standard Document"
-        C -- embeds --> H(actions)
-        H -- embeds --> I(resources)
+    subgraph "Referencias"
+        U -.-> UT
+        U -.-> B
+        AP -.-> U
+        R -.-> B
+        R -.-> AP
+        A -.-> AC
     end
 
-    B -.-> A
-    B -.-> D
+    subgraph "Patrones Multi-tenant"
+        B --> |business_id| R
+        U --> |businesses[]| B
+        AP --> |assignedBusinesses[]| B
+    end
+```
+
+## Ejemplo de Documento Response Completo
+
+```json
+{
+  "id": "resp_001",
+  "business_rut": "76.432.187-4",
+  "standard_template": "adecuacion-agroindustrial",
+  "auditor_id": "aud_carlos_ruiz",
+  "is_completed": true,
+  "status": "under_review",
+  "date": "2025-09-08T10:00:00Z",
+  "answers": [
+    {
+      "action": {
+        "standard_code": "A001",
+        "level": "Fundamental",
+        "points": 5,
+        "dimension": "Ambiente",
+        "theme": "Agua",
+        "good_practice": "Gestionar los recursos hídricos en la planta",
+        "action": "La planta registra mensualmente el consumo de agua...",
+        "verification_type": "log",
+        "verification_detail": "Registro de consumo de agua mensual...",
+        "valid_answers": ["Si cumplo", "No cumplo", "No cumplo, pero me es factible", "No aplica"],
+        "resources": [...]
+      },
+      "answer_value": "Si cumplo",
+      "register": {
+        "upload_timestamp": "2025-09-08T10:30:00Z",
+        "validation_status": "validated",
+        "validation_timestamp": "2025-09-08T15:00:00Z",
+        "auditor_id": "aud_carlos_ruiz",
+        "auditor_comments": "Registro completo y consistente",
+        "logs": [
+          {
+            "standard_code": "A001",
+            "timestamp": "2025-08-01T00:00:00Z",
+            "data": {
+              "supply_source": "Canal",
+              "monthly_consumption_m3": 150,
+              "process_use_type": "Irrigation"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "createdAt": "2025-09-08T09:00:00Z",
+  "updatedAt": "2025-09-08T15:00:00Z"
+}
 ```
