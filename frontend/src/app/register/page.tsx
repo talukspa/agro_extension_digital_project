@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { getErrorMessage } from '@/lib/firebase/auth';
+import { Button } from '@/components/ui/Button';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -83,22 +84,22 @@ export default function RegisterPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Cargando...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <div className="mx-auto h-12 w-12 flex items-center justify-center bg-green-600 rounded-full">
+          <div className="mx-auto h-12 w-12 flex items-center justify-center bg-primary rounded-full">
             <svg
-              className="h-8 w-8 text-white"
+              className="h-8 w-8 text-primary-foreground"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -111,14 +112,14 @@ export default function RegisterPage() {
               />
             </svg>
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-foreground">
             Crea tu cuenta
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-center text-sm text-muted-foreground">
             O{' '}
             <Link
               href="/login"
-              className="font-medium text-green-600 hover:text-green-500"
+              className="font-medium text-primary hover:text-primary/80"
             >
               inicia sesión si ya tienes una cuenta
             </Link>
@@ -141,7 +142,7 @@ export default function RegisterPage() {
                   />
                 </svg>
                 <div className="ml-3">
-                  <p className="text-sm text-red-800">{error}</p>
+                  <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
                 </div>
               </div>
             </div>
@@ -149,7 +150,7 @@ export default function RegisterPage() {
 
           <div className="space-y-4">
             <div>
-              <label htmlFor="displayName" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="displayName" className="block text-sm font-medium text-foreground">
                 Nombre completo
               </label>
               <input
@@ -158,7 +159,7 @@ export default function RegisterPage() {
                 type="text"
                 autoComplete="name"
                 required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border placeholder:text-muted-foreground text-foreground rounded-md focus:outline-none focus:ring-ring focus:border-primary sm:text-sm"
                 placeholder="Tu nombre completo"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -166,7 +167,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="block text-sm font-medium text-foreground">
                 Correo electrónico
               </label>
               <input
@@ -175,7 +176,7 @@ export default function RegisterPage() {
                 type="email"
                 autoComplete="email"
                 required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border placeholder:text-muted-foreground text-foreground rounded-md focus:outline-none focus:ring-ring focus:border-primary sm:text-sm"
                 placeholder="Correo electrónico"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -183,7 +184,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-foreground">
                 Contraseña
               </label>
               <input
@@ -192,7 +193,7 @@ export default function RegisterPage() {
                 type="password"
                 autoComplete="new-password"
                 required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border placeholder:text-muted-foreground text-foreground rounded-md focus:outline-none focus:ring-ring focus:border-primary sm:text-sm"
                 placeholder="Contraseña (mínimo 6 caracteres)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -200,7 +201,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground">
                 Confirmar contraseña
               </label>
               <input
@@ -209,7 +210,7 @@ export default function RegisterPage() {
                 type="password"
                 autoComplete="new-password"
                 required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border placeholder:text-muted-foreground text-foreground rounded-md focus:outline-none focus:ring-ring focus:border-primary sm:text-sm"
                 placeholder="Confirma tu contraseña"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -222,15 +223,15 @@ export default function RegisterPage() {
               id="accept-terms"
               name="accept-terms"
               type="checkbox"
-              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+              className="h-4 w-4 text-fresh-600 dark:text-fresh-400 focus:ring-plum-500 border rounded"
               checked={acceptTerms}
               onChange={(e) => setAcceptTerms(e.target.checked)}
             />
-            <label htmlFor="accept-terms" className="ml-2 block text-sm text-gray-900">
+            <label htmlFor="accept-terms" className="ml-2 block text-sm text-foreground">
               Acepto los{' '}
               <Link
                 href="/terms"
-                className="text-green-600 hover:text-green-500"
+                className="text-fresh-600 dark:text-fresh-400 hover:text-fresh-700 dark:hover:text-fresh-300"
                 target="_blank"
               >
                 términos y condiciones
@@ -238,7 +239,7 @@ export default function RegisterPage() {
               y la{' '}
               <Link
                 href="/privacy"
-                className="text-green-600 hover:text-green-500"
+                className="text-fresh-600 dark:text-fresh-400 hover:text-fresh-700 dark:hover:text-fresh-300"
                 target="_blank"
               >
                 política de privacidad
@@ -247,35 +248,30 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-4">
-            <button
+            <Button
               type="submit"
               disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              fullWidth
+              isLoading={isLoading}
             >
-              {isLoading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Creando cuenta...
-                </div>
-              ) : (
-                'Crear cuenta'
-              )}
-            </button>
+              {isLoading ? 'Creando cuenta...' : 'Crear cuenta'}
+            </Button>
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
+                <div className="w-full border-t border" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-gray-50 text-gray-500">O regístrate con</span>
+                <span className="px-2 bg-background text-gray-500">O regístrate con</span>
               </div>
             </div>
 
-            <button
+            <Button
               type="button"
               onClick={handleGoogleSignUp}
               disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="outline"
+              fullWidth
             >
               <svg
                 className="w-5 h-5 mr-2"
@@ -299,7 +295,7 @@ export default function RegisterPage() {
                 />
               </svg>
               {isLoading ? 'Conectando...' : 'Continuar con Google'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

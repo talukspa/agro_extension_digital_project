@@ -199,35 +199,35 @@ function AdminDashboard() {
 
   if (loading || dataLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-plum-50 dark:bg-plum-950">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando panel de administración...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-plum-600 mx-auto"></div>
+          <p className="mt-4 text-plum-700 dark:text-plum-300">Cargando panel de administración...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-plum-50 dark:bg-plum-950">
       {/* Navigation */}
-      <nav className="bg-white shadow">
+      <nav className="bg-white dark:bg-plum-900 shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <h1 className="text-xl font-bold text-gray-900">
+                <h1 className="text-xl font-bold text-plum-900 dark:text-plum-100">
                   Panel de Administración
                 </h1>
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-700">
+              <div className="text-sm text-plum-800 dark:text-plum-200">
                 {user?.displayName || user?.email}
               </div>
               <button
                 onClick={handleSignOut}
-                className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-md text-sm font-medium"
+                className="bg-plum-600 hover:bg-plum-700 text-white px-3 py-2 rounded-md text-sm font-medium"
               >
                 Cerrar sesión
               </button>
@@ -242,7 +242,7 @@ function AdminDashboard() {
           
           {/* Stats Cards */}
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-            <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="bg-white dark:bg-plum-900 overflow-hidden shadow rounded-lg">
               <div className="p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
@@ -252,10 +252,10 @@ function AdminDashboard() {
                   </div>
                   <div className="ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">
+                      <dt className="text-sm font-medium text-plum-600 dark:text-plum-400 truncate">
                         Usuarios Pendientes
                       </dt>
-                      <dd className="text-lg font-medium text-gray-900">
+                      <dd className="text-lg font-medium text-plum-900 dark:text-plum-100">
                         Esperando aprobación
                       </dd>
                     </dl>
@@ -264,7 +264,7 @@ function AdminDashboard() {
               </div>
             </div>
 
-            <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="bg-white dark:bg-plum-900 overflow-hidden shadow rounded-lg">
               <div className="p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
@@ -274,10 +274,10 @@ function AdminDashboard() {
                   </div>
                   <div className="ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">
+                      <dt className="text-sm font-medium text-plum-600 dark:text-plum-400 truncate">
                         Empresas Pendientes
                       </dt>
-                      <dd className="text-lg font-medium text-gray-900">
+                      <dd className="text-lg font-medium text-plum-900 dark:text-plum-100">
                         Esperando aprobación
                       </dd>
                     </dl>
@@ -286,7 +286,7 @@ function AdminDashboard() {
               </div>
             </div>
 
-            <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="bg-white dark:bg-plum-900 overflow-hidden shadow rounded-lg">
               <div className="p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
@@ -296,10 +296,10 @@ function AdminDashboard() {
                   </div>
                   <div className="ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">
+                      <dt className="text-sm font-medium text-plum-600 dark:text-plum-400 truncate">
                         Auditores Pendientes
                       </dt>
-                      <dd className="text-lg font-medium text-gray-900">
+                      <dd className="text-lg font-medium text-plum-900 dark:text-plum-100">
                         Esperando aprobación
                       </dd>
                     </dl>
@@ -308,20 +308,20 @@ function AdminDashboard() {
               </div>
             </div>
 
-            <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="bg-white dark:bg-plum-900 overflow-hidden shadow rounded-lg">
               <div className="p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <span className="text-green-600 font-semibold">{pendingBusinessUsers.length}</span>
+                    <div className="w-8 h-8 bg-fresh-100 dark:bg-fresh-900 rounded-full flex items-center justify-center">
+                      <span className="text-fresh-600 dark:text-fresh-400 font-semibold">{pendingBusinessUsers.length}</span>
                     </div>
                   </div>
                   <div className="ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">
+                      <dt className="text-sm font-medium text-plum-600 dark:text-plum-400 truncate">
                         Accesos a Empresas
                       </dt>
-                      <dd className="text-lg font-medium text-gray-900">
+                      <dd className="text-lg font-medium text-plum-900 dark:text-plum-100">
                         Solicitudes pendientes
                       </dd>
                     </dl>
@@ -332,7 +332,7 @@ function AdminDashboard() {
           </div>
 
           {/* Search and Tabs */}
-          <div className="bg-white shadow rounded-lg mb-6">
+          <div className="bg-white dark:bg-plum-900 shadow rounded-lg mb-6">
             <div className="px-4 py-5 sm:p-6">
               {/* Search */}
               <div className="mb-4">
@@ -341,19 +341,19 @@ function AdminDashboard() {
                   placeholder="Buscar por nombre, email o empresa..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-plum-300 dark:border-plum-700 rounded-md focus:outline-none focus:ring-2 focus:ring-plum-500 focus:border-transparent"
                 />
               </div>
 
               {/* Tabs */}
-              <div className="border-b border-gray-200">
+              <div className="border-b border-plum-200 dark:border-plum-800">
                 <nav className="-mb-px flex space-x-8">
                   <button
                     onClick={() => setActiveTab('users')}
                     className={`py-2 px-1 border-b-2 font-medium text-sm ${
                       activeTab === 'users'
-                        ? 'border-green-500 text-green-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        ? 'border-plum-500 text-fresh-600 dark:text-fresh-400'
+                        : 'border-transparent text-plum-600 dark:text-plum-400 hover:text-plum-800 dark:text-plum-200 hover:border-plum-300 dark:border-plum-700'
                     }`}
                   >
                     Usuarios ({pendingUsers.length})
@@ -362,8 +362,8 @@ function AdminDashboard() {
                     onClick={() => setActiveTab('businesses')}
                     className={`py-2 px-1 border-b-2 font-medium text-sm ${
                       activeTab === 'businesses'
-                        ? 'border-green-500 text-green-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        ? 'border-plum-500 text-fresh-600 dark:text-fresh-400'
+                        : 'border-transparent text-plum-600 dark:text-plum-400 hover:text-plum-800 dark:text-plum-200 hover:border-plum-300 dark:border-plum-700'
                     }`}
                   >
                     Empresas ({pendingBusinesses.length})
@@ -372,8 +372,8 @@ function AdminDashboard() {
                     onClick={() => setActiveTab('auditors')}
                     className={`py-2 px-1 border-b-2 font-medium text-sm ${
                       activeTab === 'auditors'
-                        ? 'border-green-500 text-green-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        ? 'border-plum-500 text-fresh-600 dark:text-fresh-400'
+                        : 'border-transparent text-plum-600 dark:text-plum-400 hover:text-plum-800 dark:text-plum-200 hover:border-plum-300 dark:border-plum-700'
                     }`}
                   >
                     Auditores ({pendingAuditors.length})
@@ -382,8 +382,8 @@ function AdminDashboard() {
                     onClick={() => setActiveTab('business-users')}
                     className={`py-2 px-1 border-b-2 font-medium text-sm ${
                       activeTab === 'business-users'
-                        ? 'border-green-500 text-green-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        ? 'border-plum-500 text-fresh-600 dark:text-fresh-400'
+                        : 'border-transparent text-plum-600 dark:text-plum-400 hover:text-plum-800 dark:text-plum-200 hover:border-plum-300 dark:border-plum-700'
                     }`}
                   >
                     Accesos a Empresas ({pendingBusinessUsers.length})
@@ -394,34 +394,34 @@ function AdminDashboard() {
           </div>
 
           {/* Tab Content */}
-          <div className="bg-white shadow rounded-lg">
+          <div className="bg-white dark:bg-plum-900 shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               
               {/* Users Tab */}
               {activeTab === 'users' && (
                 <div>
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  <h3 className="text-lg leading-6 font-medium text-plum-900 dark:text-plum-100 mb-4">
                     Usuarios Pendientes de Aprobación
                   </h3>
                   {filterUsers(pendingUsers).length > 0 ? (
                     <div className="space-y-4">
                       {filterUsers(pendingUsers).map((pendingUser) => (
-                        <div key={pendingUser.uid} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                        <div key={pendingUser.uid} className="border border-plum-200 dark:border-plum-800 rounded-lg p-4 hover:bg-plum-50 dark:bg-plum-950">
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3">
                                 <div className="flex-shrink-0">
                                   <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                                    <span className="text-sm font-medium text-gray-700">
+                                    <span className="text-sm font-medium text-plum-800 dark:text-plum-200">
                                       {pendingUser.displayName?.charAt(0) || pendingUser.email.charAt(0)}
                                     </span>
                                   </div>
                                 </div>
                                 <div>
-                                  <h4 className="text-sm font-medium text-gray-900">
+                                  <h4 className="text-sm font-medium text-plum-900 dark:text-plum-100">
                                     {pendingUser.displayName || 'Sin nombre'}
                                   </h4>
-                                  <p className="text-sm text-gray-500">{pendingUser.email}</p>
+                                  <p className="text-sm text-plum-600 dark:text-plum-400">{pendingUser.email}</p>
                                   <div className="flex items-center space-x-4 mt-1">
                                     <p className="text-xs text-gray-400">
                                       Solicitado: {pendingUser.requestedAt ? new Date(pendingUser.requestedAt).toLocaleDateString('es-ES') : 'N/A'}
@@ -436,7 +436,7 @@ function AdminDashboard() {
                             <div className="flex space-x-2">
                               <button
                                 onClick={() => handleApproveUser(pendingUser.uid)}
-                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                                className="bg-plum-600 hover:bg-plum-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
                               >
                                 Aprobar
                               </button>
@@ -458,7 +458,7 @@ function AdminDashboard() {
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <p className="text-gray-500">
+                      <p className="text-plum-600 dark:text-plum-400">
                         {searchTerm ? 'No se encontraron usuarios que coincidan con la búsqueda.' : 'No hay usuarios pendientes de aprobación.'}
                       </p>
                     </div>
@@ -469,13 +469,13 @@ function AdminDashboard() {
               {/* Businesses Tab */}
               {activeTab === 'businesses' && (
                 <div>
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  <h3 className="text-lg leading-6 font-medium text-plum-900 dark:text-plum-100 mb-4">
                     Empresas Pendientes de Aprobación
                   </h3>
                   {filterBusinesses(pendingBusinesses).length > 0 ? (
                     <div className="space-y-4">
                       {filterBusinesses(pendingBusinesses).map((business) => (
-                        <div key={business.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                        <div key={business.id} className="border border-plum-200 dark:border-plum-800 rounded-lg p-4 hover:bg-plum-50 dark:bg-plum-950">
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3">
@@ -487,13 +487,13 @@ function AdminDashboard() {
                                   </div>
                                 </div>
                                 <div>
-                                  <h4 className="text-sm font-medium text-gray-900">
+                                  <h4 className="text-sm font-medium text-plum-900 dark:text-plum-100">
                                     {business.businessName || 'Sin nombre'}
                                   </h4>
-                                  <p className="text-sm text-gray-500">
+                                  <p className="text-sm text-plum-600 dark:text-plum-400">
                                     Tipo: {business.businessType || 'No especificado'}
                                   </p>
-                                  <p className="text-sm text-gray-500">
+                                  <p className="text-sm text-plum-600 dark:text-plum-400">
                                     Contacto: {business.contactEmail || 'No especificado'}
                                   </p>
                                   <div className="flex items-center space-x-4 mt-1">
@@ -510,7 +510,7 @@ function AdminDashboard() {
                             <div className="flex space-x-2">
                               <button
                                 onClick={() => handleApproveBusiness(business.id)}
-                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                                className="bg-plum-600 hover:bg-plum-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
                               >
                                 Aprobar
                               </button>
@@ -532,7 +532,7 @@ function AdminDashboard() {
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <p className="text-gray-500">
+                      <p className="text-plum-600 dark:text-plum-400">
                         {searchTerm ? 'No se encontraron empresas que coincidan con la búsqueda.' : 'No hay empresas pendientes de aprobación.'}
                       </p>
                     </div>
@@ -543,13 +543,13 @@ function AdminDashboard() {
               {/* Auditors Tab */}
               {activeTab === 'auditors' && (
                 <div>
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  <h3 className="text-lg leading-6 font-medium text-plum-900 dark:text-plum-100 mb-4">
                     Auditores Pendientes de Aprobación
                   </h3>
                   {filterAuditors(pendingAuditors).length > 0 ? (
                     <div className="space-y-4">
                       {filterAuditors(pendingAuditors).map((auditor) => (
-                        <div key={auditor.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                        <div key={auditor.id} className="border border-plum-200 dark:border-plum-800 rounded-lg p-4 hover:bg-plum-50 dark:bg-plum-950">
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3">
@@ -559,16 +559,16 @@ function AdminDashboard() {
                                   </div>
                                 </div>
                                 <div>
-                                  <h4 className="text-sm font-medium text-gray-900">
+                                  <h4 className="text-sm font-medium text-plum-900 dark:text-plum-100">
                                     Solicitud de Auditor
                                   </h4>
-                                  <p className="text-sm text-gray-500">
+                                  <p className="text-sm text-plum-600 dark:text-plum-400">
                                     Usuario: {auditor.userId}
                                   </p>
-                                  <p className="text-sm text-gray-500">
+                                  <p className="text-sm text-plum-600 dark:text-plum-400">
                                     Certificaciones: {auditor.certifications?.join(', ') || 'N/A'}
                                   </p>
-                                  <p className="text-sm text-gray-500">
+                                  <p className="text-sm text-plum-600 dark:text-plum-400">
                                     Especializaciones: {auditor.specializations?.join(', ') || 'N/A'}
                                   </p>
                                   <div className="flex items-center space-x-4 mt-1">
@@ -585,7 +585,7 @@ function AdminDashboard() {
                             <div className="flex space-x-2">
                               <button
                                 onClick={() => handleApproveAuditor(auditor.id)}
-                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                                className="bg-plum-600 hover:bg-plum-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
                               >
                                 Aprobar
                               </button>
@@ -607,7 +607,7 @@ function AdminDashboard() {
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <p className="text-gray-500">
+                      <p className="text-plum-600 dark:text-plum-400">
                         {searchTerm ? 'No se encontraron auditores que coincidan con la búsqueda.' : 'No hay auditores pendientes de aprobación.'}
                       </p>
                     </div>
@@ -618,35 +618,35 @@ function AdminDashboard() {
               {/* Business Users Tab */}
               {activeTab === 'business-users' && (
                 <div>
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  <h3 className="text-lg leading-6 font-medium text-plum-900 dark:text-plum-100 mb-4">
                     Solicitudes de Acceso a Empresas
                   </h3>
                   {filterBusinessUsers(pendingBusinessUsers).length > 0 ? (
                     <div className="space-y-4">
                       {filterBusinessUsers(pendingBusinessUsers).map((request) => (
-                        <div key={request.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                        <div key={request.id} className="border border-plum-200 dark:border-plum-800 rounded-lg p-4 hover:bg-plum-50 dark:bg-plum-950">
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3">
                                 <div className="flex-shrink-0">
-                                  <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
-                                    <span className="text-sm font-medium text-green-700">
+                                  <div className="h-10 w-10 rounded-full bg-fresh-100 dark:bg-fresh-900 flex items-center justify-center">
+                                    <span className="text-sm font-medium text-fresh-700 dark:text-fresh-300">
                                       {request.user?.displayName?.charAt(0) || request.user?.email?.charAt(0) || 'U'}
                                     </span>
                                   </div>
                                 </div>
                                 <div>
-                                  <h4 className="text-sm font-medium text-gray-900">
+                                  <h4 className="text-sm font-medium text-plum-900 dark:text-plum-100">
                                     {request.user?.displayName || request.user?.email || 'Usuario desconocido'}
                                   </h4>
-                                  <p className="text-sm text-gray-500">
+                                  <p className="text-sm text-plum-600 dark:text-plum-400">
                                     Quiere unirse a: <span className="font-medium">{request.business?.businessName || 'Empresa desconocida'}</span>
                                   </p>
-                                  <p className="text-sm text-gray-500">
+                                  <p className="text-sm text-plum-600 dark:text-plum-400">
                                     Rol solicitado: <span className="font-medium">{request.requestedRole}</span>
                                   </p>
                                   {request.message && (
-                                    <p className="text-sm text-gray-500">
+                                    <p className="text-sm text-plum-600 dark:text-plum-400">
                                       Mensaje: "{request.message}"
                                     </p>
                                   )}
@@ -654,7 +654,7 @@ function AdminDashboard() {
                                     <p className="text-xs text-gray-400">
                                       Solicitado: {request.requestedAt ? new Date(request.requestedAt).toLocaleDateString('es-ES') : 'N/A'}
                                     </p>
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-fresh-100 dark:bg-fresh-900 text-fresh-800 dark:text-fresh-100">
                                       Pendiente
                                     </span>
                                   </div>
@@ -664,7 +664,7 @@ function AdminDashboard() {
                             <div className="flex space-x-2">
                               <button
                                 onClick={() => handleApproveBusinessUser(request.id)}
-                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                                className="bg-plum-600 hover:bg-plum-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
                               >
                                 Aprobar
                               </button>
@@ -686,7 +686,7 @@ function AdminDashboard() {
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <p className="text-gray-500">
+                      <p className="text-plum-600 dark:text-plum-400">
                         {searchTerm ? 'No se encontraron solicitudes que coincidan con la búsqueda.' : 'No hay solicitudes de acceso a empresas pendientes.'}
                       </p>
                     </div>
@@ -699,17 +699,17 @@ function AdminDashboard() {
 
           {/* Summary when all tabs are empty */}
           {pendingUsers.length === 0 && pendingBusinesses.length === 0 && pendingAuditors.length === 0 && pendingBusinessUsers.length === 0 && !searchTerm && (
-            <div className="bg-white shadow rounded-lg mt-6">
+            <div className="bg-white dark:bg-plum-900 shadow rounded-lg mt-6">
               <div className="px-4 py-5 sm:p-6 text-center">
-                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
-                  <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-fresh-100 dark:bg-fresh-900 mb-4">
+                  <svg className="h-6 w-6 text-fresh-600 dark:text-fresh-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-2">
+                <h3 className="text-lg leading-6 font-medium text-plum-900 dark:text-plum-100 mb-2">
                   ¡Todo está al día!
                 </h3>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-plum-600 dark:text-plum-400">
                   No hay solicitudes pendientes de aprobación en este momento.
                 </p>
               </div>

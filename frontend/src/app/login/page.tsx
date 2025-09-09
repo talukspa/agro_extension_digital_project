@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { getErrorMessage } from '@/lib/firebase/auth';
+import { SimpleHeader } from '@/components/Header';
+import { Button } from '@/components/ui/Button';
 
 function LoginForm() {
   const [email, setEmail] = useState('');
@@ -59,22 +61,25 @@ function LoginForm() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Cargando...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
+      {/* Botón de control de tema en la esquina superior derecha */}
+      <SimpleHeader />
+      
       <div className="max-w-md w-full space-y-8">
         <div>
-          <div className="mx-auto h-12 w-12 flex items-center justify-center bg-green-600 rounded-full">
+          <div className="mx-auto h-12 w-12 flex items-center justify-center bg-primary rounded-full">
             <svg
-              className="h-8 w-8 text-white"
+              className="h-8 w-8 text-primary-foreground"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -87,14 +92,14 @@ function LoginForm() {
               />
             </svg>
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-foreground">
             Inicia sesión en tu cuenta
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-center text-sm text-muted-foreground">
             O{' '}
             <Link
               href="/register"
-              className="font-medium text-green-600 hover:text-green-500"
+              className="font-medium text-success-600 hover:text-success-700 dark:text-success-400 dark:hover:text-success-300"
             >
               crea una cuenta nueva
             </Link>
@@ -103,10 +108,10 @@ function LoginForm() {
 
         <form className="mt-8 space-y-6" onSubmit={handleEmailSignIn}>
           {error && (
-            <div className="rounded-md bg-red-50 p-4">
+            <div className="rounded-md bg-error-50 dark:bg-error-900/20 p-4 border border-error-200 dark:border-error-800">
               <div className="flex">
                 <svg
-                  className="h-5 w-5 text-red-400"
+                  className="h-5 w-5 text-error-500"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
@@ -117,7 +122,7 @@ function LoginForm() {
                   />
                 </svg>
                 <div className="ml-3">
-                  <p className="text-sm text-red-800">{error}</p>
+                  <p className="text-sm text-error-700 dark:text-error-300">{error}</p>
                 </div>
               </div>
             </div>
@@ -126,7 +131,7 @@ function LoginForm() {
           <input type="hidden" name="remember" value="true" />
           <div className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="block text-sm font-medium text-foreground">
                 Correo electrónico
               </label>
               <input
@@ -135,14 +140,14 @@ function LoginForm() {
                 type="email"
                 autoComplete="email"
                 required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-border placeholder-muted-foreground text-foreground bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring sm:text-sm"
                 placeholder="Correo electrónico"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-foreground">
                 Contraseña
               </label>
               <input
@@ -151,7 +156,7 @@ function LoginForm() {
                 type="password"
                 autoComplete="current-password"
                 required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-plum-300 dark:border-plum-600 placeholder:text-muted-foreground text-plum-900 dark:text-plum-50 bg-white dark:bg-plum-800 rounded-md focus:outline-none focus:ring-ring focus:border-primary sm:text-sm"
                 placeholder="Contraseña"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -163,7 +168,7 @@ function LoginForm() {
             <div className="text-sm">
               <Link
                 href="/forgot-password"
-                className="font-medium text-green-600 hover:text-green-500"
+                className="font-medium text-fresh-600 hover:text-fresh-700 dark:text-fresh-300 dark:hover:text-fresh-200"
               >
                 ¿Olvidaste tu contraseña?
               </Link>
@@ -171,35 +176,30 @@ function LoginForm() {
           </div>
 
           <div className="space-y-4">
-            <button
+            <Button
               type="submit"
               disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              fullWidth
+              isLoading={isLoading}
             >
-              {isLoading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Iniciando sesión...
-                </div>
-              ) : (
-                'Iniciar sesión'
-              )}
-            </button>
+              {isLoading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+            </Button>
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
+                <div className="w-full border-t border-plum-300 dark:border-plum-600" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-gray-50 text-gray-500">O continúa con</span>
+                <span className="px-2 bg-background text-plum-600 dark:text-plum-300">O continúa con</span>
               </div>
             </div>
 
-            <button
+            <Button
               type="button"
               onClick={handleGoogleSignIn}
               disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="outline"
+              fullWidth
             >
               <svg
                 className="w-5 h-5 mr-2"
@@ -223,7 +223,7 @@ function LoginForm() {
                 />
               </svg>
               {isLoading ? 'Conectando...' : 'Continuar con Google'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -234,10 +234,10 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-plum-600 mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Cargando...</p>
         </div>
       </div>
     }>

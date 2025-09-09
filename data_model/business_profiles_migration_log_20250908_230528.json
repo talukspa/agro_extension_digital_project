@@ -1,0 +1,883 @@
+{
+  "timestamp": "2025-09-08T23:05:28.002193",
+  "dry_run": false,
+  "limit": null,
+  "stats": {
+    "total": 21,
+    "migrated": 21,
+    "already_migrated": 0,
+    "dry_run": 0,
+    "no_changes": 0,
+    "errors": 0
+  },
+  "user_stats": {
+    "users_created": 21,
+    "users_already_exist": 0,
+    "users_dry_run": 0,
+    "users_skipped": 0,
+    "users_error": 0
+  },
+  "results": [
+    {
+      "id": "10577592-k",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': b3769d30506763320613941e4f9d6e76",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "pdiaz@sofruco.cl",
+        "name": "Pedro Pablo Diaz Vergara",
+        "phone": "226700620",
+        "role": "Gerente de Agroindustria",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "b3769d30506763320613941e4f9d6e76",
+        "user_data": {
+          "uid": "b3769d30506763320613941e4f9d6e76",
+          "email": "pdiaz@sofruco.cl",
+          "displayName": "Pedro Pablo Diaz Vergara",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "10590515-7",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': 3813ff14dc751ac3cb96e6aa06249e44",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "francisca.sepulveda.consultor@iica.int",
+        "name": "Francisca",
+        "phone": "942873202",
+        "role": "Consultora",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "3813ff14dc751ac3cb96e6aa06249e44",
+        "user_data": {
+          "uid": "3813ff14dc751ac3cb96e6aa06249e44",
+          "email": "francisca.sepulveda.consultor@iica.int",
+          "displayName": "Francisca",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "127184364",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': 0b172d1b1cfe92467f1360e57b05e4be",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "AMOLINA@AGSIEMEL.CL",
+        "name": "ANDRES EFRAIN MOLINA HERRERA",
+        "phone": "56995642342",
+        "role": "JEFE DE OPERACIONES",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "0b172d1b1cfe92467f1360e57b05e4be",
+        "user_data": {
+          "uid": "0b172d1b1cfe92467f1360e57b05e4be",
+          "email": "AMOLINA@AGSIEMEL.CL",
+          "displayName": "ANDRES EFRAIN MOLINA HERRERA",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "16661279-9",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': f8d496bbf2230c58e4d62a34165d785e",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "A",
+        "name": "A",
+        "phone": "A",
+        "role": "A",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "f8d496bbf2230c58e4d62a34165d785e",
+        "user_data": {
+          "uid": "f8d496bbf2230c58e4d62a34165d785e",
+          "email": "A",
+          "displayName": "A",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "17396038-7",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': f2e979401241162e7c1abeb4520e7668",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "A",
+        "name": "A",
+        "phone": "A",
+        "role": "A",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "f2e979401241162e7c1abeb4520e7668",
+        "user_data": {
+          "uid": "f2e979401241162e7c1abeb4520e7668",
+          "email": "A",
+          "displayName": "A",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "18276552-k",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': ff0982eb9979143d398af35d4e3c338f",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "karinaorellanamoreira@gmail.com",
+        "name": "Camila Orellana",
+        "phone": "961954566",
+        "role": "Encargada de planta",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "ff0982eb9979143d398af35d4e3c338f",
+        "user_data": {
+          "uid": "ff0982eb9979143d398af35d4e3c338f",
+          "email": "karinaorellanamoreira@gmail.com",
+          "displayName": "Camila Orellana",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "69500400-1",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': 03795426f5af232723b2b2aff18cf280",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "francisca.sepulveda.consultor@iica.int",
+        "name": "Francisca Sepúlveda",
+        "phone": "99999999",
+        "role": "Consultora",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "03795426f5af232723b2b2aff18cf280",
+        "user_data": {
+          "uid": "03795426f5af232723b2b2aff18cf280",
+          "email": "francisca.sepulveda.consultor@iica.int",
+          "displayName": "Francisca Sepúlveda",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "76008900-1",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': c1b66797d1623af558bf43068d768e2f",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "mcasabonne@superfruit.cl",
+        "name": "Mery Casabonne N.",
+        "phone": "976099919",
+        "role": "Jefa Aseguramiento de Calidad, Encargada Sustentabilidad",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "c1b66797d1623af558bf43068d768e2f",
+        "user_data": {
+          "uid": "c1b66797d1623af558bf43068d768e2f",
+          "email": "mcasabonne@superfruit.cl",
+          "displayName": "Mery Casabonne N.",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "760089001",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': 0bca4d32f0b4cb848dfb2f681cacbbd4",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "mcasabonne@superfruit.cl",
+        "name": "Mery Casabonne Nuñez",
+        "phone": "976099919",
+        "role": "Jefa Aseguramiento de Calidad, Encargada Sustentabilidad",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "0bca4d32f0b4cb848dfb2f681cacbbd4",
+        "user_data": {
+          "uid": "0bca4d32f0b4cb848dfb2f681cacbbd4",
+          "email": "mcasabonne@superfruit.cl",
+          "displayName": "Mery Casabonne Nuñez",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "76059579-9",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': fb2c5ef41e8453d5706294d1a392bfe8",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "MATIAS.ANINAT@GOODVALLEY.CL",
+        "name": "MATIAS ANINAT ALVAREZ-FOURCADE",
+        "phone": "569 34392555",
+        "role": "GERENTE OPERACIONES",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "fb2c5ef41e8453d5706294d1a392bfe8",
+        "user_data": {
+          "uid": "fb2c5ef41e8453d5706294d1a392bfe8",
+          "email": "MATIAS.ANINAT@GOODVALLEY.CL",
+          "displayName": "MATIAS ANINAT ALVAREZ-FOURCADE",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "76371350-4",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': 59179008a445a270bde4bb85acbee740",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "vmorales@sunsweetchile.com",
+        "name": "Maria Valeria Morales Vasquez",
+        "phone": "+56962952835",
+        "role": "Gerente Seguridad ",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "59179008a445a270bde4bb85acbee740",
+        "user_data": {
+          "uid": "59179008a445a270bde4bb85acbee740",
+          "email": "vmorales@sunsweetchile.com",
+          "displayName": "Maria Valeria Morales Vasquez",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "7694421-0",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': f6d6649917ac2c6ae2566dfcff69b28a",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "karinaorellanamoreira@gmail.com",
+        "name": "qqqq",
+        "phone": "961954566",
+        "role": "qqqq",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "f6d6649917ac2c6ae2566dfcff69b28a",
+        "user_data": {
+          "uid": "f6d6649917ac2c6ae2566dfcff69b28a",
+          "email": "karinaorellanamoreira@gmail.com",
+          "displayName": "qqqq",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "77072740-5",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': c1a4cc4ee2dbd44fe0cba23cd900756c",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "AMOLINA@AGSIEMEL.CL",
+        "name": "ANDRES MOLINA HERRERA",
+        "phone": "+56995642342",
+        "role": "JEFE DE PLANTA",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "c1a4cc4ee2dbd44fe0cba23cd900756c",
+        "user_data": {
+          "uid": "c1a4cc4ee2dbd44fe0cba23cd900756c",
+          "email": "AMOLINA@AGSIEMEL.CL",
+          "displayName": "ANDRES MOLINA HERRERA",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "78023030-4",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': 0bde4b2479207f69d1a3a52ca6fb0fc6",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "eschwember@sofruco.cl",
+        "name": "Enrique Schwember",
+        "phone": "994448669",
+        "role": "Gerente Desarrollo y Calidad",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "0bde4b2479207f69d1a3a52ca6fb0fc6",
+        "user_data": {
+          "uid": "0bde4b2479207f69d1a3a52ca6fb0fc6",
+          "email": "eschwember@sofruco.cl",
+          "displayName": "Enrique Schwember",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "78609090-3",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': 064553b53c8a4caadf409264d2bb4d32",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "rafaelparra19@gmail.com",
+        "name": "Rafael Parra",
+        "phone": "+56930704585",
+        "role": "Encargado SGIA",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "064553b53c8a4caadf409264d2bb4d32",
+        "user_data": {
+          "uid": "064553b53c8a4caadf409264d2bb4d32",
+          "email": "rafaelparra19@gmail.com",
+          "displayName": "Rafael Parra",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "789362807",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': f03112538d68b211cf794d9fc5fe0573",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "eveliz@alapalma.cl",
+        "name": "EMA VELIZ CORREA",
+        "phone": "961042058",
+        "role": "JEFE TÉCNICO",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "f03112538d68b211cf794d9fc5fe0573",
+        "user_data": {
+          "uid": "f03112538d68b211cf794d9fc5fe0573",
+          "email": "eveliz@alapalma.cl",
+          "displayName": "EMA VELIZ CORREA",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "797490709",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': 86af21b26c258e63d0ed1d7d49676b4c",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "sbaeza@frutexsa.cl",
+        "name": "Sergio Baeza",
+        "phone": "+56992339179",
+        "role": "Gerente de Planta",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "86af21b26c258e63d0ed1d7d49676b4c",
+        "user_data": {
+          "uid": "86af21b26c258e63d0ed1d7d49676b4c",
+          "email": "sbaeza@frutexsa.cl",
+          "displayName": "Sergio Baeza",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "96604260-5",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': c69889df215f826bdd6ee1c4d3424a5a",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "YPIZARRO@MERCOFRUT.COM",
+        "name": "YONATAN PIZARRO",
+        "phone": "944085337",
+        "role": "ENCARGADO DE OPERACIONES",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "c69889df215f826bdd6ee1c4d3424a5a",
+        "user_data": {
+          "uid": "c69889df215f826bdd6ee1c4d3424a5a",
+          "email": "YPIZARRO@MERCOFRUT.COM",
+          "displayName": "YONATAN PIZARRO",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "96629050-1",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': 8e8aab5efcccc260b156c7f14eee133a",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "rorellana@pacificnut.com",
+        "name": "Romina Orellana",
+        "phone": "56963414465",
+        "role": "Encargada de Certificaciones y Sustentabilidad",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "8e8aab5efcccc260b156c7f14eee133a",
+        "user_data": {
+          "uid": "8e8aab5efcccc260b156c7f14eee133a",
+          "email": "rorellana@pacificnut.com",
+          "displayName": "Romina Orellana",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "966290501",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': 05f74f34e36987e97045926240033ad0",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "pquesney@pacificnut.com",
+        "name": "Pelayo Quesney Cox",
+        "phone": "+56940033827",
+        "role": "Jefe de planta",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "05f74f34e36987e97045926240033ad0",
+        "user_data": {
+          "uid": "05f74f34e36987e97045926240033ad0",
+          "email": "pquesney@pacificnut.com",
+          "displayName": "Pelayo Quesney Cox",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    },
+    {
+      "id": "96687090-7",
+      "status": "migrated",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Creado usuario en colección 'users': a4dea49b5ed1cc621f278ae92855cf9f",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "jbozzo@prunesco.com",
+        "name": "Juan Carlos Bozzo ",
+        "phone": "994173375",
+        "role": "Gerente de Planta ",
+        "userType": "business_owner",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "created",
+        "reason": "Usuario creado exitosamente",
+        "user_id": "a4dea49b5ed1cc621f278ae92855cf9f",
+        "user_data": {
+          "uid": "a4dea49b5ed1cc621f278ae92855cf9f",
+          "email": "jbozzo@prunesco.com",
+          "displayName": "Juan Carlos Bozzo ",
+          "photoURL": "",
+          "userTypeId": "business_owner",
+          "status": "approved",
+          "isActive": true,
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLoginAt": null
+        }
+      }
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { USER_TYPES } from '@/lib/types/permissions';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/Button';
 import { 
   getPendingUsers, 
   getPendingBusinesses, 
@@ -260,10 +261,10 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Cargando...</p>
         </div>
       </div>
     );
@@ -276,10 +277,10 @@ export default function DashboardPage() {
   if (!userType) {
     // This should redirect to onboarding, but show loading in case of race condition
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Configurando perfil...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Configurando perfil...</p>
         </div>
       </div>
     );
@@ -287,11 +288,11 @@ export default function DashboardPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800';
+      case 'approved': return 'bg-fresh-100 dark:bg-fresh-900 text-fresh-800 dark:text-fresh-100';
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'rejected': return 'bg-red-100 text-red-800';
-      case 'suspended': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'suspended': return 'bg-muted text-foreground';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -306,36 +307,38 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Navigation */}
-      <nav className="bg-white shadow">
+      <nav className="bg-card shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <h1 className="text-xl font-bold text-gray-900">
+                <h1 className="text-xl font-bold text-foreground">
                   Agro Extension Digital
                 </h1>
               </div>
             </div>
             <div className="flex items-center space-x-4">
               {userType?.name === 'admin' && (
-                <button
+                <Button
                   onClick={() => router.push('/admin')}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-sm font-medium"
+                  variant="accent"
+                  size="sm"
                 >
                   Panel Admin Completo
-                </button>
+                </Button>
               )}
-              <div className="text-sm text-gray-700">
+              <div className="text-sm text-foreground">
                 Hola, {user.displayName || user.email}
               </div>
-              <button
+              <Button
                 onClick={handleSignOut}
-                className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-md text-sm font-medium"
+                variant="secondary"
+                size="sm"
               >
                 Cerrar sesión
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -344,44 +347,44 @@ export default function DashboardPage() {
       {/* Main content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="bg-card overflow-hidden shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">
+              <h2 className="text-lg font-medium text-foreground mb-4">
                 Panel de Control
               </h2>
               
               {/* User Info */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h3 className="text-sm font-medium text-gray-900 mb-2">
+              <div className="bg-background rounded-lg p-4 mb-6">
+                <h3 className="text-sm font-medium text-foreground mb-2">
                   Información del Usuario
                 </h3>
                 <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Email:</dt>
-                    <dd className="text-sm text-gray-900">{user.email}</dd>
+                    <dt className="text-sm font-medium text-muted-foreground">Email:</dt>
+                    <dd className="text-sm text-foreground">{user.email}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Nombre:</dt>
-                    <dd className="text-sm text-gray-900">{user.displayName || 'No especificado'}</dd>
+                    <dt className="text-sm font-medium text-muted-foreground">Nombre:</dt>
+                    <dd className="text-sm text-foreground">{user.displayName || 'No especificado'}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Tipo de Usuario:</dt>
-                    <dd className="text-sm text-gray-900">{userType?.displayName || 'Cargando...'}</dd>
+                    <dt className="text-sm font-medium text-muted-foreground">Tipo de Usuario:</dt>
+                    <dd className="text-sm text-foreground">{userType?.displayName || 'Cargando...'}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Estado:</dt>
-                    <dd className="text-sm text-gray-900">
+                    <dt className="text-sm font-medium text-muted-foreground">Estado:</dt>
+                    <dd className="text-sm text-foreground">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(user.status)}`}>
                         {getStatusText(user.status)}
                       </span>
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Activo:</dt>
-                    <dd className="text-sm text-gray-900">
+                    <dt className="text-sm font-medium text-muted-foreground">Activo:</dt>
+                    <dd className="text-sm text-foreground">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                         user.isActive 
-                          ? 'bg-green-100 text-green-800' 
+                          ? 'bg-fresh-100 dark:bg-fresh-900 text-fresh-800 dark:text-fresh-100' 
                           : 'bg-red-100 text-red-800'
                       }`}>
                         {user.isActive ? 'Sí' : 'No'}
@@ -389,8 +392,8 @@ export default function DashboardPage() {
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">UID:</dt>
-                    <dd className="text-sm text-gray-900 font-mono">{user.uid}</dd>
+                    <dt className="text-sm font-medium text-muted-foreground">UID:</dt>
+                    <dd className="text-sm text-foreground font-mono">{user.uid}</dd>
                   </div>
                 </dl>
               </div>
@@ -398,34 +401,34 @@ export default function DashboardPage() {
               {/* Business Info */}
               {activeBusiness && (
                 <div className="bg-blue-50 rounded-lg p-4 mb-6">
-                  <h3 className="text-sm font-medium text-gray-900 mb-2">
+                  <h3 className="text-sm font-medium text-foreground mb-2">
                     Empresa Activa
                   </h3>
                   <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
                     <div>
-                      <dt className="text-sm font-medium text-gray-500">Nombre:</dt>
-                      <dd className="text-sm text-gray-900">{activeBusiness.businessName}</dd>
+                      <dt className="text-sm font-medium text-muted-foreground">Nombre:</dt>
+                      <dd className="text-sm text-foreground">{activeBusiness.businessName}</dd>
                     </div>
                     <div>
-                      <dt className="text-sm font-medium text-gray-500">Plan:</dt>
-                      <dd className="text-sm text-gray-900">
+                      <dt className="text-sm font-medium text-muted-foreground">Plan:</dt>
+                      <dd className="text-sm text-foreground">
                         <span className="capitalize">{activeBusiness.subscriptionTier}</span>
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-sm font-medium text-gray-500">Estado:</dt>
-                      <dd className="text-sm text-gray-900">
+                      <dt className="text-sm font-medium text-muted-foreground">Estado:</dt>
+                      <dd className="text-sm text-foreground">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(activeBusiness.status)}`}>
                           {getStatusText(activeBusiness.status)}
                         </span>
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-sm font-medium text-gray-500">Activa:</dt>
-                      <dd className="text-sm text-gray-900">
+                      <dt className="text-sm font-medium text-muted-foreground">Activa:</dt>
+                      <dd className="text-sm text-foreground">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                           activeBusiness.isActive 
-                            ? 'bg-green-100 text-green-800' 
+                            ? 'bg-fresh-100 dark:bg-fresh-900 text-fresh-800 dark:text-fresh-100' 
                             : 'bg-red-100 text-red-800'
                         }`}>
                           {activeBusiness.isActive ? 'Sí' : 'No'}
@@ -439,15 +442,15 @@ export default function DashboardPage() {
               {/* Status-based Information */}
               {user.status === 'pending' && (
                 <div className="bg-yellow-50 rounded-lg p-4 mb-6">
-                  <h3 className="text-sm font-medium text-gray-900 mb-2">
+                  <h3 className="text-sm font-medium text-foreground mb-2">
                     Estado de Aprobación
                   </h3>
-                  <p className="text-sm text-gray-700">
+                  <p className="text-sm text-foreground">
                     Tu cuenta está pendiente de aprobación por parte del administrador. 
                     Recibirás una notificación una vez que sea revisada.
                   </p>
                   {user.requestedAt && (
-                    <p className="text-xs text-gray-500 mt-2">
+                    <p className="text-xs text-muted-foreground mt-2">
                       Solicitado el: {new Date(user.requestedAt).toLocaleDateString()}
                     </p>
                   )}
@@ -456,14 +459,14 @@ export default function DashboardPage() {
 
               {user.status === 'rejected' && (
                 <div className="bg-red-50 rounded-lg p-4 mb-6">
-                  <h3 className="text-sm font-medium text-gray-900 mb-2">
+                  <h3 className="text-sm font-medium text-foreground mb-2">
                     Acceso Denegado
                   </h3>
-                  <p className="text-sm text-gray-700">
+                  <p className="text-sm text-foreground">
                     Tu solicitud de acceso ha sido rechazada.
                   </p>
                   {user.rejectionReason && (
-                    <p className="text-sm text-gray-600 mt-2">
+                    <p className="text-sm text-muted-foreground mt-2">
                       Razón: {user.rejectionReason}
                     </p>
                   )}
@@ -473,13 +476,13 @@ export default function DashboardPage() {
               {/* Admin Panel Section */}
               {user.status === 'approved' && userType?.name === 'admin' && (
                 <div className="mt-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">
+                  <h3 className="text-lg font-medium text-foreground mb-4">
                     Panel de Administración
                   </h3>
                   
                   {/* Admin Stats Cards */}
                   <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-                    <div className="bg-white overflow-hidden shadow rounded-lg border border-yellow-200">
+                    <div className="bg-card overflow-hidden shadow rounded-lg border border-yellow-200">
                       <div className="p-5">
                         <div className="flex items-center">
                           <div className="flex-shrink-0">
@@ -489,10 +492,10 @@ export default function DashboardPage() {
                           </div>
                           <div className="ml-5 w-0 flex-1">
                             <dl>
-                              <dt className="text-sm font-medium text-gray-500 truncate">
+                              <dt className="text-sm font-medium text-muted-foreground truncate">
                                 Usuarios Pendientes
                               </dt>
-                              <dd className="text-lg font-medium text-gray-900">
+                              <dd className="text-lg font-medium text-foreground">
                                 Esperando aprobación
                               </dd>
                             </dl>
@@ -501,7 +504,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    <div className="bg-white overflow-hidden shadow rounded-lg border border-blue-200">
+                    <div className="bg-card overflow-hidden shadow rounded-lg border border-blue-200">
                       <div className="p-5">
                         <div className="flex items-center">
                           <div className="flex-shrink-0">
@@ -511,10 +514,10 @@ export default function DashboardPage() {
                           </div>
                           <div className="ml-5 w-0 flex-1">
                             <dl>
-                              <dt className="text-sm font-medium text-gray-500 truncate">
+                              <dt className="text-sm font-medium text-muted-foreground truncate">
                                 Empresas Pendientes
                               </dt>
-                              <dd className="text-lg font-medium text-gray-900">
+                              <dd className="text-lg font-medium text-foreground">
                                 Esperando aprobación
                               </dd>
                             </dl>
@@ -523,7 +526,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    <div className="bg-white overflow-hidden shadow rounded-lg border border-purple-200">
+                    <div className="bg-card overflow-hidden shadow rounded-lg border border-purple-200">
                       <div className="p-5">
                         <div className="flex items-center">
                           <div className="flex-shrink-0">
@@ -533,10 +536,10 @@ export default function DashboardPage() {
                           </div>
                           <div className="ml-5 w-0 flex-1">
                             <dl>
-                              <dt className="text-sm font-medium text-gray-500 truncate">
+                              <dt className="text-sm font-medium text-muted-foreground truncate">
                                 Auditores Pendientes
                               </dt>
-                              <dd className="text-lg font-medium text-gray-900">
+                              <dd className="text-lg font-medium text-foreground">
                                 Esperando aprobación
                               </dd>
                             </dl>
@@ -545,20 +548,20 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    <div className="bg-white overflow-hidden shadow rounded-lg border border-green-200">
+                    <div className="bg-card overflow-hidden shadow rounded-lg border border-green-200">
                       <div className="p-5">
                         <div className="flex items-center">
                           <div className="flex-shrink-0">
-                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                            <div className="w-8 h-8 bg-fresh-100 dark:bg-fresh-900 rounded-full flex items-center justify-center">
                               <span className="text-green-600 font-semibold">{pendingBusinessUsers.length}</span>
                             </div>
                           </div>
                           <div className="ml-5 w-0 flex-1">
                             <dl>
-                              <dt className="text-sm font-medium text-gray-500 truncate">
+                              <dt className="text-sm font-medium text-muted-foreground truncate">
                                 Accesos a Empresas
                               </dt>
-                              <dd className="text-lg font-medium text-gray-900">
+                              <dd className="text-lg font-medium text-foreground">
                                 Solicitudes pendientes
                               </dd>
                             </dl>
@@ -591,63 +594,71 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Admin Quick Actions */}
-                  <div className="bg-white shadow rounded-lg mb-6">
+                  <div className="bg-card shadow rounded-lg mb-6">
                     <div className="px-4 py-5 sm:p-6">
                       <div className="flex justify-between items-center mb-4">
-                        <h4 className="text-lg font-medium text-gray-900">
+                        <h4 className="text-lg font-medium text-foreground">
                           Gestión de Solicitudes
                         </h4>
-                        <button
+                        <Button
                           onClick={() => router.push('/admin')}
-                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                          size="sm"
                         >
                           Ver Panel Completo
-                        </button>
+                        </Button>
                       </div>
                       
                       {/* Quick tabs */}
                       <div className="border-b border-gray-200 mb-4">
                         <nav className="-mb-px flex space-x-8">
-                          <button
+                          <Button
                             onClick={() => setActiveAdminTab('users')}
+                            variant="ghost"
+                            size="sm"
                             className={`py-2 px-1 border-b-2 font-medium text-sm ${
                               activeAdminTab === 'users'
-                                ? 'border-green-500 text-green-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                ? 'border-plum-500 text-muted-foreground'
+                                : 'border-transparent text-muted-foreground hover:text-plum-800 dark:hover:text-plum-200 hover:border-gray-300'
                             }`}
                           >
                             Usuarios ({pendingUsers.length})
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             onClick={() => setActiveAdminTab('businesses')}
+                            variant="ghost"
+                            size="sm"
                             className={`py-2 px-1 border-b-2 font-medium text-sm ${
                               activeAdminTab === 'businesses'
-                                ? 'border-green-500 text-green-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                ? 'border-plum-500 text-muted-foreground'
+                                : 'border-transparent text-muted-foreground hover:text-plum-800 dark:hover:text-plum-200 hover:border-gray-300'
                             }`}
                           >
                             Empresas ({pendingBusinesses.length})
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             onClick={() => setActiveAdminTab('auditors')}
+                            variant="ghost"
+                            size="sm"
                             className={`py-2 px-1 border-b-2 font-medium text-sm ${
                               activeAdminTab === 'auditors'
-                                ? 'border-green-500 text-green-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                ? 'border-plum-500 text-muted-foreground'
+                                : 'border-transparent text-muted-foreground hover:text-plum-800 dark:hover:text-plum-200 hover:border-gray-300'
                             }`}
                           >
                             Auditores ({pendingAuditors.length})
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             onClick={() => setActiveAdminTab('business-users')}
+                            variant="ghost"
+                            size="sm"
                             className={`py-2 px-1 border-b-2 font-medium text-sm ${
                               activeAdminTab === 'business-users'
-                                ? 'border-green-500 text-green-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                ? 'border-plum-500 text-muted-foreground'
+                                : 'border-transparent text-muted-foreground hover:text-plum-800 dark:hover:text-plum-200 hover:border-gray-300'
                             }`}
                           >
                             Accesos ({pendingBusinessUsers.length})
-                          </button>
+                          </Button>
                         </nav>
                       </div>
 
@@ -656,37 +667,39 @@ export default function DashboardPage() {
                         {activeAdminTab === 'users' && (
                           <div className="space-y-3">
                             {pendingUsers.slice(0, 5).map((pendingUser) => (
-                              <div key={pendingUser.uid} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <div key={pendingUser.uid} className="flex items-center justify-between p-3 bg-background rounded-lg">
                                 <div>
-                                  <p className="font-medium text-gray-900">{pendingUser.displayName || pendingUser.email}</p>
-                                  <p className="text-sm text-gray-500">{pendingUser.email}</p>
+                                  <p className="font-medium text-foreground">{pendingUser.displayName || pendingUser.email}</p>
+                                  <p className="text-sm text-muted-foreground">{pendingUser.email}</p>
                                 </div>
                                 <div className="flex space-x-2">
-                                  <button
+                                  <Button
                                     onClick={() => handleApproveUser(pendingUser.uid)}
-                                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                                    variant="success"
+                                    size="sm"
                                   >
                                     Aprobar
-                                  </button>
-                                  <button
+                                  </Button>
+                                  <Button
                                     onClick={() => {
                                       const reason = prompt('Razón del rechazo (opcional):');
                                       if (reason !== null) {
                                         handleRejectUser(pendingUser.uid, reason);
                                       }
                                     }}
-                                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+                                    variant="error"
+                                    size="sm"
                                   >
                                     Rechazar
-                                  </button>
+                                  </Button>
                                 </div>
                               </div>
                             ))}
                             {pendingUsers.length === 0 && (
-                              <p className="text-gray-500 text-center py-4">No hay usuarios pendientes</p>
+                              <p className="text-muted-foreground text-center py-4">No hay usuarios pendientes</p>
                             )}
                             {pendingUsers.length > 5 && (
-                              <p className="text-sm text-gray-500 text-center">
+                              <p className="text-sm text-muted-foreground text-center">
                                 Y {pendingUsers.length - 5} más... 
                                 <button 
                                   onClick={() => router.push('/admin')} 
@@ -702,10 +715,10 @@ export default function DashboardPage() {
                         {activeAdminTab === 'businesses' && (
                           <div className="space-y-3">
                             {pendingBusinesses.slice(0, 5).map((business) => (
-                              <div key={business.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <div key={business.id} className="flex items-center justify-between p-3 bg-background rounded-lg">
                                 <div className="flex-1">
-                                  <p className="font-medium text-gray-900">{business.businessName}</p>
-                                  <p className="text-sm text-gray-500">{business.businessType}</p>
+                                  <p className="font-medium text-foreground">{business.businessName}</p>
+                                  <p className="text-sm text-muted-foreground">{business.businessType}</p>
                                   {(business as any).ownerInfo && (
                                     <p className="text-xs text-blue-600 mt-1">
                                       Propietario: {(business as any).ownerInfo.displayName || (business as any).ownerInfo.email}
@@ -718,7 +731,7 @@ export default function DashboardPage() {
                                 <div className="flex space-x-2">
                                   <button
                                     onClick={() => handleApproveBusiness(business.id)}
-                                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                                    className="bg-plum-600 hover:bg-plum-700 text-white px-3 py-1 rounded text-sm"
                                     title={(business as any).ownerInfo?.status === 'pending' ? 'Aprobará tanto la empresa como el propietario' : 'Aprobar empresa'}
                                   >
                                     Aprobar
@@ -739,10 +752,10 @@ export default function DashboardPage() {
                               </div>
                             ))}
                             {pendingBusinesses.length === 0 && (
-                              <p className="text-gray-500 text-center py-4">No hay empresas pendientes</p>
+                              <p className="text-muted-foreground text-center py-4">No hay empresas pendientes</p>
                             )}
                             {pendingBusinesses.length > 5 && (
-                              <p className="text-sm text-gray-500 text-center">
+                              <p className="text-sm text-muted-foreground text-center">
                                 Y {pendingBusinesses.length - 5} más... 
                                 <button 
                                   onClick={() => router.push('/admin')} 
@@ -758,10 +771,10 @@ export default function DashboardPage() {
                         {activeAdminTab === 'auditors' && (
                           <div className="space-y-3">
                             {pendingAuditors.slice(0, 5).map((auditor) => (
-                              <div key={auditor.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <div key={auditor.id} className="flex items-center justify-between p-3 bg-background rounded-lg">
                                 <div>
-                                  <p className="font-medium text-gray-900">Auditor: {auditor.userId}</p>
-                                  <p className="text-sm text-gray-500">
+                                  <p className="font-medium text-foreground">Auditor: {auditor.userId}</p>
+                                  <p className="text-sm text-muted-foreground">
                                     {auditor.certifications?.slice(0, 2).join(', ')}
                                     {auditor.certifications && auditor.certifications.length > 2 && '...'}
                                   </p>
@@ -769,7 +782,7 @@ export default function DashboardPage() {
                                 <div className="flex space-x-2">
                                   <button
                                     onClick={() => handleApproveAuditor(auditor.id)}
-                                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                                    className="bg-plum-600 hover:bg-plum-700 text-white px-3 py-1 rounded text-sm"
                                   >
                                     Aprobar
                                   </button>
@@ -788,10 +801,10 @@ export default function DashboardPage() {
                               </div>
                             ))}
                             {pendingAuditors.length === 0 && (
-                              <p className="text-gray-500 text-center py-4">No hay auditores pendientes</p>
+                              <p className="text-muted-foreground text-center py-4">No hay auditores pendientes</p>
                             )}
                             {pendingAuditors.length > 5 && (
-                              <p className="text-sm text-gray-500 text-center">
+                              <p className="text-sm text-muted-foreground text-center">
                                 Y {pendingAuditors.length - 5} más... 
                                 <button 
                                   onClick={() => router.push('/admin')} 
@@ -807,19 +820,19 @@ export default function DashboardPage() {
                         {activeAdminTab === 'business-users' && (
                           <div className="space-y-3">
                             {pendingBusinessUsers.slice(0, 5).map((request) => (
-                              <div key={request.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <div key={request.id} className="flex items-center justify-between p-3 bg-background rounded-lg">
                                 <div>
-                                  <p className="font-medium text-gray-900">
+                                  <p className="font-medium text-foreground">
                                     {request.user?.displayName || request.user?.email}
                                   </p>
-                                  <p className="text-sm text-gray-500">
+                                  <p className="text-sm text-muted-foreground">
                                     → {request.business?.businessName} ({request.requestedRole})
                                   </p>
                                 </div>
                                 <div className="flex space-x-2">
                                   <button
                                     onClick={() => handleApproveBusinessUser(request.id)}
-                                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                                    className="bg-plum-600 hover:bg-plum-700 text-white px-3 py-1 rounded text-sm"
                                   >
                                     Aprobar
                                   </button>
@@ -838,10 +851,10 @@ export default function DashboardPage() {
                               </div>
                             ))}
                             {pendingBusinessUsers.length === 0 && (
-                              <p className="text-gray-500 text-center py-4">No hay solicitudes de acceso pendientes</p>
+                              <p className="text-muted-foreground text-center py-4">No hay solicitudes de acceso pendientes</p>
                             )}
                             {pendingBusinessUsers.length > 5 && (
-                              <p className="text-sm text-gray-500 text-center">
+                              <p className="text-sm text-muted-foreground text-center">
                                 Y {pendingBusinessUsers.length - 5} más... 
                                 <button 
                                   onClick={() => router.push('/admin')} 
@@ -862,12 +875,12 @@ export default function DashboardPage() {
               {/* Quick Actions */}
               {user.status === 'approved' && (
                 <div className="mt-6">
-                  <h3 className="text-sm font-medium text-gray-900 mb-4">
+                  <h3 className="text-sm font-medium text-foreground mb-4">
                     Acciones Rápidas
                   </h3>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <button 
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                      className="bg-plum-600 hover:bg-plum-700 text-white px-4 py-2 rounded-md text-sm font-medium"
                     >
                       Ver Estándares
                     </button>

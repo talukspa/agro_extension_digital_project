@@ -67,23 +67,23 @@ export default function UserTypeSelectionPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-plum-50 dark:bg-plum-950">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Verificando autenticación...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-plum-600 mx-auto"></div>
+          <p className="mt-4 text-plum-700 dark:text-plum-300">Verificando autenticación...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-plum-50 dark:bg-plum-950 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+          <h1 className="text-3xl font-bold text-plum-900 dark:text-plum-100 mb-4">
             ¡Bienvenido a AgroExtensión Digital!
           </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-lg text-plum-700 dark:text-plum-300 max-w-2xl mx-auto">
             Para comenzar, selecciona el tipo de usuario que mejor describe tu rol en el proceso de certificación agrícola.
           </p>
         </div>
@@ -107,19 +107,19 @@ export default function UserTypeSelectionPage() {
           {userTypeOptions.map((option) => (
             <div
               key={option.id}
-              className={`relative bg-white rounded-lg shadow-sm border-2 cursor-pointer transition-all duration-200 hover:shadow-md ${
+              className={`relative bg-white dark:bg-plum-900 rounded-lg shadow-sm border-2 cursor-pointer transition-all duration-200 hover:shadow-md ${
                 selectedType === option.id
-                  ? 'border-green-500 ring-2 ring-green-200'
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-plum-500 ring-2 ring-green-200'
+                  : 'border-plum-200 dark:border-plum-800 hover:border-plum-300 dark:border-plum-700'
               }`}
               onClick={() => setSelectedType(option.id)}
             >
               <div className="p-8 text-center">
                 <div className="text-4xl mb-4">{option.icon}</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                <h3 className="text-xl font-semibold text-plum-900 dark:text-plum-100 mb-3">
                   {option.title}
                 </h3>
-                <p className="text-gray-600 mb-6">
+                <p className="text-plum-700 dark:text-plum-300 mb-6">
                   {option.description}
                 </p>
                 <button
@@ -131,7 +131,7 @@ export default function UserTypeSelectionPage() {
                   className={`w-full py-3 px-4 rounded-md font-medium transition-colors duration-200 ${
                     isLoading
                       ? 'bg-gray-300 cursor-not-allowed'
-                      : 'bg-green-600 hover:bg-green-700 text-white'
+                      : 'bg-plum-600 hover:bg-plum-700 text-white'
                   }`}
                 >
                   {isLoading ? (
@@ -149,9 +149,9 @@ export default function UserTypeSelectionPage() {
         </div>
 
         <div className="mt-12 text-center">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-plum-600 dark:text-plum-400">
             ¿Necesitas ayuda para decidir? 
-            <a href="/help/user-types" className="text-green-600 hover:text-green-500 ml-1">
+            <a href="/help/user-types" className="text-fresh-600 dark:text-fresh-400 hover:text-fresh-700 dark:hover:text-fresh-300 ml-1">
               Conoce más sobre cada tipo de usuario
             </a>
           </p>

@@ -1,58 +1,148 @@
 {
-  "business_profiles": [
+  "user_types": [
     {
+      "id": "admin",
+      "name": "admin",
+      "description": "Administrador del sistema con acceso completo a todas las funcionalidades",
+      "permissions": [
+        "manage_users",
+        "manage_businesses", 
+        "manage_auditors",
+        "approve_requests",
+        "system_settings",
+        "view_all_data"
+      ],
+      "routes": ["/dashboard", "/admin", "/business", "/audits", "/profile"]
+    },
+    {
+      "id": "auditor",
+      "name": "auditor", 
+      "description": "Auditor certificado que puede revisar y validar certificaciones",
+      "permissions": [
+        "conduct_audits",
+        "validate_evidence",
+        "generate_reports",
+        "view_assigned_businesses",
+        "manage_audit_schedule"
+      ],
+      "routes": ["/dashboard", "/audits", "/profile"]
+    },
+    {
+      "id": "business_user",
+      "name": "business_user",
+      "description": "Usuario de empresa que puede subir evidencia y realizar operaciones del proceso de certificación",
+      "permissions": [
+        "manage_own_business",
+        "request_certifications",
+        "upload_evidence",
+        "view_own_audits",
+        "manage_business_users",
+        "submit_certification_requests",
+        "track_certification_progress",
+        "manage_company_documents",
+        "view_certification_requirements"
+      ],
+      "routes": ["/dashboard", "/business", "/audits", "/profile"]
+    },
+    {
+      "id": "business_owner",
+      "name": "business_owner",
+      "description": "Propietario de empresa que puede gestionar su negocio, aprobar usuarios y supervisar operaciones",
+      "permissions": [
+        "manage_own_business",
+        "request_certifications", 
+        "upload_evidence",
+        "view_own_audits",
+        "manage_business_users",
+        "approve_business_users",
+        "manage_business_settings",
+        "view_business_analytics",
+        "assign_user_roles",
+        "submit_certification_requests",
+        "track_certification_progress",
+        "manage_company_documents",
+        "view_certification_requirements"
+      ],
+      "routes": ["/dashboard", "/business", "/audits", "/profile"]
+    }
+  ],
+  "users": [
+    {
+      "uid": "firebase_uid_123",
+      "name": "Juan Rojas",
+      "email": "juan.rojas@exportadorapaine.cl",
+      "userType": "business_owner",
+      "businesses": ["business_001", "business_002"],
+      "status": "active",
+      "createdAt": "2025-09-01T10:00:00Z",
+      "lastLogin": "2025-09-08T08:30:00Z"
+    },
+    {
+      "uid": "firebase_uid_456", 
+      "name": "Carlos Ruiz",
+      "email": "carlos.ruiz@auditcorp.com",
+      "userType": "auditor",
+      "businesses": [],
+      "status": "active",
+      "createdAt": "2025-08-15T14:00:00Z",
+      "lastLogin": "2025-09-07T16:45:00Z"
+    },
+    {
+      "uid": "firebase_uid_789",
+      "name": "Ana Soto", 
+      "email": "ana.soto@exportadorapaine.cl",
+      "userType": "business_user",
+      "businesses": ["business_001"],
+      "status": "active",
+      "createdAt": "2025-09-05T09:00:00Z",
+      "lastLogin": "2025-09-08T07:15:00Z"
+    }
+  ],
+  "businesses": [
+    {
+      "id": "business_001",
       "rut": "76.432.187-4",
+      "legal_name": "Exportadora de Ciruelas Paine",
+      "address": "Av. Gral. Baquedano 108",
+      "region": "Metropolitana",
       "commune": "Paine",
+      "business_size": "Microempresa",
+      "process_type": "Producción Primaria",
+      "owner_name": "Juan Rojas",
+      "owner_email": "juan.rojas@exportadorapaine.cl",
+      "owner_phone": "+56987654321",
+      "owner_role": "Dueño",
       "digital_tools_used_at_work": [
         "Redes sociales (Facebook, Instagram, etc.)",
         "Aplicaciones de mensajería (WhatsApp, Telegram, etc.)"
       ],
-      "business_size": "Microempresa",
-      "legal_name": "Exportadora de Ciruelas Paine",
-      "address": "Av. Gral. Baquedano 108",
-      "region": "Metropolitana",
-      "owner_phone": "+56987654321",
-      "process_type": "Producción Primaria",
-      "owner_email": "contacto@exportadorapaine.cl",
-      "owner_role": "Dueño",
       "digital_tools_experienced": [
         "Redes sociales (Facebook, Instagram, etc.)",
         "Aplicaciones de mensajería (WhatsApp, Telegram, etc.)"
       ],
-      "owner_name": "Juan Rojas"
+      "members": ["firebase_uid_123", "firebase_uid_789"],
+      "status": "active",
+      "createdAt": "2025-09-01T10:00:00Z",
+      "updatedAt": "2025-09-05T09:00:00Z"
     }
   ],
-  "auditors": [
+  "auditor_profiles": [
     {
-      "auditor_id": 1,
-      "auditor_name": "Carlos Ruiz",
-      "auditor_email": "carlos.ruiz@auditcorp.com"
-    },
-    {
-      "auditor_id": 2,
-      "auditor_name": "Ana Soto",
-      "auditor_email": "ana.soto@auditcorp.com"
+      "userId": "firebase_uid_456",
+      "certifications": ["ISO 9001", "HACCP", "BRC"],
+      "specializations": ["Agricultura Orgánica", "Procesamiento de Frutas"],
+      "assignedBusinesses": ["business_001"],
+      "status": "active",
+      "createdAt": "2025-08-15T14:00:00Z"
     }
   ],
-  "resources": [
+  "standards": [
     {
-      "resource_code": "A007",
-      "type": "Señalética",
-      "detail": "Evite el desperdicio de agua",
-      "url": "https://ciruelacertificada.cl/recurso/senaletica-evite-el-desperdicio-de-agua/"
-    },
-    {
-      "resource_code": "A005",
-      "type": "TDR",
-      "detail": "TDR para la contratación de empresa que realice plan de gestión del recurso hídrico",
-      "url": "https://ciruelacertificada.cl/recurso/tdr-para-la-contratacion-de-empresa-que-realice-plan-de-gestion-del-recurso-hidrico/"
-    }
-  ],
-  "standard_templates": [
-    {
-      "template_name": "ciruelas-aa",
-      "description": "Estándares para la producción y procesamiento de ciruelas agro-industriales.",
-      "questions": [
+      "template_name": "adecuacion-agroindustrial",
+      "description": "Estándar de Adecuación Agroindustrial para la industria de ciruelas deshidratadas",
+      "version": "1.0",
+      "status": "active",
+      "actions": [
         {
           "standard_code": "A001",
           "level": "Fundamental",
@@ -61,94 +151,195 @@
           "theme": "Agua",
           "good_practice": "Gestionar los recursos hídricos en la planta",
           "action": "La planta registra mensualmente el consumo de agua en las plantas, especificando la fuente de abastecimiento y su uso.",
-          "verification_medium": "Registro de consumo de agua mensual con la siguiente información: - Fuente de abastecimiento disponible (canal, pozo, suministro de agua potable, red aljibe, etc.). - Consumo mensual por de cada fuente (m3). - Tipo de uso dentro de la línea de proceso de cada una de las fuentes.",
-          "verification_type": "Bitácora"
+          "verification_detail": "Registro de consumo de agua mensual con la siguiente información: - Fuente de abastecimiento disponible (canal, pozo, suministro de agua potable, red aljibe, etc.). - Consumo mensual por de cada fuente (m3). - Tipo de uso dentro de la línea de proceso de cada una de las fuentes.",
+          "verification_type": "log",
+          "valid_answers": [
+            "Si cumplo",
+            "No cumplo", 
+            "No cumplo, pero me es factible",
+            "No aplica a mi sistema productivo"
+          ],
+          "link": "https://ciruelacertificada.cl/?s=A001",
+          "resources": [
+            {
+              "type": "Guía",
+              "detail": "Guía para el uso sustentable del agua (adaptación predio y planta)",
+              "urls": {
+                "web": "https://ciruelacertificada.cl/recurso/guia-para-el-uso-sustentable-del-agua/",
+                "pdf": "https://ciruelacertificada.cl/wp-content/uploads/2024/11/Agua_Digital.pdf"
+              }
+            },
+            {
+              "type": "Registro",
+              "detail": "Registro de consumo de agua en planta",
+              "urls": {
+                "web": "https://ciruelacertificada.cl/recurso/registro-de-consumo-de-agua-en-planta/",
+                "excel": "https://ciruelacertificada.cl/wp-content/uploads/2024/11/RegistroConsumoAguaPlanta.xlsx"
+              }
+            }
+          ]
         },
         {
-          "standard_code": "A002",
+          "standard_code": "A002", 
           "level": "Básico",
           "points": 2,
           "dimension": "Ambiente",
           "theme": "Agua",
           "good_practice": "Gestionar los recursos hídricos en la planta",
           "action": "La planta capacita a las personas tomadoras de decisiones en el ámbito hídrico, abordando estrategias para la gestión eficiente del recurso.",
-          "verification_medium": "Registro de ejecución de capacitaciones (lista de asistencia identificando sexo de quien participa, tema expuesto, persona que expone, material expuesto, registro fotográfico y certificación entregada) o certificado de participación en instancias de capacitación externa (cursos, seminarios, congresos, etc.). Se verifica que al menos una persona atingente al área, haya recibido esta capacitación.",
-          "verification_type": "Foto"
+          "verification_detail": "Registro de ejecución de capacitaciones (lista de asistencia identificando sexo de quien participa, tema expuesto, persona que expone, material expuesto, registro fotográfico y certificación entregada) o certificado de participación en instancias de capacitación externa.",
+          "verification_type": "image",
+          "valid_answers": [
+            "Si cumplo",
+            "No cumplo",
+            "No cumplo, pero me es factible", 
+            "No aplica a mi sistema productivo"
+          ],
+          "link": "https://ciruelacertificada.cl/?s=A002",
+          "resources": [
+            {
+              "type": "Curso",
+              "detail": "Curso: Gestión sustentable del agua",
+              "urls": {
+                "web": "https://ciruelacertificada.cl/recurso/curso-gestion-sustentable-del-agua/",
+                "curso": "https://www.chileagricola.cl/courses/82151-2/"
+              }
+            }
+          ]
         }
-      ]
+      ],
+      "createdAt": "2025-08-01T00:00:00Z",
+      "updatedAt": "2025-09-01T00:00:00Z"
     },
     {
-      "template_name": "produccion-primaria-pp",
-      "description": "Estándares para la producción primaria.",
-      "questions": [
+      "template_name": "produccion-primaria",
+      "description": "Estándar de Producción Primaria para la industria de ciruelas",
+      "version": "1.0", 
+      "status": "active",
+      "actions": [
         {
           "standard_code": "P001",
-          "level": "Fundamental",
+          "level": "Fundamental", 
           "points": 5,
           "dimension": "Ambiente",
           "theme": "Agua",
           "good_practice": "Gestionar los recursos hídricos en el predio",
           "action": "El predio registra mensualmente el consumo de agua de riego especificando la fuente de abastecimiento y su uso.",
-          "verification_medium": "Registro de consumo de agua de riego mensual con especificaciones de la siguiente información:  - Fecha.  - Cultivo.  - Sector o cuartel.  - Fuente de abastecimiento disponible (canal, pozo, suministro de agua potable, red aljibe, etc.).  - Superficie.  - Tiempo de riego.  - Días de riego en la semana.  - Volumen de agua aplicado en el día (litros).  - Volumen de agua acumulado (litros).",
-          "verification_type": "Bitácora"
-        },
-        {
-          "standard_code": "P002",
-          "level": "Básico",
-          "points": 2,
-          "dimension": "Ambiente",
-          "theme": "Agua",
-          "good_practice": "Gestionar los recursos hídricos en el predio",
-          "action": "El predio capacita a quienes trabajan como tomadores de decisiones en el ámbito hídrico, abordando estrategias para la gestión eficiente del recurso.",
-          "verification_medium": "Registro de la ejecución de capacitaciones (lista de asistencia identificando sexo de quien participa, tema expuesto, persona que expone, material expuesto, registro fotográfico y certificación entregada) o certificado de participación en instancias de capacitación externa (cursos, seminarios, congresos, etc.). Se verifica que al menos una persona atingente al área, haya recibido esta capacitación.",
-          "verification_type": "Foto"
+          "verification_detail": "Registro de consumo de agua de riego mensual con especificaciones de: Fecha, Cultivo, Sector o cuartel, Fuente de abastecimiento, Superficie, Tiempo de riego, Días de riego en la semana, Volumen aplicado, Volumen acumulado.",
+          "verification_type": "log",
+          "valid_answers": [
+            "Si cumplo",
+            "No cumplo",
+            "No cumplo, pero me es factible",
+            "No aplica a mi sistema productivo"
+          ],
+          "link": "https://ciruelacertificada.cl/?s=P001",
+          "resources": [
+            {
+              "type": "Registro",
+              "detail": "Registro de consumo de agua de riego",
+              "urls": {
+                "web": "https://ciruelacertificada.cl/recurso/registro-consumo-agua-riego/",
+                "excel": "https://ciruelacertificada.cl/wp-content/uploads/2024/11/RegistroAguaRiego.xlsx"
+              }
+            }
+          ]
         }
-      ]
+      ],
+      "createdAt": "2025-08-01T00:00:00Z",
+      "updatedAt": "2025-09-01T00:00:00Z"
     }
   ],
-  "registers": [
+  "responses": [
     {
-      "id": 1,
+      "id": "response_001",
       "business_rut": "76.432.187-4",
-      "standard_code": "A001",
-      "folder": "/uploads/76.432.187-4/A001/202408",
-      "log": "Registro de consumo de agua de Agosto 2024.",
-      "upload_timestamp": "2024-08-10T10:00:00Z",
-      "validation_status": "pending",
-      "validation_timestamp": null,
-      "auditor_id": null,
-      "auditor_comments": null
-    },
-    {
-      "id": 2,
-      "business_rut": "76.432.187-4",
-      "standard_code": "P001",
-      "folder": "/uploads/76.432.187-4/P001/202408",
-      "log": "Registro de consumo de agua de riego de Agosto 2024.",
-      "upload_timestamp": "2024-08-09T11:00:00Z",
-      "validation_status": "validated",
-      "validation_timestamp": "2024-08-10T15:00:00Z",
-      "auditor_id": 1,
-      "auditor_comments": "Registro completo y consistente."
-    }
-  ],
-  "standard_responses": [
-    {
-      "business_rut": "76.432.187-4",
-      "is_completed": false,
-      "date": "2024-08-10T10:00:00Z",
+      "standard_template": "adecuacion-agroindustrial",
+      "auditor_id": "firebase_uid_456",
+      "is_completed": true,
+      "status": "under_review",
+      "date": "2025-09-08T10:00:00Z",
       "answers": [
         {
-          "standard_code": "A001",
-          "answer_value": "En Proceso",
-          "register_id": 1
+          "action": {
+            "standard_code": "A001",
+            "level": "Fundamental",
+            "points": 5,
+            "dimension": "Ambiente", 
+            "theme": "Agua",
+            "good_practice": "Gestionar los recursos hídricos en la planta",
+            "action": "La planta registra mensualmente el consumo de agua en las plantas, especificando la fuente de abastecimiento y su uso.",
+            "verification_detail": "Registro de consumo de agua mensual con la siguiente información...",
+            "verification_type": "log",
+            "valid_answers": ["Si cumplo", "No cumplo", "No cumplo, pero me es factible", "No aplica a mi sistema productivo"],
+            "link": "https://ciruelacertificada.cl/?s=A001",
+            "resources": [
+              {
+                "type": "Guía",
+                "detail": "Guía para el uso sustentable del agua",
+                "urls": {
+                  "web": "https://ciruelacertificada.cl/recurso/guia-para-el-uso-sustentable-del-agua/",
+                  "pdf": "https://ciruelacertificada.cl/wp-content/uploads/2024/11/Agua_Digital.pdf"
+                }
+              }
+            ]
+          },
+          "answer_value": "Si cumplo",
+          "register": {
+            "upload_timestamp": "2025-09-08T10:30:00Z",
+            "validation_status": "validated",
+            "validation_timestamp": "2025-09-08T15:00:00Z", 
+            "auditor_id": "firebase_uid_456",
+            "auditor_comments": "Registro completo y consistente con los estándares requeridos",
+            "logs": [
+              {
+                "standard_code": "A001",
+                "timestamp": "2025-08-01T00:00:00Z",
+                "data": {
+                  "supply_source": "Canal",
+                  "monthly_consumption_m3": 150,
+                  "process_use_type": "Irrigation"
+                }
+              },
+              {
+                "standard_code": "A001", 
+                "timestamp": "2025-09-01T00:00:00Z",
+                "data": {
+                  "supply_source": "Pozo",
+                  "monthly_consumption_m3": 75,
+                  "process_use_type": "Cleaning"
+                }
+              }
+            ]
+          }
         },
         {
-          "standard_code": "A002",
-          "answer_value": "No Cumple",
-          "register_id": null
+          "action": {
+            "standard_code": "A002",
+            "level": "Básico",
+            "points": 2,
+            "dimension": "Ambiente",
+            "theme": "Agua", 
+            "good_practice": "Gestionar los recursos hídricos en la planta",
+            "action": "La planta capacita a las personas tomadoras de decisiones en el ámbito hídrico...",
+            "verification_detail": "Registro de ejecución de capacitaciones...",
+            "verification_type": "image",
+            "valid_answers": ["Si cumplo", "No cumplo", "No cumplo, pero me es factible", "No aplica a mi sistema productivo"],
+            "link": "https://ciruelacertificada.cl/?s=A002",
+            "resources": []
+          },
+          "answer_value": "Si cumplo",
+          "register": {
+            "upload_timestamp": "2025-09-08T11:00:00Z",
+            "validation_status": "pending",
+            "auditor_id": null,
+            "auditor_comments": null,
+            "image_url": "https://storage.googleapis.com/agro-evidence/business_001/A002/capacitacion_agua_2025.jpg"
+          }
         }
-      ]
+      ],
+      "createdAt": "2025-09-08T09:00:00Z",
+      "updatedAt": "2025-09-08T15:00:00Z"
     }
   ]
 }
