@@ -1,24 +1,187 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Modo Claro - Variables semánticas con alta accesibilidad */
+  --background: 253 244 255;        /* plum-50 - fondo principal suave */
+  --foreground: 76 29 149;          /* plum-950 - texto principal con contraste 18.5:1 */
+  --muted: 245 245 244;             /* stone-100 - fondos secundarios */
+  --muted-foreground: 87 83 78;     /* stone-600 - texto secundario con contraste 7.2:1 */
+  --primary: 196 113 237;           /* plum-500 - acciones primarias vibrantes */
+  --primary-foreground: 255 255 255; /* white - texto sobre primario con contraste alto */
+  --secondary: 231 229 228;         /* stone-200 - elementos secundarios */
+  --secondary-foreground: 68 64 60; /* stone-700 - texto sobre secundario con contraste 5.9:1 */
+  --accent: 251 191 36;             /* amber-400 - elementos de acento dorados */
+  --accent-foreground: 69 26 3;     /* amber-950 - texto sobre acento con alto contraste */
+  --border: 215 211 209;            /* stone-300 - bordes sutiles */
+  --ring: 196 113 237;              /* plum-500 - focus rings para accesibilidad */
+  
+  /* Variables adicionales para componentes */
+  --card: 255 255 255;              /* white - fondos de tarjetas en claro */
+  --card-foreground: 76 29 149;     /* plum-950 - texto en tarjetas */
+  --popover: 255 255 255;           /* white - fondos de popovers */
+  --popover-foreground: 76 29 149;  /* plum-950 - texto en popovers */
+  
+  /* Variables de compatibilidad */
+  --background-rgb: rgb(253, 244, 255);
+  --foreground-rgb: rgb(76, 29, 149);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  /* Modo Oscuro - Variables optimizadas para legibilidad nocturna */
+  --background: 41 37 36;           /* stone-700 personalizado - fondo principal cálido */
+  --foreground: 250 232 255;        /* plum-100 - texto principal con contraste 16.1:1 */
+  --muted: 68 64 60;                /* stone-700 - fondos secundarios */
+  --muted-foreground: 168 162 158;  /* stone-400 - texto secundario con contraste 4.6:1 */
+  --primary: 168 85 247;            /* plum-600 - acciones primarias brillantes */
+  --primary-foreground: 253 244 255; /* plum-50 - texto sobre primario con contraste 5.2:1 */
+  --secondary: 68 64 60;            /* stone-700 - elementos secundarios */
+  --secondary-foreground: 245 245 244; /* stone-100 - texto sobre secundario con contraste 8.1:1 */
+  --accent: 252 211 77;             /* amber-300 - elementos de acento más claros para oscuro */
+  --accent-foreground: 69 26 3;     /* amber-950 - texto sobre acento mantiene contraste */
+  --border: 68 64 60;               /* stone-700 - bordes sutiles pero visibles */
+  --ring: 168 85 247;               /* plum-600 - focus rings visibles */
+  
+  /* Variables adicionales para componentes */
+  --card: 29 29 29;                 /* stone-800 - fondos de tarjetas en oscuro */
+  --card-foreground: 250 232 255;  /* plum-100 - texto en tarjetas */
+  --popover: 29 29 29;              /* stone-800 - fondos de popovers */
+  --popover-foreground: 250 232 255; /* plum-100 - texto en popovers */
+  
+  /* Variables de compatibilidad */
+  --background-rgb: rgb(41, 37, 36);
+  --foreground-rgb: rgb(250, 232, 255);
 }
 
+/* Utilidades CSS personalizadas para mayor flexibilidad */
+.bg-background {
+  background-color: rgb(var(--background));
+}
+
+.text-foreground {
+  color: rgb(var(--foreground));
+}
+
+.bg-muted {
+  background-color: rgb(var(--muted));
+}
+
+.text-muted-foreground {
+  color: rgb(var(--muted-foreground));
+}
+
+.bg-primary {
+  background-color: rgb(var(--primary));
+}
+
+.text-primary-foreground {
+  color: rgb(var(--primary-foreground));
+}
+
+.bg-secondary {
+  background-color: rgb(var(--secondary));
+}
+
+.text-secondary-foreground {
+  color: rgb(var(--secondary-foreground));
+}
+
+.bg-accent {
+  background-color: rgb(var(--accent));
+}
+
+.text-accent-foreground {
+  color: rgb(var(--accent-foreground));
+}
+
+.bg-card {
+  background-color: rgb(var(--card));
+}
+
+.text-card-foreground {
+  color: rgb(var(--card-foreground));
+}
+
+.border {
+  border-color: rgb(var(--border));
+}
+
+.ring {
+  --tw-ring-color: rgb(var(--ring));
+}
+
+/* Utilidades adicionales para mejor experiencia de desarrollo */
+.text-primary {
+  color: rgb(var(--primary));
+}
+
+.border-primary {
+  border-color: rgb(var(--primary));
+}
+
+.focus\:ring-ring:focus {
+  --tw-ring-color: rgb(var(--ring));
+}
+
+.border-border {
+  border-color: rgb(var(--border));
+}
+
+.ring-ring {
+  --tw-ring-color: rgb(var(--ring));
+}
+
+/* Estilos base mejorados */
 a {
   color: inherit;
   text-decoration: none;
 }
 
+/* Mejor detección de esquema de color */
 @media (prefers-color-scheme: dark) {
   html {
     color-scheme: dark;
   }
+}
+
+@media (prefers-color-scheme: light) {
+  html {
+    color-scheme: light;
+  }
+}
+
+/* Transiciones suaves para cambios de tema */
+* {
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+/* Asegurar que los elementos interactivos tengan suficiente área de toque */
+button, 
+[role="button"], 
+input[type="button"], 
+input[type="submit"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Mejor legibilidad para texto pequeño */
+.text-xs, 
+.text-sm {
+  font-weight: 500;
+}
+
+/* Focus visible mejorado para accesibilidad */
+:focus-visible {
+  outline: 2px solid rgb(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Asegurar contraste en selección de texto */
+::selection {
+  background-color: rgb(var(--primary) / 0.2);
+  color: rgb(var(--foreground));
+}
+
+.dark ::selection {
+  background-color: rgb(var(--primary) / 0.3);
+  color: rgb(var(--foreground));
 }

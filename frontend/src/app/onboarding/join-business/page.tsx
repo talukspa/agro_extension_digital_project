@@ -74,23 +74,23 @@ export default function JoinBusinessPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-plum-50 dark:bg-plum-950">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Verificando autenticación...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-plum-600 mx-auto"></div>
+          <p className="mt-4 text-plum-700 dark:text-plum-300">Verificando autenticación...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-plum-50 dark:bg-plum-950 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+          <h1 className="text-3xl font-bold text-plum-900 dark:text-plum-100 mb-4">
             Solicitar Acceso a Empresa
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-plum-700 dark:text-plum-300">
             Como empleado, solicita acceso a una empresa existente. 
             El propietario de la empresa deberá aprobar tu solicitud.
           </p>
@@ -111,26 +111,26 @@ export default function JoinBusinessPage() {
           </div>
         )}
 
-        <div className="bg-white shadow rounded-lg p-8">
+        <div className="bg-white dark:bg-plum-900 shadow rounded-lg p-8">
           {loadingBusinesses ? (
             <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Cargando empresas...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-plum-600 mx-auto"></div>
+              <p className="mt-4 text-plum-700 dark:text-plum-300">Cargando empresas...</p>
             </div>
           ) : businesses.length === 0 ? (
             <div className="text-center py-8">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H3m2 0h3M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
-              <p className="mt-4 text-gray-600">No hay empresas disponibles en este momento.</p>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="mt-4 text-plum-700 dark:text-plum-300">No hay empresas disponibles en este momento.</p>
+              <p className="text-sm text-plum-600 dark:text-plum-400 mt-2">
                 Las empresas deben ser aprobadas por un administrador antes de aparecer aquí.
               </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-4">
+                <label className="block text-sm font-medium text-plum-800 dark:text-plum-200 mb-4">
                   Empresas Disponibles
                 </label>
                 <div className="space-y-3">
@@ -139,8 +139,8 @@ export default function JoinBusinessPage() {
                       key={business.id}
                       className={`border rounded-lg p-4 cursor-pointer transition-all duration-200 ${
                         selectedBusinessId === business.id
-                          ? 'border-green-500 bg-green-50 ring-2 ring-green-200'
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          ? 'border-plum-500 bg-green-50 ring-2 ring-green-200'
+                          : 'border-plum-200 dark:border-plum-800 hover:border-plum-300 dark:border-plum-700 hover:bg-plum-50 dark:bg-plum-950'
                       }`}
                       onClick={() => setSelectedBusinessId(business.id)}
                     >
@@ -151,16 +151,16 @@ export default function JoinBusinessPage() {
                           value={business.id}
                           checked={selectedBusinessId === business.id}
                           onChange={() => setSelectedBusinessId(business.id)}
-                          className="mt-1 focus:ring-green-500 h-4 w-4 text-green-600 border-gray-300"
+                          className="mt-1 focus:ring-plum-500 h-4 w-4 text-fresh-600 dark:text-fresh-400 border-plum-300 dark:border-plum-700"
                         />
                         <div className="ml-3 flex-1">
-                          <h3 className="text-lg font-medium text-gray-900">
+                          <h3 className="text-lg font-medium text-plum-900 dark:text-plum-100">
                             {business.businessName}
                           </h3>
                           {business.description && (
-                            <p className="text-gray-600 mt-1">{business.description}</p>
+                            <p className="text-plum-700 dark:text-plum-300 mt-1">{business.description}</p>
                           )}
-                          <div className="mt-2 flex flex-wrap gap-4 text-sm text-gray-500">
+                          <div className="mt-2 flex flex-wrap gap-4 text-sm text-plum-600 dark:text-plum-400">
                             {business.businessType && (
                               <span>📍 {business.businessType}</span>
                             )}
@@ -172,7 +172,7 @@ export default function JoinBusinessPage() {
                                 href={business.website} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                className="text-green-600 hover:text-green-500"
+                                className="text-fresh-600 dark:text-fresh-400 hover:text-fresh-700 dark:hover:text-fresh-300"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 🌐 Sitio web
@@ -188,7 +188,7 @@ export default function JoinBusinessPage() {
 
               {selectedBusinessId && (
                 <div>
-                  <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="message" className="block text-sm font-medium text-plum-800 dark:text-plum-200 mb-2">
                     Mensaje (Opcional)
                   </label>
                   <textarea
@@ -197,7 +197,7 @@ export default function JoinBusinessPage() {
                     rows={3}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-plum-300 dark:border-plum-700 rounded-md focus:outline-none focus:ring-2 focus:ring-plum-500 focus:border-transparent"
                     placeholder="Cuéntale al propietario de la empresa por qué quieres unirte..."
                   />
                 </div>
@@ -223,7 +223,7 @@ export default function JoinBusinessPage() {
                 <button
                   type="button"
                   onClick={() => router.push('/onboarding/user-type')}
-                  className="flex-1 py-3 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium transition-colors duration-200"
+                  className="flex-1 py-3 px-4 border border-plum-300 dark:border-plum-700 rounded-md text-plum-800 dark:text-plum-200 hover:bg-plum-50 dark:bg-plum-950 font-medium transition-colors duration-200"
                 >
                   Volver
                 </button>
@@ -233,7 +233,7 @@ export default function JoinBusinessPage() {
                   className={`flex-1 py-3 px-4 rounded-md font-medium transition-colors duration-200 ${
                     isLoading || !selectedBusinessId
                       ? 'bg-gray-300 cursor-not-allowed'
-                      : 'bg-green-600 hover:bg-green-700 text-white'
+                      : 'bg-plum-600 hover:bg-plum-700 text-white'
                   }`}
                 >
                   {isLoading ? (

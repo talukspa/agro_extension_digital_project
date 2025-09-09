@@ -1,0 +1,108 @@
+{
+  "timestamp": "2025-09-08T23:00:21.899739",
+  "dry_run": true,
+  "limit": 2,
+  "stats": {
+    "total": 2,
+    "migrated": 0,
+    "already_migrated": 0,
+    "dry_run": 2,
+    "no_changes": 0,
+    "errors": 0
+  },
+  "user_stats": {
+    "users_created": 0,
+    "users_already_exist": 0,
+    "users_dry_run": 2,
+    "users_skipped": 0,
+    "users_error": 0
+  },
+  "results": [
+    {
+      "id": "10577592-k",
+      "status": "dry_run",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "pdiaz@sofruco.cl",
+        "name": "Pedro Pablo Diaz Vergara",
+        "phone": "226700620",
+        "userType": "business_owner",
+        "role": "Gerente de Agroindustria",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "dry_run",
+        "reason": "Sería creado en modo dry-run",
+        "user_id": "b3769d30506763320613941e4f9d6e76",
+        "user_data": {
+          "uid": "b3769d30506763320613941e4f9d6e76",
+          "name": "Pedro Pablo Diaz Vergara",
+          "email": "pdiaz@sofruco.cl",
+          "userType": "business_owner",
+          "business_ruts": [
+            "10577592-k"
+          ],
+          "phone": "226700620",
+          "role": "Gerente de Agroindustria",
+          "status": "active",
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLogin": null
+        }
+      }
+    },
+    {
+      "id": "10590515-7",
+      "status": "dry_run",
+      "changes": [
+        "Eliminado campo: business_users",
+        "Eliminado campo: pendingUsers",
+        "Creado objeto 'owner' embebido con user_type 'business_owner'",
+        "Eliminado campo original: owner_email",
+        "Eliminado campo original: owner_name",
+        "Eliminado campo original: owner_phone",
+        "Eliminado campo original: owner_role",
+        "Actualizado updatedAt"
+      ],
+      "owner_data": {
+        "email": "francisca.sepulveda.consultor@iica.int",
+        "name": "Francisca",
+        "phone": "942873202",
+        "userType": "business_owner",
+        "role": "Consultora",
+        "status": "active",
+        "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+        "lastLogin": null
+      },
+      "user_creation": {
+        "status": "dry_run",
+        "reason": "Sería creado en modo dry-run",
+        "user_id": "3813ff14dc751ac3cb96e6aa06249e44",
+        "user_data": {
+          "uid": "3813ff14dc751ac3cb96e6aa06249e44",
+          "name": "Francisca",
+          "email": "francisca.sepulveda.consultor@iica.int",
+          "userType": "business_owner",
+          "business_ruts": [
+            "10590515-7"
+          ],
+          "phone": "942873202",
+          "role": "Consultora",
+          "status": "active",
+          "createdAt": "Sentinel: Value used to set a document field to the server timestamp.",
+          "lastLogin": null
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,520 @@
+{
+  "doc_count": 10,
+  "all_fields": [
+    "address",
+    "business_size",
+    "commune",
+    "digital_tools_experienced",
+    "digital_tools_used_at_work",
+    "legal_name",
+    "owner",
+    "process_type",
+    "region",
+    "rut",
+    "updatedAt"
+  ],
+  "consolidated_schema": {
+    "address": "string",
+    "business_size": "string",
+    "commune": "string",
+    "digital_tools_experienced": "array<str>",
+    "digital_tools_used_at_work": "array<str>",
+    "legal_name": "string",
+    "process_type": "string",
+    "region": "string",
+    "rut": "string",
+    "owner": "object",
+    "updatedAt": "DatetimeWithNanoseconds"
+  },
+  "doc_schemas": [
+    {
+      "doc_id": "10577592-k",
+      "schema": {
+        "address": "string",
+        "business_size": "string",
+        "commune": "string",
+        "digital_tools_experienced": "array<str>",
+        "digital_tools_used_at_work": "array<str>",
+        "legal_name": "string",
+        "process_type": "string",
+        "region": "string",
+        "rut": "string",
+        "owner": "object",
+        "updatedAt": "DatetimeWithNanoseconds"
+      },
+      "data": {
+        "address": "Coyancura 2283 of 602",
+        "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+        "commune": "Providencia",
+        "digital_tools_experienced": [
+          "Computador",
+          "Celular",
+          "Tablet",
+          "Correo electrónico",
+          "WhatsApp",
+          "Microsoft Office",
+          "Redes Sociales: (Facebook, Instagram, u otras)",
+          "Almacenamiento en la nube"
+        ],
+        "digital_tools_used_at_work": [
+          "Computador",
+          "Celular",
+          "Tablet",
+          "Correo electrónico",
+          "WhatsApp",
+          "Microsoft Office",
+          "Redes Sociales: (Facebook, Instagram, u otras)",
+          "Almacenamiento en la nube"
+        ],
+        "legal_name": "Sofruco Alimentos Limitada",
+        "process_type": "Ambos",
+        "region": "Metropolitana de Santiago",
+        "rut": "10577592-k",
+        "owner": {
+          "email": "pdiaz@sofruco.cl",
+          "lastLogin": null,
+          "name": "Pedro Pablo Diaz Vergara",
+          "phone": "226700620",
+          "role": "Gerente de Agroindustria",
+          "status": "active",
+          "userType": "business_owner",
+          "createdAt": "2025-09-08 23:05:15.830000+00:00"
+        },
+        "updatedAt": "2025-09-08 23:05:15.830000+00:00"
+      }
+    },
+    {
+      "doc_id": "10590515-7",
+      "schema": {
+        "address": "string",
+        "business_size": "string",
+        "commune": "string",
+        "digital_tools_experienced": "array<str>",
+        "digital_tools_used_at_work": "array<str>",
+        "legal_name": "string",
+        "process_type": "string",
+        "region": "string",
+        "rut": "string",
+        "owner": "object",
+        "updatedAt": "DatetimeWithNanoseconds"
+      },
+      "data": {
+        "address": "Rancagua 0320",
+        "business_size": "Micro (ventas anuales entre 0,01 UF a 2.400 UF).",
+        "commune": "Providencia",
+        "digital_tools_experienced": [
+          "Correo electrónico",
+          "Computador",
+          "Celular",
+          "WhatsApp",
+          "Microsoft Office",
+          "Almacenamiento en la nube"
+        ],
+        "digital_tools_used_at_work": [
+          "Computador",
+          "Celular",
+          "Correo electrónico",
+          "WhatsApp",
+          "Microsoft Office",
+          "Almacenamiento en la nube"
+        ],
+        "legal_name": "xxxxx",
+        "process_type": "Ambos",
+        "region": "Metropolitana de Santiago",
+        "rut": "10590515-7",
+        "owner": {
+          "email": "francisca.sepulveda.consultor@iica.int",
+          "lastLogin": null,
+          "name": "Francisca",
+          "phone": "942873202",
+          "role": "Consultora",
+          "status": "active",
+          "userType": "business_owner",
+          "createdAt": "2025-09-08 23:05:17.619000+00:00"
+        },
+        "updatedAt": "2025-09-08 23:05:17.619000+00:00"
+      }
+    },
+    {
+      "doc_id": "127184364",
+      "schema": {
+        "address": "string",
+        "business_size": "string",
+        "commune": "string",
+        "digital_tools_experienced": "array<str>",
+        "digital_tools_used_at_work": "array<str>",
+        "legal_name": "string",
+        "process_type": "string",
+        "region": "string",
+        "rut": "string",
+        "owner": "object",
+        "updatedAt": "DatetimeWithNanoseconds"
+      },
+      "data": {
+        "address": "AV. EL GOLF 150 PISO 18",
+        "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+        "commune": "Las Condes",
+        "digital_tools_experienced": [
+          "Computador",
+          "Celular",
+          "Correo electrónico",
+          "WhatsApp"
+        ],
+        "digital_tools_used_at_work": [
+          "Computador",
+          "WhatsApp",
+          "Correo electrónico",
+          "Microsoft Office",
+          "Almacenamiento en la nube"
+        ],
+        "legal_name": "AGRICOLA SIEMEL LIMITADA",
+        "process_type": "Ambos",
+        "region": "Metropolitana de Santiago",
+        "rut": "127184364",
+        "owner": {
+          "email": "AMOLINA@AGSIEMEL.CL",
+          "lastLogin": null,
+          "name": "ANDRES EFRAIN MOLINA HERRERA",
+          "phone": "56995642342",
+          "role": "JEFE DE OPERACIONES",
+          "status": "active",
+          "userType": "business_owner",
+          "createdAt": "2025-09-08 23:05:18.428000+00:00"
+        },
+        "updatedAt": "2025-09-08 23:05:18.428000+00:00"
+      }
+    },
+    {
+      "doc_id": "16661279-9",
+      "schema": {
+        "address": "string",
+        "business_size": "string",
+        "commune": "string",
+        "digital_tools_experienced": "array<str>",
+        "digital_tools_used_at_work": "array<str>",
+        "legal_name": "string",
+        "process_type": "string",
+        "region": "string",
+        "rut": "string",
+        "owner": "object",
+        "updatedAt": "DatetimeWithNanoseconds"
+      },
+      "data": {
+        "address": "A",
+        "business_size": "Micro (ventas anuales entre 0,01 UF a 2.400 UF).",
+        "commune": "Arica",
+        "digital_tools_experienced": [
+          "Computador"
+        ],
+        "digital_tools_used_at_work": [
+          "Computador"
+        ],
+        "legal_name": "A",
+        "process_type": "Secado en horno (obtención de ciruela seca en formato condición natural)",
+        "region": "Arica y Parinacota",
+        "rut": "16661279-9",
+        "owner": {
+          "email": "A",
+          "lastLogin": null,
+          "name": "A",
+          "phone": "A",
+          "role": "A",
+          "status": "active",
+          "userType": "business_owner",
+          "createdAt": "2025-09-08 23:05:18.976000+00:00"
+        },
+        "updatedAt": "2025-09-08 23:05:18.976000+00:00"
+      }
+    },
+    {
+      "doc_id": "17396038-7",
+      "schema": {
+        "address": "string",
+        "business_size": "string",
+        "commune": "string",
+        "digital_tools_experienced": "array<str>",
+        "digital_tools_used_at_work": "array<str>",
+        "legal_name": "string",
+        "process_type": "string",
+        "region": "string",
+        "rut": "string",
+        "owner": "object",
+        "updatedAt": "DatetimeWithNanoseconds"
+      },
+      "data": {
+        "address": "A",
+        "business_size": "Micro (ventas anuales entre 0,01 UF a 2.400 UF).",
+        "commune": "Arica",
+        "digital_tools_experienced": [
+          "Computador"
+        ],
+        "digital_tools_used_at_work": [
+          "Computador"
+        ],
+        "legal_name": "A",
+        "process_type": "Secado en horno (obtención de ciruela seca en formato condición natural)",
+        "region": "Arica y Parinacota",
+        "rut": "17396038-7",
+        "owner": {
+          "email": "A",
+          "lastLogin": null,
+          "name": "A",
+          "phone": "A",
+          "role": "A",
+          "status": "active",
+          "userType": "business_owner",
+          "createdAt": "2025-09-08 23:05:19.494000+00:00"
+        },
+        "updatedAt": "2025-09-08 23:05:19.494000+00:00"
+      }
+    },
+    {
+      "doc_id": "18276552-k",
+      "schema": {
+        "address": "string",
+        "business_size": "string",
+        "commune": "string",
+        "digital_tools_experienced": "array<str>",
+        "digital_tools_used_at_work": "array<str>",
+        "legal_name": "string",
+        "process_type": "string",
+        "region": "string",
+        "rut": "string",
+        "owner": "object",
+        "updatedAt": "DatetimeWithNanoseconds"
+      },
+      "data": {
+        "address": "Sexta Avenida 1527",
+        "business_size": "Mediana (ventas anuales entre 25.000,01 UF a 100.000 UF).",
+        "commune": "San Miguel",
+        "digital_tools_experienced": [
+          "Computador",
+          "Microsoft Office",
+          "WhatsApp",
+          "Correo electrónico",
+          "Redes Sociales: (Facebook, Instagram, u otras)"
+        ],
+        "digital_tools_used_at_work": [
+          "Computador",
+          "Microsoft Office",
+          "Correo electrónico",
+          "Tablet"
+        ],
+        "legal_name": "Camila Orellama",
+        "process_type": "Ambos",
+        "region": "Metropolitana de Santiago",
+        "rut": "18276552-k",
+        "owner": {
+          "email": "karinaorellanamoreira@gmail.com",
+          "lastLogin": null,
+          "name": "Camila Orellana",
+          "phone": "961954566",
+          "role": "Encargada de planta",
+          "status": "active",
+          "userType": "business_owner",
+          "createdAt": "2025-09-08 23:05:20.093000+00:00"
+        },
+        "updatedAt": "2025-09-08 23:05:20.093000+00:00"
+      }
+    },
+    {
+      "doc_id": "69500400-1",
+      "schema": {
+        "address": "string",
+        "business_size": "string",
+        "commune": "string",
+        "digital_tools_experienced": "array<str>",
+        "digital_tools_used_at_work": "array<str>",
+        "legal_name": "string",
+        "process_type": "string",
+        "region": "string",
+        "rut": "string",
+        "owner": "object",
+        "updatedAt": "DatetimeWithNanoseconds"
+      },
+      "data": {
+        "address": "Av. Rancagua 0320",
+        "business_size": "Micro (ventas anuales entre 0,01 UF a 2.400 UF).",
+        "commune": "Providencia",
+        "digital_tools_experienced": [
+          "Computador",
+          "Celular",
+          "Correo electrónico",
+          "WhatsApp",
+          "Microsoft Office",
+          "Redes Sociales: (Facebook, Instagram, u otras)",
+          "Almacenamiento en la nube"
+        ],
+        "digital_tools_used_at_work": [
+          "Computador",
+          "Celular",
+          "Correo electrónico",
+          "Microsoft Office",
+          "Almacenamiento en la nube"
+        ],
+        "legal_name": "IICA",
+        "process_type": "Ambos",
+        "region": "Metropolitana de Santiago",
+        "rut": "69500400-1",
+        "owner": {
+          "email": "francisca.sepulveda.consultor@iica.int",
+          "lastLogin": null,
+          "name": "Francisca Sepúlveda",
+          "phone": "99999999",
+          "role": "Consultora",
+          "status": "active",
+          "userType": "business_owner",
+          "createdAt": "2025-09-08 23:05:20.644000+00:00"
+        },
+        "updatedAt": "2025-09-08 23:05:20.644000+00:00"
+      }
+    },
+    {
+      "doc_id": "76008900-1",
+      "schema": {
+        "address": "string",
+        "business_size": "string",
+        "commune": "string",
+        "digital_tools_experienced": "array<str>",
+        "digital_tools_used_at_work": "array<str>",
+        "legal_name": "string",
+        "process_type": "string",
+        "region": "string",
+        "rut": "string",
+        "owner": "object",
+        "updatedAt": "DatetimeWithNanoseconds"
+      },
+      "data": {
+        "address": "Camino Vecinal 124 Población Santa Cristina, Lo Miranda",
+        "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+        "commune": "Doñihue",
+        "digital_tools_experienced": [
+          "Computador",
+          "Celular",
+          "Almacenamiento en la nube",
+          "Correo electrónico",
+          "Microsoft Office"
+        ],
+        "digital_tools_used_at_work": [
+          "Computador",
+          "Correo electrónico",
+          "Celular",
+          "Almacenamiento en la nube",
+          "Microsoft Office"
+        ],
+        "legal_name": "Agroindustrial y Comercial Superfruit Ltda.",
+        "process_type": "Ambos",
+        "region": "Libertador General Bernardo O'Higgins",
+        "rut": "76008900-1",
+        "owner": {
+          "email": "mcasabonne@superfruit.cl",
+          "lastLogin": null,
+          "name": "Mery Casabonne N.",
+          "phone": "976099919",
+          "role": "Jefa Aseguramiento de Calidad, Encargada Sustentabilidad",
+          "status": "active",
+          "userType": "business_owner",
+          "createdAt": "2025-09-08 23:05:21.147000+00:00"
+        },
+        "updatedAt": "2025-09-08 23:05:21.147000+00:00"
+      }
+    },
+    {
+      "doc_id": "760089001",
+      "schema": {
+        "address": "string",
+        "business_size": "string",
+        "commune": "string",
+        "digital_tools_experienced": "array<str>",
+        "digital_tools_used_at_work": "array<str>",
+        "legal_name": "string",
+        "process_type": "string",
+        "region": "string",
+        "rut": "string",
+        "owner": "object",
+        "updatedAt": "DatetimeWithNanoseconds"
+      },
+      "data": {
+        "address": "Camino Vecinal 124 Población Santa Cristina, Lo Miranda",
+        "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+        "commune": "Doñihue",
+        "digital_tools_experienced": [
+          "Computador",
+          "Celular",
+          "Almacenamiento en la nube",
+          "Correo electrónico",
+          "WhatsApp",
+          "Microsoft Office"
+        ],
+        "digital_tools_used_at_work": [
+          "Computador",
+          "Celular",
+          "Almacenamiento en la nube",
+          "Correo electrónico",
+          "Microsoft Office",
+          "WhatsApp"
+        ],
+        "legal_name": "Agroindustrial y Comercial Superfruit Ltda.",
+        "process_type": "Ambos",
+        "region": "Libertador General Bernardo O'Higgins",
+        "rut": "760089001",
+        "owner": {
+          "email": "mcasabonne@superfruit.cl",
+          "lastLogin": null,
+          "name": "Mery Casabonne Nuñez",
+          "phone": "976099919",
+          "role": "Jefa Aseguramiento de Calidad, Encargada Sustentabilidad",
+          "status": "active",
+          "userType": "business_owner",
+          "createdAt": "2025-09-08 23:05:21.690000+00:00"
+        },
+        "updatedAt": "2025-09-08 23:05:21.690000+00:00"
+      }
+    },
+    {
+      "doc_id": "76059579-9",
+      "schema": {
+        "address": "string",
+        "business_size": "string",
+        "commune": "string",
+        "digital_tools_experienced": "array<str>",
+        "digital_tools_used_at_work": "array<str>",
+        "legal_name": "string",
+        "process_type": "string",
+        "region": "string",
+        "rut": "string",
+        "owner": "object",
+        "updatedAt": "DatetimeWithNanoseconds"
+      },
+      "data": {
+        "address": "CAMINO PICHILEMU S/N, PALMILLA",
+        "business_size": "Grande (ventas anuales mayores a 100.000 UF).",
+        "commune": "Palmilla",
+        "digital_tools_experienced": [
+          "Computador"
+        ],
+        "digital_tools_used_at_work": [
+          "Computador"
+        ],
+        "legal_name": "PROCESADORA Y DESHIDRATADORA COLCHAGUA S.A.",
+        "process_type": "Ambos",
+        "region": "Libertador General Bernardo O'Higgins",
+        "rut": "76059579-9",
+        "owner": {
+          "email": "MATIAS.ANINAT@GOODVALLEY.CL",
+          "lastLogin": null,
+          "name": "MATIAS ANINAT ALVAREZ-FOURCADE",
+          "phone": "569 34392555",
+          "role": "GERENTE OPERACIONES",
+          "status": "active",
+          "userType": "business_owner",
+          "createdAt": "2025-09-08 23:05:22.249000+00:00"
+        },
+        "updatedAt": "2025-09-08 23:05:22.249000+00:00"
+      }
+    }
+  ],
+  "owner_fields": [],
+  "has_pending_users": false,
+  "has_business_users": false
+}

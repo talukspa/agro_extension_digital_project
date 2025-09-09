@@ -26,8 +26,8 @@ const StatsCard: React.FC<StatsCardProps> = ({ title, count, description, color,
       border: 'border-purple-200'
     },
     green: {
-      bg: 'bg-green-100',
-      text: 'text-green-600',
+      bg: 'bg-fresh-100 dark:bg-fresh-900',
+      text: 'text-fresh-600 dark:text-fresh-400',
       border: 'border-green-200'
     }
   };
@@ -35,7 +35,7 @@ const StatsCard: React.FC<StatsCardProps> = ({ title, count, description, color,
   const classes = colorClasses[color];
 
   return (
-    <div className={`bg-white overflow-hidden shadow rounded-lg border ${classes.border} hover:shadow-md transition-shadow`}>
+    <div className={`bg-white dark:bg-plum-900 overflow-hidden shadow rounded-lg border ${classes.border} hover:shadow-md transition-shadow`}>
       <div className="p-5">
         <div className="flex items-center">
           <div className="flex-shrink-0">
@@ -49,14 +49,14 @@ const StatsCard: React.FC<StatsCardProps> = ({ title, count, description, color,
           </div>
           <div className="ml-5 w-0 flex-1">
             <dl>
-              <dt className="text-sm font-medium text-gray-500 truncate">
+              <dt className="text-sm font-medium text-plum-600 dark:text-plum-400 truncate">
                 {title}
               </dt>
               <dd className="flex items-baseline">
-                <div className="text-2xl font-semibold text-gray-900">
+                <div className="text-2xl font-semibold text-plum-900 dark:text-plum-100">
                   {count}
                 </div>
-                <div className="ml-2 text-sm text-gray-600">
+                <div className="ml-2 text-sm text-plum-700 dark:text-plum-300">
                   {description}
                 </div>
               </dd>

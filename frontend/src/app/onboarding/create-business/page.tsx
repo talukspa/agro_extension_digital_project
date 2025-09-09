@@ -77,23 +77,23 @@ export default function CreateBusinessPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-plum-50 dark:bg-plum-950">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Verificando autenticación...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-plum-600 mx-auto"></div>
+          <p className="mt-4 text-plum-700 dark:text-plum-300">Verificando autenticación...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-plum-50 dark:bg-plum-950 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+          <h1 className="text-3xl font-bold text-plum-900 dark:text-plum-100 mb-4">
             Registrar Mi Empresa
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-plum-700 dark:text-plum-300">
             Como propietario, registra tu empresa para obtener certificación agrícola. 
             Podrás gestionar empleados y aprobar solicitudes de acceso.
           </p>
@@ -114,9 +114,9 @@ export default function CreateBusinessPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="bg-white shadow rounded-lg p-8 space-y-6">
+        <form onSubmit={handleSubmit} className="bg-white dark:bg-plum-900 shadow rounded-lg p-8 space-y-6">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="name" className="block text-sm font-medium text-plum-800 dark:text-plum-200 mb-2">
               Nombre de la Empresa *
             </label>
             <input
@@ -126,13 +126,13 @@ export default function CreateBusinessPage() {
               required
               value={formData.name}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-plum-300 dark:border-plum-700 rounded-md focus:outline-none focus:ring-2 focus:ring-plum-500 focus:border-transparent"
               placeholder="Ej: Frutas del Valle S.A."
             />
           </div>
 
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="description" className="block text-sm font-medium text-plum-800 dark:text-plum-200 mb-2">
               Descripción
             </label>
             <textarea
@@ -141,13 +141,13 @@ export default function CreateBusinessPage() {
               rows={3}
               value={formData.description}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-plum-300 dark:border-plum-700 rounded-md focus:outline-none focus:ring-2 focus:ring-plum-500 focus:border-transparent"
               placeholder="Describe brevemente tu empresa y actividades principales..."
             />
           </div>
 
           <div>
-            <label htmlFor="industry" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="industry" className="block text-sm font-medium text-plum-800 dark:text-plum-200 mb-2">
               Sector *
             </label>
             <select
@@ -156,7 +156,7 @@ export default function CreateBusinessPage() {
               required
               value={formData.industry}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-plum-300 dark:border-plum-700 rounded-md focus:outline-none focus:ring-2 focus:ring-plum-500 focus:border-transparent"
             >
               <option value="agriculture">Agricultura</option>
               <option value="livestock">Ganadería</option>
@@ -168,7 +168,7 @@ export default function CreateBusinessPage() {
           </div>
 
           <div>
-            <label htmlFor="size" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="size" className="block text-sm font-medium text-plum-800 dark:text-plum-200 mb-2">
               Tamaño de la Empresa *
             </label>
             <select
@@ -177,7 +177,7 @@ export default function CreateBusinessPage() {
               required
               value={formData.size}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-plum-300 dark:border-plum-700 rounded-md focus:outline-none focus:ring-2 focus:ring-plum-500 focus:border-transparent"
             >
               <option value="small">Pequeña (1-10 empleados)</option>
               <option value="medium">Mediana (11-50 empleados)</option>
@@ -186,7 +186,7 @@ export default function CreateBusinessPage() {
           </div>
 
           <div>
-            <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="address" className="block text-sm font-medium text-plum-800 dark:text-plum-200 mb-2">
               Dirección *
             </label>
             <input
@@ -196,14 +196,14 @@ export default function CreateBusinessPage() {
               required
               value={formData.address}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-plum-300 dark:border-plum-700 rounded-md focus:outline-none focus:ring-2 focus:ring-plum-500 focus:border-transparent"
               placeholder="Dirección completa de la empresa"
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="phone" className="block text-sm font-medium text-plum-800 dark:text-plum-200 mb-2">
                 Teléfono *
               </label>
               <input
@@ -213,13 +213,13 @@ export default function CreateBusinessPage() {
                 required
                 value={formData.phone}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-plum-300 dark:border-plum-700 rounded-md focus:outline-none focus:ring-2 focus:ring-plum-500 focus:border-transparent"
                 placeholder="+56 9 1234 5678"
               />
             </div>
 
             <div>
-              <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="website" className="block text-sm font-medium text-plum-800 dark:text-plum-200 mb-2">
                 Sitio Web
               </label>
               <input
@@ -228,14 +228,14 @@ export default function CreateBusinessPage() {
                 id="website"
                 value={formData.website}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-plum-300 dark:border-plum-700 rounded-md focus:outline-none focus:ring-2 focus:ring-plum-500 focus:border-transparent"
                 placeholder="https://www.tuempresa.cl"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="contactEmail" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="contactEmail" className="block text-sm font-medium text-plum-800 dark:text-plum-200 mb-2">
               Email de Contacto
             </label>
             <input
@@ -244,10 +244,10 @@ export default function CreateBusinessPage() {
               id="contactEmail"
               value={formData.contactEmail}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-plum-300 dark:border-plum-700 rounded-md focus:outline-none focus:ring-2 focus:ring-plum-500 focus:border-transparent"
               placeholder={user.email}
             />
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-plum-600 dark:text-plum-400">
               Si no se especifica, se usará tu email de registro: {user.email}
             </p>
           </div>
@@ -272,7 +272,7 @@ export default function CreateBusinessPage() {
             <button
               type="button"
               onClick={() => router.push('/onboarding/user-type')}
-              className="flex-1 py-3 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium transition-colors duration-200"
+              className="flex-1 py-3 px-4 border border-plum-300 dark:border-plum-700 rounded-md text-plum-800 dark:text-plum-200 hover:bg-plum-50 dark:bg-plum-950 font-medium transition-colors duration-200"
             >
               Volver
             </button>
@@ -282,7 +282,7 @@ export default function CreateBusinessPage() {
               className={`flex-1 py-3 px-4 rounded-md font-medium transition-colors duration-200 ${
                 isLoading
                   ? 'bg-gray-300 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700 text-white'
+                  : 'bg-plum-600 hover:bg-plum-700 text-white'
               }`}
             >
               {isLoading ? (

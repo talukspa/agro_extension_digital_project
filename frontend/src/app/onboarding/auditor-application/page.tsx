@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { createAuditorProfile, updateUserProfile } from '@/lib/firebase/firestore';
 import { USER_TYPES } from '@/lib/types/permissions';
+import { Button } from '@/components/ui/Button';
 
 export default function AuditorApplicationPage() {
   const [formData, setFormData] = useState({
@@ -93,23 +94,23 @@ export default function AuditorApplicationPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Verificando autenticación...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Verificando autenticación...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+          <h1 className="text-3xl font-bold text-foreground mb-4">
             Aplicación para Auditor
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-muted-foreground">
             Completa tu perfil para solicitar convertirte en auditor certificado.
           </p>
         </div>
@@ -129,14 +130,14 @@ export default function AuditorApplicationPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="bg-white shadow rounded-lg p-8 space-y-8">
+        <form onSubmit={handleSubmit} className="bg-card shadow rounded-lg p-8 space-y-8">
           
           {/* Certifications */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label className="block text-sm font-medium text-foreground mb-3">
               Certificaciones *
             </label>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               Lista tus certificaciones relevantes para auditorías agrícolas
             </p>
             {formData.certifications.map((cert, index) => (
@@ -145,36 +146,40 @@ export default function AuditorApplicationPage() {
                   type="text"
                   value={cert}
                   onChange={(e) => handleArrayChange('certifications', index, e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="flex-1 px-3 py-2 border border rounded-md focus:outline-none focus:ring-2 focus:ring-plum-500 focus:border-transparent"
                   placeholder="Ej: Certificación en Agricultura Orgánica ISO 17065"
                   required={index === 0}
                 />
                 {formData.certifications.length > 1 && (
-                  <button
+                  <Button
                     type="button"
                     onClick={() => removeArrayItem('certifications', index)}
-                    className="px-3 py-2 text-red-600 hover:text-red-800"
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                   >
                     ✕
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
-            <button
+            <Button
               type="button"
               onClick={() => addArrayItem('certifications')}
-              className="mt-2 text-green-600 hover:text-green-800 text-sm font-medium"
+              variant="ghost"
+              size="sm"
+              className="mt-2 text-muted-foreground hover:text-plum-800 dark:hover:text-plum-200"
             >
               + Agregar certificación
-            </button>
+            </Button>
           </div>
 
           {/* Specializations */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label className="block text-sm font-medium text-foreground mb-3">
               Especializaciones *
             </label>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               Indica tus áreas de especialización en auditorías
             </p>
             {formData.specializations.map((spec, index) => (
@@ -182,7 +187,7 @@ export default function AuditorApplicationPage() {
                 <select
                   value={spec}
                   onChange={(e) => handleArrayChange('specializations', index, e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="flex-1 px-3 py-2 border border rounded-md focus:outline-none focus:ring-2 focus:ring-plum-500 focus:border-transparent"
                   required={index === 0}
                 >
                   <option value="">Selecciona una especialización</option>
@@ -197,28 +202,32 @@ export default function AuditorApplicationPage() {
                   <option value="other">Otra</option>
                 </select>
                 {formData.specializations.length > 1 && (
-                  <button
+                  <Button
                     type="button"
                     onClick={() => removeArrayItem('specializations', index)}
-                    className="px-3 py-2 text-red-600 hover:text-red-800"
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                   >
                     ✕
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
-            <button
+            <Button
               type="button"
               onClick={() => addArrayItem('specializations')}
-              className="mt-2 text-green-600 hover:text-green-800 text-sm font-medium"
+              variant="ghost"
+              size="sm"
+              className="mt-2 text-muted-foreground hover:text-plum-800 dark:hover:text-plum-200"
             >
               + Agregar especialización
-            </button>
+            </Button>
           </div>
 
           {/* Experience */}
           <div>
-            <label htmlFor="experience" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="experience" className="block text-sm font-medium text-foreground mb-2">
               Experiencia Relevante *
             </label>
             <textarea
@@ -228,14 +237,14 @@ export default function AuditorApplicationPage() {
               required
               value={formData.experience}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border rounded-md focus:outline-none focus:ring-2 focus:ring-plum-500 focus:border-transparent"
               placeholder="Describe tu experiencia en auditorías, agricultura, o campos relacionados..."
             />
           </div>
 
           {/* Education */}
           <div>
-            <label htmlFor="education" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="education" className="block text-sm font-medium text-foreground mb-2">
               Educación *
             </label>
             <textarea
@@ -245,14 +254,14 @@ export default function AuditorApplicationPage() {
               required
               value={formData.education}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border rounded-md focus:outline-none focus:ring-2 focus:ring-plum-500 focus:border-transparent"
               placeholder="Incluye grados académicos, cursos relevantes, etc..."
             />
           </div>
 
           {/* Motivation */}
           <div>
-            <label htmlFor="motivation" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="motivation" className="block text-sm font-medium text-foreground mb-2">
               Motivación
             </label>
             <textarea
@@ -261,7 +270,7 @@ export default function AuditorApplicationPage() {
               rows={3}
               value={formData.motivation}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border rounded-md focus:outline-none focus:ring-2 focus:ring-plum-500 focus:border-transparent"
               placeholder="¿Por qué quieres ser auditor en nuestra plataforma?"
             />
           </div>
@@ -283,31 +292,22 @@ export default function AuditorApplicationPage() {
           </div>
 
           <div className="flex space-x-4">
-            <button
+            <Button
               type="button"
               onClick={() => router.push('/onboarding/user-type')}
-              className="flex-1 py-3 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium transition-colors duration-200"
+              variant="outline"
+              className="flex-1"
             >
               Volver
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={isLoading}
-              className={`flex-1 py-3 px-4 rounded-md font-medium transition-colors duration-200 ${
-                isLoading
-                  ? 'bg-gray-300 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700 text-white'
-              }`}
+              isLoading={isLoading}
+              className="flex-1"
             >
-              {isLoading ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Enviando Aplicación...
-                </div>
-              ) : (
-                'Enviar Aplicación'
-              )}
-            </button>
+              {isLoading ? 'Enviando Aplicación...' : 'Enviar Aplicación'}
+            </Button>
           </div>
         </form>
       </div>
