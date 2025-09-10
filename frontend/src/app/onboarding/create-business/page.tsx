@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { AppLayout } from '@/components/layouts/AppLayout';
+import { Button } from '@/components/ui/Button';
 import { createBusiness, updateUserProfile } from '@/lib/firebase/firestore';
 import { USER_TYPES } from '@/lib/types/permissions';
 
@@ -77,23 +79,23 @@ export default function CreateBusinessPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-plum-50 dark:bg-plum-950">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-plum-600 mx-auto"></div>
-          <p className="mt-4 text-plum-700 dark:text-plum-300">Verificando autenticación...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Verificando autenticación...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-plum-50 dark:bg-plum-950 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto">
+    <AppLayout>
+      <div className="max-w-2xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-plum-900 dark:text-plum-100 mb-4">
+          <h1 className="text-3xl font-bold text-foreground mb-4">
             Registrar Mi Empresa
           </h1>
-          <p className="text-lg text-plum-700 dark:text-plum-300">
+          <p className="text-lg text-muted-foreground">
             Como propietario, registra tu empresa para obtener certificación agrícola. 
             Podrás gestionar empleados y aprobar solicitudes de acceso.
           </p>
@@ -269,34 +271,25 @@ export default function CreateBusinessPage() {
           </div>
 
           <div className="flex space-x-4">
-            <button
-              type="button"
+            <Button
+              variant="outline"
               onClick={() => router.push('/onboarding/user-type')}
-              className="flex-1 py-3 px-4 border border-plum-300 dark:border-plum-700 rounded-md text-plum-800 dark:text-plum-200 hover:bg-plum-50 dark:bg-plum-950 font-medium transition-colors duration-200"
+              fullWidth
             >
               Volver
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={isLoading}
-              className={`flex-1 py-3 px-4 rounded-md font-medium transition-colors duration-200 ${
-                isLoading
-                  ? 'bg-gray-300 cursor-not-allowed'
-                  : 'bg-plum-600 hover:bg-plum-700 text-white'
-              }`}
+              variant="primary"
+              fullWidth
+              isLoading={isLoading}
             >
-              {isLoading ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Creando Empresa...
-                </div>
-              ) : (
-                'Crear Empresa'
-              )}
-            </button>
+              {isLoading ? 'Creando Empresa...' : 'Crear Empresa'}
+            </Button>
           </div>
         </form>
       </div>
-    </div>
+    </AppLayout>
   );
 }
