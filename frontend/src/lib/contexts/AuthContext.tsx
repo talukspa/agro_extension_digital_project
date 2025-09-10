@@ -71,9 +71,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
               // Load associated business if user has one and is approved
               if (userProfile.businessProfileId && userProfile.status === 'approved') {
+                console.log('Loading business for user:', { 
+                  businessProfileId: userProfile.businessProfileId, 
+                  status: userProfile.status 
+                });
                 const business = await getBusinessById(userProfile.businessProfileId);
+                console.log('Loaded business:', business);
                 setActiveBusiness(business);
               } else {
+                console.log('No business to load:', { 
+                  businessProfileId: userProfile.businessProfileId, 
+                  status: userProfile.status 
+                });
                 setActiveBusiness(null);
               }
             } catch (userTypeError) {

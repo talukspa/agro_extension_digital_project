@@ -44,6 +44,18 @@ export interface Business {
   contactPhone?: string;
   website?: string;
   email?: string;
+  // Campos específicos de business_profiles
+  legal_name?: string;
+  rut?: string;
+  region?: string;
+  commune?: string;
+  address?: string;
+  business_size?: string;
+  process_type?: string;
+  digital_tools_experienced?: string[];
+  digital_tools_used_at_work?: string[];
+  owner?: any; // Estructura del propietario
+  // Campos originales
   ownerId: string; // Required - ID del propietario de la empresa
   business_users: string[]; // Array of approved user UIDs
   pendingUsers?: string[]; // Array of pending user UIDs for approval
