@@ -23,6 +23,28 @@ module.exports = {
         border: "rgb(var(--border) / <alpha-value>)",
         ring: "rgb(var(--ring) / <alpha-value>)",
         
+        // Componentes adicionales
+        card: "rgb(var(--card) / <alpha-value>)",
+        "card-foreground": "rgb(var(--card-foreground) / <alpha-value>)",
+        popover: "rgb(var(--popover) / <alpha-value>)",
+        "popover-foreground": "rgb(var(--popover-foreground) / <alpha-value>)",
+        
+        // Estados semánticos - Variables CSS
+        success: "rgb(var(--success) / <alpha-value>)",
+        "success-foreground": "rgb(var(--success-foreground) / <alpha-value>)",
+        "success-background": "rgb(var(--success-background) / <alpha-value>)",
+        warning: "rgb(var(--warning) / <alpha-value>)",
+        "warning-foreground": "rgb(var(--warning-foreground) / <alpha-value>)",
+        "warning-background": "rgb(var(--warning-background) / <alpha-value>)",
+        error: "rgb(var(--error) / <alpha-value>)",
+        "error-foreground": "rgb(var(--error-foreground) / <alpha-value>)",
+        "error-background": "rgb(var(--error-background) / <alpha-value>)",
+        
+        // Tipos de usuario - Variables CSS  
+        "admin-color": "rgb(var(--admin-color) / <alpha-value>)",
+        "auditor-color": "rgb(var(--auditor-color) / <alpha-value>)",
+        "business-color": "rgb(var(--business-color) / <alpha-value>)",
+        
         // Paleta Principal - Plum (Ciruela)
         plum: {
           50: '#fdf4ff',   // Crema muy suave - interior fresco

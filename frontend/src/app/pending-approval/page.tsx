@@ -89,8 +89,8 @@ export default function PendingApprovalPage() {
           <div className="bg-card overflow-hidden shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6 text-center">
               {/* Icon */}
-              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-yellow-100 mb-4">
-                <svg className="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-warning-background mb-4">
+                <svg className="h-8 w-8 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
@@ -103,14 +103,14 @@ export default function PendingApprovalPage() {
                 Tu cuenta está siendo revisada por nuestro equipo de administradores.
               </p>
 
-              <div className="bg-yellow-50 rounded-lg p-6 mb-6">
+              <div className="bg-warning-background rounded-lg p-6 mb-6">
                 <h3 className="text-lg font-medium text-foreground mb-3">
                   ¿Qué sigue?
                 </h3>
                 <div className="text-left space-y-3">
                   <div className="flex items-start">
                     <div className="flex-shrink-0">
-                      <div className="h-2 w-2 rounded-full bg-yellow-400 mt-2"></div>
+                      <div className="h-2 w-2 rounded-full bg-warning mt-2"></div>
                     </div>
                     <div className="ml-3">
                       <p className="text-sm text-foreground">
@@ -120,7 +120,7 @@ export default function PendingApprovalPage() {
                   </div>
                   <div className="flex items-start">
                     <div className="flex-shrink-0">
-                      <div className="h-2 w-2 rounded-full bg-yellow-400 mt-2"></div>
+                      <div className="h-2 w-2 rounded-full bg-warning mt-2"></div>
                     </div>
                     <div className="ml-3">
                       <p className="text-sm text-foreground">
@@ -130,7 +130,7 @@ export default function PendingApprovalPage() {
                   </div>
                   <div className="flex items-start">
                     <div className="flex-shrink-0">
-                      <div className="h-2 w-2 rounded-full bg-yellow-400 mt-2"></div>
+                      <div className="h-2 w-2 rounded-full bg-warning mt-2"></div>
                     </div>
                     <div className="ml-3">
                       <p className="text-sm text-foreground">
@@ -170,7 +170,7 @@ export default function PendingApprovalPage() {
                   <div>
                     <dt className="text-muted-foreground">Estado:</dt>
                     <dd>
-                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-warning-background text-warning">
                         Pendiente de aprobación
                       </span>
                     </dd>

@@ -18,9 +18,9 @@ export default function UnauthorizedPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="mx-auto h-12 w-12 flex items-center justify-center bg-red-600 rounded-full">
+        <div className="mx-auto h-12 w-12 flex items-center justify-center bg-error rounded-full">
           <svg
-            className="h-8 w-8 text-white"
+            className="h-8 w-8 text-error-foreground"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -95,7 +95,7 @@ export default function UnauthorizedPage() {
                   onClick={handleSignOut}
                   variant="outline"
                   fullWidth
-                  className="text-red-700 border-red-300 hover:bg-red-50 dark:text-red-300 dark:border-red-700 dark:hover:bg-red-900/20"
+                  className="text-error border-error hover:bg-error-background"
                 >
                   Cerrar Sesión
                 </Button>
