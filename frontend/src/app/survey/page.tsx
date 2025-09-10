@@ -2,11 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import { collection, getDocs, db } from "@/lib/firebase/utils";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
 import { USER_TYPE_DISPLAY_NAMES } from "@/lib/types/permissions";
+import { useTheme } from "@/lib/contexts/ThemeContext";
 
 // Helper para obtener el total de acciones y respuestas seleccionadas por theme
 function getProgress(actions: [string, Action][], answers: Record<string, string | undefined>) {
@@ -41,13 +41,43 @@ interface Standard {
 export default function SurveyPage() {
   // Declaración única de todos los estados principales
   const { user, userType, activeBusiness, loading: authLoading, signOut } = useAuth();
+  const { theme, setTheme, currentTheme } = useTheme();
   const [standards, setStandards] = useState<Standard[]>([]);
   const [selected, setSelected] = useState<Standard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Debug logs
+  console.log('Survey Page - Debug Info:', {
+    authLoading,
+    user: user ? { uid: user.uid, email: user.email, displayName: user.displayName, businessProfileId: user.businessProfileId } : null,
+    userType: userType ? { name: userType.name } : null,
+    activeBusiness: activeBusiness ? { 
+      id: activeBusiness.id, 
+      legal_name: activeBusiness.legal_name, 
+      businessName: activeBusiness.businessName,
+      rut: activeBusiness.rut,
+      region: activeBusiness.region,
+      commune: activeBusiness.commune
+    } : null
+  });
   const [activeDimension, setActiveDimension] = useState<string | null>(null);
   const [activeTheme, setActiveTheme] = useState<string | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string | undefined>>({});
+
+  // Cerrar menú cuando se hace clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (isMenuOpen && !target.closest('.menu-container')) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMenuOpen]);
 
   const userInitials = user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'U';
   const userTypeDisplay = userType?.name ? USER_TYPE_DISPLAY_NAMES[userType.name as keyof typeof USER_TYPE_DISPLAY_NAMES] : 'Usuario';
@@ -151,44 +181,99 @@ export default function SurveyPage() {
       <header className="bg-card border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            {/* Logo y título */}
+            {/* Logo, título y navegación */}
             <div className="flex items-center">
+              {/* Menú hamburguesa */}
+              <div className="relative mr-4 menu-container">
+                <button
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className="flex items-center justify-center w-10 h-10 rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
+                  aria-label="Abrir menú de navegación"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
+                  </svg>
+                </button>
+
+                {/* Dropdown del menú */}
+                {isMenuOpen && (
+                  <div className="absolute top-12 left-0 w-48 bg-background border border-border rounded-lg shadow-lg z-50">
+                    <div className="py-2">
+                      <a
+                        href="/dashboard"
+                        className="block px-4 py-2 text-sm text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        📊 Dashboard
+                      </a>
+                      <div className="block px-4 py-2 text-sm text-primary bg-muted/50 font-medium">
+                        📋 Encuesta de Estándares
+                      </div>
+                      {userType?.name === 'admin' && (
+                        <a
+                          href="/admin"
+                          className="block px-4 py-2 text-sm text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          ⚙️ Administración
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex-shrink-0">
                 <h1 className="text-xl font-bold text-primary">
                   AgroExtensión Digital
                 </h1>
+                <p className="text-xs text-muted-foreground">
+                  Encuesta de Estándares
+                </p>
               </div>
-              
-              {/* Navegación principal */}
-              <nav className="hidden md:ml-8 md:flex md:space-x-8">
-                <a
-                  href="/dashboard"
-                  className="text-muted-foreground hover:text-primary px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                >
-                  Dashboard
-                </a>
-                <span className="text-primary px-3 py-2 rounded-md text-sm font-medium">
-                  Encuesta
-                </span>
-                {userType?.name === 'admin' && (
-                  <a
-                    href="/admin"
-                    className="text-muted-foreground hover:text-primary px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                  >
-                    Administración
-                  </a>
-                )}
-              </nav>
             </div>
 
             {/* Controles del usuario */}
             <div className="flex items-center space-x-4">
-              {/* Toggle de tema */}
-              <ThemeToggle />
+              {/* Información del negocio activo */}
+              {!authLoading && activeBusiness && (
+                <div className="hidden lg:block border-r border-border pr-4">
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-foreground">
+                      {activeBusiness.legal_name || activeBusiness.businessName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      RUT: {activeBusiness.rut} • {activeBusiness.region}, {activeBusiness.commune}
+                    </p>
+                  </div>
+                </div>
+              )}
               
               {/* Información del usuario */}
               {!authLoading && user && (
                 <div className="flex items-center space-x-3">
+                  {/* Información del negocio para móviles */}
+                  {activeBusiness && (
+                    <div className="lg:hidden text-right">
+                      <p className="text-xs font-medium text-foreground truncate max-w-32">
+                        {activeBusiness.legal_name || activeBusiness.businessName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {activeBusiness.rut}
+                      </p>
+                    </div>
+                  )}
+                  
                   <div className="hidden sm:block text-right">
                     <p className="text-sm font-medium text-foreground">
                       {user.displayName || 'Usuario'}
@@ -216,6 +301,23 @@ export default function SurveyPage() {
                   </Button>
                 </div>
               )}
+              
+              {/* Toggle de tema - Solo emoji */}
+              <button
+                onClick={() => {
+                  const themes = ['light', 'dark', 'system'] as const;
+                  const currentIndex = themes.indexOf(theme);
+                  const nextTheme = themes[(currentIndex + 1) % themes.length];
+                  setTheme(nextTheme);
+                }}
+                className="w-10 h-10 rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring flex items-center justify-center"
+                aria-label="Cambiar tema"
+                title={`Tema actual: ${theme === 'light' ? 'Claro' : theme === 'dark' ? 'Oscuro' : 'Sistema'}`}
+              >
+                <span className="text-lg">
+                  {theme === 'light' ? '☀️' : theme === 'dark' ? '🌙' : '💻'}
+                </span>
+              </button>
             </div>
           </div>
         </div>
