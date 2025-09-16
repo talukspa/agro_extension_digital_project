@@ -43,7 +43,7 @@ interface Standard {
 export default function SurveyPage() {
   // Declaración única de todos los estados principales
   const { user, userType, activeBusiness, loading: authLoading, signOut } = useAuth();
-  const { theme, setTheme, currentTheme } = useTheme();
+  const { theme, setTheme, currentTheme, toggleTheme } = useTheme();
   const [standards, setStandards] = useState<Standard[]>([]);
   const [selected, setSelected] = useState<Standard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -432,12 +432,7 @@ export default function SurveyPage() {
               
               {/* Toggle de tema - Solo emoji */}
               <button
-                onClick={() => {
-                  const themes = ['light', 'dark', 'system'] as const;
-                  const currentIndex = themes.indexOf(theme);
-                  const nextTheme = themes[(currentIndex + 1) % themes.length];
-                  setTheme(nextTheme);
-                }}
+                onClick={toggleTheme}
                 className="w-10 h-10 rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring flex items-center justify-center"
                 aria-label="Cambiar tema"
                 title={`Tema actual: ${theme === 'light' ? 'Claro' : theme === 'dark' ? 'Oscuro' : 'Sistema'}`}

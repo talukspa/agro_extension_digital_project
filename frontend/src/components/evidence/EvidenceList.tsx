@@ -115,12 +115,12 @@ export default function EvidenceList({ questionId, standardId, refreshTrigger }:
 
   const getFileIcon = (fileType: string) => {
     if (fileType.startsWith('image/')) {
-      return <ImageIcon className="h-4 w-4 text-blue-500" />;
+      return <ImageIcon className="h-4 w-4 text-primary" />;
     }
     if (fileType === 'application/pdf') {
-      return <FileText className="h-4 w-4 text-red-500" />;
+      return <FileText className="h-4 w-4 text-destructive" />;
     }
-    return <File className="h-4 w-4 text-gray-500" />;
+    return <File className="h-4 w-4 text-muted-foreground" />;
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -157,10 +157,10 @@ export default function EvidenceList({ questionId, standardId, refreshTrigger }:
 
   if (loading) {
     return (
-      <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+      <div className="mt-4 p-4 bg-muted/30 rounded-lg border border-border">
         <div className="flex items-center justify-center py-4">
-          <div className="w-5 h-5 border-2 border-gray-300 border-t-transparent rounded-full animate-spin mr-2"></div>
-          <span className="text-sm text-gray-500">Cargando evidencia...</span>
+          <div className="w-5 h-5 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin mr-2"></div>
+          <span className="text-sm text-muted-foreground">Cargando evidencia...</span>
         </div>
       </div>
     );
@@ -168,10 +168,10 @@ export default function EvidenceList({ questionId, standardId, refreshTrigger }:
 
   if (error) {
     return (
-      <div className="mt-4 p-4 bg-red-50 rounded-lg border border-red-200">
+      <div className="mt-4 p-4 bg-destructive/10 rounded-lg border border-destructive/20">
         <div className="flex items-center">
-          <AlertCircle className="h-4 w-4 text-red-500 mr-2" />
-          <span className="text-sm text-red-700">{error}</span>
+          <AlertCircle className="h-4 w-4 text-destructive mr-2" />
+          <span className="text-sm text-destructive">{error}</span>
         </div>
       </div>
     );
@@ -179,8 +179,8 @@ export default function EvidenceList({ questionId, standardId, refreshTrigger }:
 
   if (evidence.length === 0) {
     return (
-      <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <p className="text-sm text-gray-500 text-center py-2">
+      <div className="mt-4 p-4 bg-muted/30 rounded-lg border border-border">
+        <p className="text-sm text-muted-foreground text-center py-2">
           No hay evidencia adjuntada para esta pregunta
         </p>
       </div>
@@ -188,8 +188,8 @@ export default function EvidenceList({ questionId, standardId, refreshTrigger }:
   }
 
   return (
-    <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-      <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+    <div className="mt-4 p-4 bg-muted/30 rounded-lg border border-border">
+      <h4 className="text-sm font-medium text-foreground mb-3 flex items-center">
         <File className="h-4 w-4 mr-2" />
         Evidencia Adjuntada ({evidence.length})
       </h4>
@@ -201,26 +201,26 @@ export default function EvidenceList({ questionId, standardId, refreshTrigger }:
 
           return (
             <div key={item.id} className={`
-              flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200
+              flex items-center justify-between p-3 bg-card rounded-lg border border-border
               ${isDeleting ? 'opacity-50' : ''}
             `}>
               <div className="flex items-center space-x-3 flex-1 min-w-0">
                 {getFileIcon(item.fileType)}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
+                  <p className="text-sm font-medium text-card-foreground truncate">
                     {item.fileName}
                   </p>
                   {item.description && item.description.trim() && (
-                    <p className="text-xs text-gray-600 truncate mt-1">
+                    <p className="text-xs text-muted-foreground truncate mt-1">
                       {item.description}
                     </p>
                   )}
                   <div className="flex items-center space-x-2 mt-1">
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-muted-foreground">
                       {formatFileSize(item.fileSize)}
                     </span>
-                    <span className="text-xs text-gray-300">•</span>
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-muted-foreground/50">•</span>
+                    <span className="text-xs text-muted-foreground">
                       {formatDate(item.uploadedAt)}
                     </span>
                   </div>
@@ -230,7 +230,7 @@ export default function EvidenceList({ questionId, standardId, refreshTrigger }:
               <div className="flex items-center space-x-2 ml-4">
                 <button
                   onClick={() => handleView(item.fileUrl)}
-                  className="p-2 text-gray-400 hover:text-blue-600 transition-colors rounded-md hover:bg-blue-50"
+                  className="p-2 text-muted-foreground hover:text-primary transition-colors rounded-md hover:bg-primary/10"
                   title="Ver archivo"
                   disabled={isDeleting}
                 >
@@ -239,7 +239,7 @@ export default function EvidenceList({ questionId, standardId, refreshTrigger }:
                 
                 <button
                   onClick={() => handleDownload(item.fileUrl, item.fileName)}
-                  className="p-2 text-gray-400 hover:text-green-600 transition-colors rounded-md hover:bg-green-50"
+                  className="p-2 text-muted-foreground hover:text-success transition-colors rounded-md hover:bg-success/10"
                   title="Descargar"
                   disabled={isDeleting}
                 >
@@ -249,12 +249,12 @@ export default function EvidenceList({ questionId, standardId, refreshTrigger }:
                 {canDeleteThisItem && (
                   <button
                     onClick={() => handleDelete(item)}
-                    className="p-2 text-gray-400 hover:text-red-600 transition-colors rounded-md hover:bg-red-50 disabled:cursor-not-allowed"
+                    className="p-2 text-muted-foreground hover:text-destructive transition-colors rounded-md hover:bg-destructive/10 disabled:cursor-not-allowed"
                     title="Eliminar"
                     disabled={isDeleting}
                   >
                     {isDeleting ? (
-                      <div className="w-4 h-4 border border-red-300 border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-4 h-4 border border-muted-foreground border-t-transparent rounded-full animate-spin"></div>
                     ) : (
                       <Trash2 className="h-4 w-4" />
                     )}

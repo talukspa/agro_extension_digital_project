@@ -126,22 +126,22 @@ export default function EvidenceUpload({
 
   return (
     <div className="mt-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
-      <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+      <h4 className="text-sm font-medium text-foreground mb-3 flex items-center">
         <Upload className="h-4 w-4 mr-2" />
         Subir Evidencia (Opcional)
       </h4>
       
       {/* Error Display */}
       {error && (
-        <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-md">
+        <div className="mb-3 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <AlertCircle className="h-4 w-4 text-red-500 mr-2" />
-              <span className="text-sm text-red-700">{error}</span>
+              <AlertCircle className="h-4 w-4 text-destructive mr-2" />
+              <span className="text-sm text-destructive">{error}</span>
             </div>
             <button
               onClick={clearError}
-              className="text-red-500 hover:text-red-700"
+              className="text-destructive hover:text-destructive/80"
             >
               <X className="h-4 w-4" />
             </button>
@@ -157,7 +157,7 @@ export default function EvidenceUpload({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           disabled={uploading}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+          className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-muted disabled:cursor-not-allowed"
         />
       </div>
 
@@ -167,8 +167,8 @@ export default function EvidenceUpload({
           relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
           transition-all duration-200
           ${dragActive 
-            ? 'border-green-500 bg-green-50' 
-            : 'border-gray-300 hover:border-green-400 hover:bg-gray-100'
+            ? 'border-primary bg-primary/5' 
+            : 'border-border hover:border-primary/50 hover:bg-muted/30'
           }
           ${uploading ? 'opacity-50 cursor-not-allowed' : ''}
         `}
@@ -193,22 +193,22 @@ export default function EvidenceUpload({
 
         {uploading ? (
           <div className="flex flex-col items-center justify-center space-y-2">
-            <div className="w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-sm text-gray-600">Subiendo archivo...</span>
+            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-sm text-muted-foreground">Subiendo archivo...</span>
           </div>
         ) : (
           <div className="space-y-2">
             <div className="flex justify-center">
-              <Upload className="h-8 w-8 text-gray-400" />
+              <Upload className="h-8 w-8 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-1">
+              <p className="text-sm font-medium text-foreground mb-1">
                 Arrastra un archivo aquí o haz clic para seleccionar
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Imágenes (JPG, PNG, WEBP) o documentos (PDF, DOC, DOCX)
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Tamaño máximo: {Math.round(MAX_FILE_SIZE / (1024 * 1024))}MB
               </p>
             </div>
@@ -218,11 +218,11 @@ export default function EvidenceUpload({
 
       {/* Supported Formats */}
       <div className="mt-3 flex flex-wrap gap-2">
-        <div className="flex items-center text-xs text-gray-500">
+        <div className="flex items-center text-xs text-muted-foreground">
           <ImageIcon className="h-3 w-3 mr-1" />
           Imágenes
         </div>
-        <div className="flex items-center text-xs text-gray-500">
+        <div className="flex items-center text-xs text-muted-foreground">
           <FileText className="h-3 w-3 mr-1" />
           Documentos
         </div>
