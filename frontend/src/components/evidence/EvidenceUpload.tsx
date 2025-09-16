@@ -125,7 +125,7 @@ export default function EvidenceUpload({
   }
 
   return (
-    <div className="mt-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+    <div className="mt-4 p-4 border border-border rounded-lg bg-muted/30">
       <h4 className="text-sm font-medium text-foreground mb-3 flex items-center">
         <Upload className="h-4 w-4 mr-2" />
         Subir Evidencia (Opcional)
@@ -157,7 +157,7 @@ export default function EvidenceUpload({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           disabled={uploading}
-          className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-muted disabled:cursor-not-allowed"
+          className="w-full px-3 py-2 border border-border rounded-md text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-muted disabled:cursor-not-allowed"
         />
       </div>
 
@@ -165,7 +165,7 @@ export default function EvidenceUpload({
       <div
         className={`
           relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
-          transition-all duration-200
+          transition-all duration-200 bg-background
           ${dragActive 
             ? 'border-primary bg-primary/5' 
             : 'border-border hover:border-primary/50 hover:bg-muted/30'
