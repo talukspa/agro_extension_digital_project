@@ -12,6 +12,7 @@ import {
   addDoc
 } from 'firebase/firestore';
 import { validateDb, db } from './utils';
+import { devLog } from '@/lib/utils/devLog';
 
 // Types
 export interface ResponseDocument {
@@ -65,7 +66,7 @@ export const saveOrUpdateResponse = async (responseData: Omit<ResponseDocument, 
       // Update existing response
       const responseRef = doc(db, 'responses', existingResponse.id!);
       await updateDoc(responseRef, docData);
-      console.log('✅ Response updated:', existingResponse.id);
+      devLog.debug('✅ Response updated:', existingResponse.id);
       return existingResponse.id!;
     } else {
       // Create new response
@@ -73,11 +74,11 @@ export const saveOrUpdateResponse = async (responseData: Omit<ResponseDocument, 
         ...docData,
         createdAt: timestamp
       });
-      console.log('✅ Response created:', responseRef.id);
+      devLog.debug('✅ Response created:', responseRef.id);
       return responseRef.id;
     }
   } catch (error) {
-    console.error('❌ Error saving response:', error);
+    devLog.error('❌ Error saving response:', error);
     throw new Error('Failed to save response');
   }
 };
@@ -113,7 +114,7 @@ export const getResponseByBusinessAndStandard = async (
       ...doc.data()
     } as ResponseDocument;
   } catch (error) {
-    console.error('❌ Error fetching response:', error);
+    devLog.error('❌ Error fetching response:', error);
     return null;
   }
 };
@@ -139,7 +140,7 @@ export const getResponsesByBusiness = async (businessRut: string): Promise<Respo
       ...doc.data()
     })) as ResponseDocument[];
   } catch (error) {
-    console.error('❌ Error fetching business responses:', error);
+    devLog.error('❌ Error fetching business responses:', error);
     return [];
   }
 };
@@ -157,9 +158,9 @@ export const markResponseCompleted = async (responseId: string): Promise<void> =
       status: 'submitted',
       updatedAt: serverTimestamp()
     });
-    console.log('✅ Response marked as completed:', responseId);
+    devLog.debug('✅ Response marked as completed:', responseId);
   } catch (error) {
-    console.error('❌ Error marking response as completed:', error);
+    devLog.error('❌ Error marking response as completed:', error);
     throw new Error('Failed to mark response as completed');
   }
 };

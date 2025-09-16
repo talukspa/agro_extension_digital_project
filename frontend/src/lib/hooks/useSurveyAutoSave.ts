@@ -8,6 +8,7 @@ import {
   type ResponseDocument,
   type AnswerDocument 
 } from '@/lib/firebase/responses';
+import { devLog } from '@/lib/utils/devLog';
 
 export interface SaveStatus {
   status: 'idle' | 'saving' | 'saved' | 'error';
@@ -32,6 +33,8 @@ export interface UseSurveyAutoSaveReturn {
   submitSurvey: () => Promise<void>;
   isLoading: boolean;
   progress: { totalQuestions: number; answeredQuestions: number; percentComplete: number };
+  isCompleted: boolean; // Nueva propiedad para indicar si la encuesta está completada
+  isReadonly: boolean; // Nueva propiedad para indicar si la encuesta es de solo lectura
 }
 
 /**
@@ -53,11 +56,30 @@ export const useSurveyAutoSave = ({
   const [currentResponseId, setCurrentResponseId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false); // Nuevo estado para evitar guardados concurrentes
+  const [isCompleted, setIsCompletedState] = useState(false); // Nuevo estado para encuesta completada
+  
+  // Wrapper para rastrear cambios en isCompleted (solo en development)
+  const setIsCompleted = useCallback((newValue: boolean, reason?: string) => {
+    devLog.debug(`🔄 COMPLETITUD CHANGED: ${isCompleted} → ${newValue} | Reason: ${reason || 'not specified'} | StandardId: ${standardId}`);
+    setIsCompletedState(newValue);
+  }, [isCompleted, standardId]);
   
   // Referencias para debouncing
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSaveDataRef = useRef<string>('');
   const isLoadingRef = useRef<boolean>(false); // Referencia para tracking de carga
+  
+  // Referencia para el estado actual de selectedAnswers
+  const selectedAnswersRef = useRef<Record<string, string | undefined>>({});
+  
+  // Sincronizar la referencia con el estado
+  useEffect(() => {
+    selectedAnswersRef.current = selectedAnswers;
+    devLog.debug('🔄 selectedAnswersRef updated:', selectedAnswersRef.current);
+  }, [selectedAnswers]);
+
+  // Calcular si la encuesta es de solo lectura (completada o status específico)
+  const isReadonly = isCompleted;
 
   // Calcular progreso
   const allActionKeys = Object.keys(standardActions).filter(key => {
@@ -71,18 +93,12 @@ export const useSurveyAutoSave = ({
   
   const progress = calculateProgress(allActionKeys, answeredActionKeys);
   
-  // Debug logging para el progreso
-  console.log('🎯 Progress - selectedAnswers keys:', Object.keys(selectedAnswers));
-  console.log('🎯 Progress - selectedAnswers:', JSON.stringify(selectedAnswers, null, 2));
-  console.log('🎯 Progress - answeredActionKeys:', answeredActionKeys);
-  console.log('🎯 Progress - progress:', progress);
-
   /**
    * Cargar respuestas existentes desde Firestore
    */
   const loadExistingResponses = useCallback(async () => {
     if (!activeBusiness?.rut || !standardId) {
-      console.log('🚫 No loading - missing data:', { 
+      devLog.debug('🚫 No loading - missing data:', { 
         businessRut: activeBusiness?.rut, 
         standardId 
       });
@@ -91,11 +107,11 @@ export const useSurveyAutoSave = ({
 
     // Evitar cargas concurrentes
     if (isLoadingRef.current) {
-      console.log('🚫 Already loading - skipping concurrent load');
+      devLog.debug('🚫 Already loading - skipping concurrent load');
       return;
     }
     
-    console.log('📥 Loading responses for:', { 
+    devLog.debug('📥 Loading responses for:', { 
       businessRut: activeBusiness.rut, 
       standardId 
     });
@@ -108,55 +124,70 @@ export const useSurveyAutoSave = ({
         standardId
       );
       
-      console.log('📄 Found existing response:', existingResponse);
+      devLog.debug('📄 Found existing response:', existingResponse);
       
       if (existingResponse) {
-        console.log('📥 Loading existing response:', existingResponse.id);
+        devLog.debug('📥 Loading existing response:', existingResponse.id);
         setCurrentResponseId(existingResponse.id!);
+        
+        // Verificar si la encuesta está completada
+        const responseIsCompleted = existingResponse.is_completed || existingResponse.status === 'submitted';
+        setIsCompleted(responseIsCompleted, `Loading existing response - is_completed: ${existingResponse.is_completed}, status: ${existingResponse.status}`);
+        
+        devLog.debug('📋 Response completion status:', {
+          is_completed: existingResponse.is_completed,
+          status: existingResponse.status,
+          computed_isCompleted: responseIsCompleted
+        });
         
         // Convertir answers array a selectedAnswers object
         const answersMap: Record<string, string> = {};
         existingResponse.answers?.forEach((answer: any) => {
-          console.log('🔄 Processing answer:', answer);
+          devLog.debug('🔄 Processing answer:', answer);
           
           // FIXED: Usar standard_code directamente
           const standardCode = answer.standard_code;
           
           if (standardCode && answer.answer_value) {
             answersMap[standardCode] = String(answer.answer_value);
-            console.log(`✅ Mapped ${standardCode} -> ${answer.answer_value}`);
+            devLog.debug(`✅ Mapped ${standardCode} -> ${answer.answer_value}`);
           } else {
-            console.log('⚠️ Skipped answer - missing standard_code or value:', { 
+            devLog.debug('⚠️ Skipped answer - missing standard_code or value:', { 
               standard_code: standardCode, 
               answer_value: answer.answer_value 
             });
           }
         });
         
-        console.log('📋 Final answers map:', JSON.stringify(answersMap, null, 2));
-        console.log('📋 Final answers map keys:', Object.keys(answersMap));
-        console.log('📋 Final answers map values:', Object.values(answersMap));
+        devLog.debug('📋 Final answers map:', JSON.stringify(answersMap, null, 2));
+        devLog.debug('📋 Final answers map keys:', Object.keys(answersMap));
+        devLog.debug('📋 Final answers map values:', Object.values(answersMap));
         
         setSelectedAnswersState(answersMap);
         setSaveStatus({ 
           status: 'saved', 
-          message: 'Respuestas cargadas', 
+          message: responseIsCompleted ? 'Encuesta completada' : 'Respuestas cargadas', 
           lastSaved: new Date() 
         });
       } else {
-        console.log('📄 No existing response found');
+        devLog.debug('📄 No existing response found - resetting to clean state');
         setSelectedAnswersState({});
         setCurrentResponseId(null);
+        setIsCompleted(false, 'No existing response found');
+        setSaveStatus({ status: 'idle' });
       }
+      
+      devLog.debug('✅ Load completed for standard:', standardId, '- UI should now show new questions');
     } catch (error) {
-      console.error('❌ Error loading responses:', error);
+      devLog.error('❌ Error loading responses:', error);
       setSaveStatus({ 
         status: 'error', 
         message: 'Error al cargar respuestas' 
       });
     } finally {
       setIsLoading(false);
-      isLoadingRef.current = false; // Siempre liberar el estado de carga
+      isLoadingRef.current = false;
+      devLog.debug('🏁 loadExistingResponses COMPLETED for standardId:', standardId);
     }
   }, [activeBusiness?.rut, standardId]);
 
@@ -165,7 +196,7 @@ export const useSurveyAutoSave = ({
    */
   const saveCurrentState = useCallback(async () => {
     if (!activeBusiness?.rut || !standardId || !user?.uid) {
-      console.log('🚫 No saving - missing data:', { 
+      devLog.debug('🚫 No saving - missing data:', { 
         businessRut: activeBusiness?.rut, 
         standardId, 
         userId: user?.uid 
@@ -173,34 +204,44 @@ export const useSurveyAutoSave = ({
       return;
     }
 
-    // Evitar guardados concurrentes
-    if (isSaving) {
-      console.log('🚫 Already saving - skipping concurrent save');
+    // Bloquear guardado si la encuesta ya está completada
+    if (isCompleted) {
+      devLog.debug('🚫 No saving - survey is already completed and readonly');
       return;
     }
 
+    // Evitar guardados concurrentes
+    if (isSaving) {
+      devLog.debug('🚫 Already saving - skipping concurrent save');
+      return;
+    }
+
+    // Usar la referencia en lugar del estado desfasado
+    const currentSelectedAnswers = selectedAnswersRef.current;
+    devLog.debug('🔧 Using selectedAnswersRef.current:', currentSelectedAnswers);
+
     // Verificar si hay cambios usando comparación más robusta
-    const currentDataEntries = Object.entries(selectedAnswers)
+    const currentDataEntries = Object.entries(currentSelectedAnswers)
       .filter(([key, value]) => value !== undefined && value !== '')
       .sort(([a], [b]) => a.localeCompare(b));
     
     const currentDataString = JSON.stringify(currentDataEntries);
     
-    console.log('🔍 Change detection:', {
+    devLog.debug('🔍 Change detection:', {
       currentDataString,
       lastSavedData: lastSaveDataRef.current,
       areEqual: currentDataString === lastSaveDataRef.current,
-      selectedAnswersKeys: Object.keys(selectedAnswers),
+      selectedAnswersKeys: Object.keys(currentSelectedAnswers),
       filteredEntriesCount: currentDataEntries.length
     });
     
     if (currentDataString === lastSaveDataRef.current) {
-      console.log('🚫 No changes to save - data identical to last save');
+      devLog.debug('🚫 No changes to save - data identical to last save');
       return;
     }
 
-    console.log('💾 Starting save process...', { 
-      selectedAnswers,
+    devLog.debug('💾 Starting save process...', { 
+      selectedAnswers: currentSelectedAnswers,
       businessRut: activeBusiness.rut,
       standardId 
     });
@@ -210,47 +251,45 @@ export const useSurveyAutoSave = ({
     
     try {
       // Convertir selectedAnswers a formato AnswerDocument
-      console.log('🔍 Raw selectedAnswers before filtering:', selectedAnswers);
-      console.log('🔍 Object.entries before filtering:', Object.entries(selectedAnswers));
+      devLog.debug('🔍 Raw selectedAnswers before filtering:', currentSelectedAnswers);
+      devLog.debug('🔍 Object.entries before filtering:', Object.entries(currentSelectedAnswers));
       
-      const filteredEntries = Object.entries(selectedAnswers)
+      const filteredEntries = Object.entries(currentSelectedAnswers)
         .filter(([key, value]) => {
           const isValid = value !== undefined && value !== '' && value !== null;
-          console.log(`🔍 Filtering ${key}: "${value}" -> ${isValid ? 'KEEP' : 'REMOVE'}`);
+          devLog.debug(`🔍 Filtering ${key}: "${value}" -> ${isValid ? 'KEEP' : 'REMOVE'}`);
           return isValid;
         });
       
-      console.log('🔍 Entries after filtering:', filteredEntries);
-      console.log('🔍 Filtered count:', filteredEntries.length, 'Original count:', Object.entries(selectedAnswers).length);
+      devLog.debug('🔍 Entries after filtering:', filteredEntries);
+      devLog.debug('🔍 Filtered count:', filteredEntries.length, 'Original count:', Object.entries(currentSelectedAnswers).length);
       
-      // DIAGNÓSTICO: Si no hay respuestas filtradas, mostrar detalles
+      // Diagnóstico: Si no hay respuestas filtradas, mostrar detalles
       if (filteredEntries.length === 0) {
-        console.log('🚨 NO FILTERED ENTRIES - Diagnostic info:');
-        console.log('  - selectedAnswers keys:', Object.keys(selectedAnswers));
-        console.log('  - selectedAnswers values:', Object.values(selectedAnswers));
-        console.log('  - typeof values:', Object.values(selectedAnswers).map(v => typeof v));
-        console.log('  - Raw entries:', Object.entries(selectedAnswers));
+        devLog.debug('🚨 NO FILTERED ENTRIES - Diagnostic info:');
+        devLog.debug('  - selectedAnswers keys:', Object.keys(currentSelectedAnswers));
+        devLog.debug('  - selectedAnswers values:', Object.values(currentSelectedAnswers));
+        devLog.debug('  - typeof values:', Object.values(currentSelectedAnswers).map(v => typeof v));
+        devLog.debug('  - Raw entries:', Object.entries(currentSelectedAnswers));
       }
       
       const answers: AnswerDocument[] = filteredEntries
         .map(([actionKey, answerValue]) => {
           const actionData = standardActions[actionKey] || { action: actionKey };
           
-          // CRÍTICO: Siempre usar actionKey como standard_code para consistencia
-          // El actionKey ya ES el standard_code desde el frontend
-          console.log(`🔍 Processing ${actionKey}: ${answerValue} -> standard_code: ${actionKey}`);
+          // Usar actionKey como standard_code para consistencia
+          devLog.debug(`🔍 Processing ${actionKey}: ${answerValue} -> standard_code: ${actionKey}`);
           
           return {
-            // FIXED: Usar actionKey directamente como standard_code
             standard_code: actionKey,
-            action: actionData, // snapshot del action completo
+            action: actionData,
             answer_value: answerValue!,
             answered_at: new Date().toISOString()
           };
         });
 
-      console.log('📝 Converted answers:', answers);
-      console.log('📝 Final answers count:', answers.length);
+      devLog.debug('📝 Converted answers:', answers);
+      devLog.debug('📝 Final answers count:', answers.length);
 
       const responseData: Omit<ResponseDocument, 'id' | 'createdAt' | 'updatedAt'> = {
         business_rut: activeBusiness.rut,
@@ -263,38 +302,38 @@ export const useSurveyAutoSave = ({
         progress
       };
 
-      console.log('📦 Response data to save:', responseData);
+      devLog.debug('📦 Response data to save:', responseData);
 
       const responseId = await saveOrUpdateResponse(responseData);
-      console.log('🆔 Response saved with ID:', responseId);
+      devLog.debug('🆔 Response saved with ID:', responseId);
       
       setCurrentResponseId(responseId);
       
       // Actualizar referencia con el mismo formato que usamos para detectar cambios
-      const savedDataEntries = Object.entries(selectedAnswers)
+      const savedDataEntries = Object.entries(currentSelectedAnswers)
         .filter(([key, value]) => value !== undefined && value !== '')
         .sort(([a], [b]) => a.localeCompare(b));
       lastSaveDataRef.current = JSON.stringify(savedDataEntries);
       
-      console.log('📊 Setting save status to saved...');
+      devLog.debug('📊 Setting save status to saved...');
       setSaveStatus({ 
         status: 'saved', 
         message: 'Guardado automáticamente', 
         lastSaved: new Date() 
       });
 
-      console.log('✅ Save completed successfully - status updated');
+      devLog.debug('✅ Save completed successfully - status updated');
     } catch (error) {
-      console.error('❌ Error saving response:', error);
+      devLog.error('❌ Error saving response:', error);
       setSaveStatus({ 
         status: 'error', 
         message: 'Error al guardar' 
       });
-      throw error; // Re-throw para que se pueda manejar arriba si es necesario
+      throw error;
     } finally {
-      setIsSaving(false); // Siempre liberar el estado de guardado
+      setIsSaving(false);
     }
-  }, [selectedAnswers, activeBusiness?.rut, standardId, user?.uid, standardActions, progress, isSaving]);
+  }, [activeBusiness?.rut, standardId, user?.uid, standardActions, progress, isSaving]);
 
   /**
    * Wrapper para setSelectedAnswers que dispara auto-guardado
@@ -302,45 +341,70 @@ export const useSurveyAutoSave = ({
   const setSelectedAnswers = useCallback((
     answers: Record<string, string | undefined> | ((prev: Record<string, string | undefined>) => Record<string, string | undefined>)
   ) => {
-    console.log('🔄 setSelectedAnswers called with:', answers);
+    devLog.debug('🔄 setSelectedAnswers called with:', answers);
+    
+    // Bloquear cambios si la encuesta está completada
+    if (isCompleted) {
+      devLog.debug('🚫 Blocked setSelectedAnswers - survey is completed and readonly');
+      return;
+    }
+    
+    // Advertir si la encuesta está completada, pero permitir cambios 
+    // (porque podríamos estar cambiando de estándar)
+    if (isCompleted) {
+      devLog.debug('⚠️ Survey is completed - but allowing changes (might be different standard)');
+      devLog.warn('Nota: Esta encuesta estaba completada, verificar si es el estándar correcto');
+    }
+    
+    // Log del estado actual antes del cambio
+    devLog.debug('🔍 Hook state ANTES de setSelectedAnswers:', {
+      isLoading,
+      isSaving,
+      isCompleted,
+      isReadonly,
+      saveStatus: saveStatus.status,
+      enableAutoSave
+    });
     
     // Manejar tanto funciones como objetos
     const newAnswers = typeof answers === 'function' ? answers : answers;
-    console.log('🔄 Setting new answers:', newAnswers);
+    devLog.debug('🔄 Setting new answers:', newAnswers);
     
     setSelectedAnswersState(answers);
     
     // Log del estado después del set (será visible en el próximo render)
     setTimeout(() => {
-      console.log('⏰ Selected answers after state update - setTimeout check');
+      devLog.debug('⏰ Selected answers after state update - setTimeout check');
     }, 0);
     
     // Disparar auto-guardado con debounce si está habilitado
-    if (enableAutoSave) {
-      console.log('⏰ Setting up auto-save timeout...');
+    if (enableAutoSave && !isCompleted) {
+      devLog.debug('⏰ Setting up auto-save timeout...');
       
       if (saveTimeoutRef.current) {
-        console.log('⏰ Clearing previous timeout');
+        devLog.debug('⏰ Clearing previous timeout');
         clearTimeout(saveTimeoutRef.current);
       }
       
       saveTimeoutRef.current = setTimeout(() => {
-        console.log('⏰ Debounce timeout fired - calling saveCurrentState');
+        devLog.debug('⏰ Debounce timeout fired - calling saveCurrentState');
         saveCurrentState();
       }, debounceMs);
       
-      console.log(`⏰ Auto-save scheduled for ${debounceMs}ms from now`);
+      devLog.debug(`⏰ Auto-save scheduled for ${debounceMs}ms from now`);
+    } else if (isCompleted) {
+      devLog.debug('🚫 Auto-save blocked - survey is completed and readonly');
     } else {
-      console.log('🚫 Auto-save disabled, not scheduling save');
+      devLog.debug('🚫 Auto-save disabled, not scheduling save');
     }
-  }, [saveCurrentState, enableAutoSave, debounceMs]);
+  }, [saveCurrentState, enableAutoSave, debounceMs, isCompleted, isLoading, isSaving, saveStatus.status]);
 
   /**
    * Enviar encuesta completada
    */
   const submitSurvey = useCallback(async () => {
     if (!currentResponseId) {
-      await saveCurrentState(); // Guardar primero si no hay ID
+      await saveCurrentState();
       return;
     }
 
@@ -348,13 +412,19 @@ export const useSurveyAutoSave = ({
     
     try {
       await markResponseCompleted(currentResponseId);
+      
+      // Marcar la encuesta como completada localmente
+      setIsCompleted(true, 'Survey submitted via submitSurvey');
+      
       setSaveStatus({ 
         status: 'saved', 
         message: 'Encuesta enviada exitosamente', 
         lastSaved: new Date() 
       });
+      
+      devLog.debug('✅ Survey marked as completed - now in readonly mode');
     } catch (error) {
-      console.error('❌ Error submitting survey:', error);
+      devLog.error('❌ Error submitting survey:', error);
       setSaveStatus({ 
         status: 'error', 
         message: 'Error al enviar encuesta' 
@@ -371,19 +441,50 @@ export const useSurveyAutoSave = ({
     };
   }, []);
 
+  // Reset específico cuando cambia el standardId - debe ejecutarse ANTES de loadExistingResponses
+  useEffect(() => {
+    devLog.debug('🔥 RESET EFFECT TRIGGERED - standardId:', standardId);
+    if (standardId) {
+      devLog.debug('🔄 StandardId changed, resetting state for:', standardId);
+      // Resetear completamente el estado al cambiar de estándar
+      setIsCompleted(false, `StandardId changed from ${isCompleted ? 'completed' : 'incomplete'} to reset`);
+      setCurrentResponseId(null);
+      setSelectedAnswersState({});
+      setSaveStatus({ status: 'idle' });
+      // También resetear la referencia de datos guardados para evitar conflictos
+      lastSaveDataRef.current = '';
+      devLog.debug('✅ Estado reseteado completamente para:', standardId);
+    } else {
+      devLog.debug('📝 StandardId is empty, no reset needed');
+    }
+  }, [standardId]);
+
   // Auto-cargar respuestas cuando cambie el estándar o business
   useEffect(() => {
+    devLog.debug('🔥 LOAD EFFECT TRIGGERED - Checking conditions:', {
+      businessRut: !!activeBusiness?.rut,
+      standardId: !!standardId,
+      enableAutoSave,
+      userId: !!user?.uid,
+      actualStandardId: standardId,
+      actualBusinessRut: activeBusiness?.rut
+    });
+    
     if (activeBusiness?.rut && standardId && enableAutoSave && user?.uid) {
-      console.log('🔄 Triggering loadExistingResponses due to dependency change');
+      devLog.debug('✅ All conditions met - scheduling loadExistingResponses');
       
-      // Pequeño delay para permitir que se complete cualquier guardado pendiente
+      // Aumentar delay para evitar condiciones de carrera con el reset
       const loadTimeout = setTimeout(() => {
+        devLog.debug('⏰ Timeout fired - calling loadExistingResponses');
         loadExistingResponses();
-      }, 100);
+      }, 200);
       
-      return () => clearTimeout(loadTimeout);
+      return () => {
+        devLog.debug('🧹 Cleaning up load timeout');
+        clearTimeout(loadTimeout);
+      };
     } else {
-      console.log('🚫 Skipping loadExistingResponses - missing requirements:', {
+      devLog.debug('🚫 Skipping loadExistingResponses - missing requirements:', {
         businessRut: !!activeBusiness?.rut,
         standardId: !!standardId,
         enableAutoSave,
@@ -401,6 +502,8 @@ export const useSurveyAutoSave = ({
     saveCurrentState,
     submitSurvey,
     isLoading,
-    progress
+    progress,
+    isCompleted,
+    isReadonly
   };
 };

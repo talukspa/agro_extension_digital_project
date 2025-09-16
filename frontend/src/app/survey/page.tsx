@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { collection, getDocs, db } from "@/lib/firebase/utils";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
@@ -12,6 +13,7 @@ import { Tabs, type NestedTabItem } from "@/components/ui/Tabs";
 import { useSurveyAutoSave } from "@/lib/hooks/useSurveyAutoSave";
 import { SaveStatusIndicator, ProgressIndicator } from "@/components/survey/SaveStatusIndicator";
 import { calculateProgress } from "@/lib/firebase/responses";
+import { devLog } from "@/lib/utils/devLog";
 
 // Helper para obtener progreso usando el mismo cálculo que el hook, pero adaptado al formato esperado
 function getProgress(actions: [string, Action][], answers: Record<string, string | undefined>) {
@@ -52,15 +54,21 @@ interface Standard {
   actions: { [key: string]: Action };
 }
 
-export default function SurveyPage() {
+// Componente que usa useSearchParams
+function SurveyContent() {
   // Declaración única de todos los estados principales
   const { user, userType, activeBusiness, loading: authLoading, signOut } = useAuth();
   const { theme, setTheme, currentTheme, toggleTheme } = useTheme();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [standards, setStandards] = useState<Standard[]>([]);
   const [selected, setSelected] = useState<Standard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Detectar si está en modo debug por URL parameter
+  const isDebugMode = searchParams.get('debug') === 'true';
 
   // Hook de auto-guardado - reemplaza selectedAnswers y lógica manual
   // Solo se activa cuando tenemos usuario autenticado, business activo y estándar seleccionado
@@ -71,7 +79,9 @@ export default function SurveyPage() {
     submitSurvey,
     isLoading: isSaving,
     progress,
-    saveCurrentState
+    saveCurrentState,
+    isCompleted,
+    isReadonly
   } = useSurveyAutoSave({
     standardId: (selected?.id && activeBusiness?.rut && user?.uid) ? selected.id : '',
     standardActions: selected?.actions || {},
@@ -79,8 +89,18 @@ export default function SurveyPage() {
     debounceMs: 1000 // Reducir a 1 segundo para mejor responsividad
   });
 
+  // DEBUG: Log crítico para entender el problema del cambio
+  devLog.debug('🎯 HOOK PARAMETERS DEBUG:', {
+    'selected?.id': selected?.id,
+    'activeBusiness?.rut': activeBusiness?.rut,  
+    'user?.uid': user?.uid,
+    'computed standardId': (selected?.id && activeBusiness?.rut && user?.uid) ? selected.id : '',
+    'enableAutoSave': !authLoading && !!activeBusiness?.rut && !!user?.uid,
+    'authLoading': authLoading
+  });
+
   // Debug logs
-  console.log('Survey Page - Debug Info:', {
+  devLog.debug('Survey Page - Debug Info:', {
     authLoading,
     user: user ? { uid: user.uid, email: user.email, displayName: user.displayName, businessProfileId: user.businessProfileId } : null,
     userType: userType ? { name: userType.name } : null,
@@ -96,6 +116,24 @@ export default function SurveyPage() {
   const [activeDimension, setActiveDimension] = useState<string | null>(null);
   const [activeTheme, setActiveTheme] = useState<string | null>(null);
   const [evidenceRefreshTriggers, setEvidenceRefreshTriggers] = useState<Record<string, number>>({});
+  
+  // 🔧 NUEVO: Estado para trackear estándares completados
+  const [completedStandards, setCompletedStandards] = useState<Set<string>>(new Set());
+
+  // 🔧 NUEVO: Actualizar set de estándares completados cuando cambie isCompleted
+  useEffect(() => {
+    if (selected?.id) {
+      setCompletedStandards(prev => {
+        const newSet = new Set(prev);
+        if (isCompleted) {
+          newSet.add(selected.id);
+        } else {
+          newSet.delete(selected.id);
+        }
+        return newSet;
+      });
+    }
+  }, [isCompleted, selected?.id]);
 
   // Cerrar menú cuando se hace clic fuera
   useEffect(() => {
@@ -114,23 +152,23 @@ export default function SurveyPage() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden && selected && Object.keys(selectedAnswers).length > 0) {
-        console.log('👁️ Página oculta - guardando respuestas...');
+        devLog.debug('👁️ Página oculta - guardando respuestas...');
         // Usar Promise.resolve para manejar async de forma más robusta
         Promise.resolve(saveCurrentState()).catch(error => {
-          console.warn('⚠️ Error al guardar por cambio de visibilidad:', error);
+          devLog.warn('⚠️ Error al guardar por cambio de visibilidad:', error);
         });
       }
     };
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       if (selected && Object.keys(selectedAnswers).length > 0) {
-        console.log('🔄 Página cerrándose - intentando guardar respuestas...');
+        devLog.debug('🔄 Página cerrándose - intentando guardar respuestas...');
         
         // Para beforeunload, no podemos esperar promesas async
         // pero podemos usar navigator.sendBeacon si está disponible
         if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
           // Intentar guardado rápido usando beacon (mejor práctica para beforeunload)
-          console.log('📡 Using sendBeacon for emergency save');
+          devLog.debug('📡 Using sendBeacon for emergency save');
           // Nota: Esto requeriría un endpoint específico, por ahora solo loggeamos
         }
         
@@ -197,7 +235,7 @@ export default function SurveyPage() {
               };
             });
             
-            console.log('Standards loaded:', data.map(std => ({
+            devLog.debug('Standards loaded:', data.map(std => ({
               id: std.id,
               description: std.description,
               actionCount: Object.keys(std.actions).length,
@@ -211,7 +249,7 @@ export default function SurveyPage() {
               setSelected(data[0]);
             }
           } catch (err: any) {
-            console.error('Error loading standards:', err);
+            devLog.error('Error loading standards:', err);
             setError("Error al cargar los estándares");
           } finally {
             setLoading(false);
@@ -283,23 +321,80 @@ export default function SurveyPage() {
                           <div className="text-sm font-medium text-foreground mb-1">Selecciona una opción:</div>
                           <div className="flex flex-col gap-2">
                             {action.valid_answers.map((answer, idx) => (
-                              <label key={idx} className="inline-flex items-center gap-2 cursor-pointer">
+                              <label 
+                                key={idx} 
+                                className={`inline-flex items-center gap-3 p-3 rounded-lg border-2 transition-all duration-200 ${
+                                  selectedAnswers[key] === answer 
+                                    ? isReadonly 
+                                      ? 'bg-green-100 border-green-400 dark:bg-green-900/30 dark:border-green-600 shadow-sm' // Respuesta seleccionada en modo readonly
+                                      : 'bg-primary/10 border-primary shadow-sm'
+                                    : isReadonly
+                                      ? 'bg-gray-50 border-gray-300 dark:bg-gray-800/50 dark:border-gray-500 opacity-70' // Respuestas no seleccionadas en modo readonly
+                                      : 'bg-card border-border hover:border-primary/50 hover:bg-primary/5'
+                                } ${
+                                  isReadonly ? 'cursor-not-allowed' : 'cursor-pointer'
+                                }`}
+                              >
                                 <input
                                   type="radio"
                                   name={`answer-${key}`}
-                                  className="form-radio text-primary focus:ring-ring"
+                                  className={`form-radio text-primary focus:ring-ring ${
+                                    isReadonly 
+                                      ? 'opacity-70 cursor-not-allowed' 
+                                      : 'disabled:opacity-50 disabled:cursor-not-allowed'
+                                  }`}
                                   checked={selectedAnswers[key] === answer}
+                                  disabled={isReadonly}
                                   onChange={() => {
-                                    console.log(`🎯 Radio button changed - Key: ${key}, Answer: ${answer}`);
-                                    console.log(`🎯 Action data for key ${key}:`, action);
+                                    if (isReadonly || isCompleted) {
+                                      devLog.debug('🚫 Input blocked - survey is completed or readonly');
+                                      return;
+                                    }
+                                    devLog.debug(`🎯 Radio button changed - Key: ${key}, Answer: ${answer}`);
+                                    devLog.debug(`🎯 Action data for key ${key}:`, action);
+                                    devLog.debug(`🔍 Estado ANTES del cambio:`, {
+                                      isSaving,
+                                      isCompleted,
+                                      isReadonly,
+                                      saveStatus: saveStatus.status,
+                                      selectedAnswersCount: Object.keys(selectedAnswers).length
+                                    });
+                                    
                                     setSelectedAnswers((prev) => {
                                       const newState = { ...prev, [key]: answer };
-                                      console.log(`🎯 New selectedAnswers state:`, newState);
+                                      devLog.debug(`🎯 New selectedAnswers state:`, newState);
+                                      
+                                      // Log asíncrono para ver el estado DESPUÉS del cambio
+                                      setTimeout(() => {
+                                        devLog.debug(`🔍 Estado DESPUÉS del cambio (${key}):`, {
+                                          isSaving,
+                                          isCompleted,
+                                          isReadonly,
+                                          saveStatus: saveStatus.status
+                                        });
+                                      }, 100);
+                                      
                                       return newState;
                                     });
                                   }}
                                 />
-                                <span className="text-card-foreground text-sm">{answer}</span>
+                                <span className={`text-sm font-medium ${
+                                  selectedAnswers[key] === answer 
+                                    ? isReadonly 
+                                      ? 'text-green-900 dark:text-green-100' // Texto de respuesta seleccionada en modo readonly
+                                      : 'text-primary'
+                                    : isReadonly
+                                      ? 'text-gray-600 dark:text-gray-300' // Texto de respuestas no seleccionadas en modo readonly
+                                      : 'text-card-foreground'
+                                }`}>
+                                  {answer}
+                                </span>
+                                {/* Icono de respuesta seleccionada en modo readonly */}
+                                {selectedAnswers[key] === answer && isReadonly && (
+                                  <svg className="w-4 h-4 text-green-600 dark:text-green-400 ml-auto" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                )}
                               </label>
                             ))}
                           </div>
@@ -308,12 +403,12 @@ export default function SurveyPage() {
                           )}
 
                           {/* Componentes de Evidencia */}
-                          {canUploadEvidence && (
+                          {canUploadEvidence && !isReadonly && (
                             <EvidenceUpload
                               questionId={key}
                               standardId={selected?.id || ''}
                               onUploadComplete={() => handleEvidenceUploadComplete(key)}
-                              disabled={false}
+                              disabled={isReadonly}
                             />
                           )}
 
@@ -389,9 +484,53 @@ export default function SurveyPage() {
       await submitSurvey();
       alert('Encuesta enviada exitosamente');
     } catch (error) {
-      console.error('Error enviando encuesta:', error);
+      devLog.error('Error enviando encuesta:', error);
       alert('Error al enviar la encuesta. Por favor, intenta de nuevo.');
     }
+  };
+
+  // DEBUG: Función para llenar la encuesta con valores aleatorios
+  const handleFillRandomAnswers = () => {
+    if (!selected || !selected.actions) {
+      alert('Primero selecciona un estándar');
+      return;
+    }
+
+    const randomAnswers: Record<string, string> = {};
+    const actionEntries = Object.entries(selected.actions);
+    let processedCount = 0;
+    
+    devLog.debug('🎲 Starting random fill process...');
+    devLog.debug(`🎲 Total actions found: ${actionEntries.length}`);
+    
+    actionEntries.forEach(([key, action]) => {
+      // Solo procesar acciones que tengan valid_answers
+      if (Array.isArray(action.valid_answers) && action.valid_answers.length > 0) {
+        // Seleccionar una respuesta aleatoria de las opciones válidas
+        const randomIndex = Math.floor(Math.random() * action.valid_answers.length);
+        const randomAnswer = action.valid_answers[randomIndex];
+        randomAnswers[key] = randomAnswer;
+        processedCount++;
+        
+        devLog.debug(`🎲 [${processedCount}] ${key}: "${randomAnswer}" (options: ${action.valid_answers.join(', ')})`);
+      } else {
+        devLog.debug(`⚠️ Skipped ${key}: no valid_answers (${typeof action.valid_answers}, length: ${action.valid_answers?.length})`);
+      }
+    });
+
+    devLog.debug('🎲 Generated random answers:', randomAnswers);
+    devLog.debug(`🎲 Summary: ${processedCount} actions filled out of ${actionEntries.length} total`);
+    
+    // Usar setSelectedAnswers para disparar el auto-guardado
+    setSelectedAnswers(randomAnswers);
+    
+    // Mostrar resultado al usuario
+    const message = `🎲 Llenado aleatorio completado!\n\n` +
+      `✅ ${processedCount} acciones completadas\n` +
+      `📊 Total disponibles: ${actionEntries.length}\n` +
+      `🔄 Auto-guardado activado`;
+      
+    alert(message);
   };
 
   return (
@@ -456,9 +595,17 @@ export default function SurveyPage() {
                 <h1 className="text-xl font-bold text-primary">
                   AgroExtensión Digital
                 </h1>
-                <p className="text-xs text-muted-foreground">
-                  Encuesta de Estándares
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    Encuesta de Estándares
+                  </p>
+                  {/* Indicador de modo debug */}
+                  {isDebugMode && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                      🔧 Debug
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -545,6 +692,39 @@ export default function SurveyPage() {
             Selecciona un estándar y completa la evaluación de acciones
           </p>
           
+          {/* 🔒 Banner de Encuesta Completada */}
+          {isCompleted && selected && (
+            <div className="mt-4 p-4 bg-green-100 dark:bg-green-900/30 border-2 border-green-400 dark:border-green-600 rounded-lg shadow-sm">
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-green-900 dark:text-green-100">
+                    Encuesta Completada y Enviada
+                  </h3>
+                  <p className="mt-1 text-sm font-medium text-green-800 dark:text-green-200">
+                    Esta encuesta ha sido enviada exitosamente y ya no puede ser modificada. 
+                    Los resultados están siendo revisados por el equipo de auditores.
+                  </p>
+                </div>
+                <div className="flex-shrink-0 flex items-center gap-3">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    Solo Lectura
+                  </span>
+                  <Button
+                    onClick={() => router.push('/stats')}
+                    className="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 border border-blue-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  >
+                    📊 Ver Resultados
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Indicadores de guardado y progreso */}
           {selected && (
             <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-4">
@@ -569,7 +749,17 @@ export default function SurveyPage() {
                 <select
                   id="standard-select"
                   value={selected?.id || ''}
+                  disabled={isSaving} // Solo deshabilitar durante guardado, no por completitud
                   onChange={async (e) => {
+                    // Evitar cambios durante guardado
+                    if (isSaving) {
+                      console.log('🚫 Cambio de estándar bloqueado - guardado en progreso');
+                      return;
+                    }
+
+                    // 🔧 CAPTURAR VALOR INMEDIATAMENTE para evitar que el DOM lo modifique
+                    const targetValue = e.target.value;
+                    
                     // Guardar respuestas actuales antes de cambiar estándar
                     if (selected && Object.keys(selectedAnswers).length > 0) {
                       try {
@@ -580,33 +770,102 @@ export default function SurveyPage() {
                       }
                     }
                     
-                    const selectedStandard = standards.find(std => std.id === e.target.value);
-                    setSelected(selectedStandard || null);
+                    // Buscar el estándar usando el valor capturado
+                    const selectedStandard = standards.find(std => std.id === targetValue);
+                    
+                    if (!selectedStandard) {
+                      console.error('❌ Standard not found for ID:', targetValue);
+                      return;
+                    }
+                    
+                    console.log('🔄 Cambiando a estándar:', selectedStandard.description);
+                    setSelected(selectedStandard);
                   }}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                  className={`w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent ${
+                    isSaving ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
                   <option value="">-- Selecciona un estándar --</option>
                   {standards.map((std) => (
                     <option key={std.id} value={std.id}>
-                      {std.description}
+                      {completedStandards.has(std.id) ? '✅ ' : ''}{std.description}
                     </option>
                   ))}
                 </select>
+                {/* Indicador de estado del selector */}
+                {isSaving && (
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                    </svg>
+                    Procesando cambio...
+                  </p>
+                )}
+                {/* 🔧 NUEVO: Ayuda contextual */}
+                {selected && isCompleted && (
+                  <p className="text-xs text-green-700 dark:text-green-300 mt-1 flex items-center gap-1 font-medium">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                    </svg>
+                    Este estándar está completado. Las respuestas están protegidas y no se pueden modificar.
+                  </p>
+                )}
               </div>
 
               {/* Botón de envío */}
               <div className="flex flex-col items-center gap-2">
-                <Button
-                  onClick={handleEnviarEncuesta}
-                  disabled={!isEncuestaCompleta() || isSaving}
-                  className={`px-6 py-2 font-medium ${
-                    isEncuestaCompleta() 
-                      ? 'bg-success text-success-foreground hover:bg-success/90' 
-                      : 'bg-muted text-muted-foreground cursor-not-allowed'
-                  }`}
-                >
-                  {isSaving ? 'Enviando...' : isEncuestaCompleta() ? '✓ Enviar Encuesta' : 'Completar Encuesta'}
-                </Button>
+                {/* 🎲 DEBUG: Botones para debugging - Solo con parámetro ?debug=true y si no está completada */}
+                {isDebugMode && selected && !isCompleted && (
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleFillRandomAnswers}
+                      disabled={isSaving || isReadonly}
+                      className="px-3 py-1 text-xs bg-orange-500 text-white hover:bg-orange-600 border border-orange-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      🎲 Llenar Aleatoriamente
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        if (isReadonly) return;
+                        setSelectedAnswers({});
+                        alert('🧹 Todas las respuestas han sido limpiadas');
+                      }}
+                      disabled={isSaving || isReadonly}
+                      className="px-3 py-1 text-xs bg-gray-500 text-white hover:bg-gray-600 border border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      🧹 Limpiar Respuestas
+                    </Button>
+                  </div>
+                )}
+                
+                {/* Botón principal - cambia según el estado */}
+                {isCompleted ? (
+                  <div className="text-center">
+                    <Button
+                      disabled
+                      className="px-6 py-2 font-medium bg-green-100 text-green-800 cursor-not-allowed border border-green-300"
+                    >
+                      ✅ Encuesta Completada y Enviada
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Esta encuesta fue enviada el {saveStatus.lastSaved?.toLocaleDateString() || 'fecha desconocida'}
+                    </p>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={handleEnviarEncuesta}
+                    disabled={!isEncuestaCompleta() || isSaving}
+                    className={`px-6 py-2 font-medium ${
+                      isEncuestaCompleta() 
+                        ? 'bg-success text-success-foreground hover:bg-success/90' 
+                        : 'bg-muted text-muted-foreground cursor-not-allowed'
+                    }`}
+                  >
+                    {isSaving ? 'Enviando...' : isEncuestaCompleta() ? '✓ Enviar Encuesta' : 'Completar Encuesta'}
+                  </Button>
+                )}
+                
                 {selected && (
                   <p className="text-xs text-muted-foreground text-center">
                     {progress.answeredQuestions}/{progress.totalQuestions} acciones completadas
@@ -634,5 +893,21 @@ export default function SurveyPage() {
       )}
       </main>
     </div>
+  );
+}
+
+// Componente principal que envuelve SurveyContent en Suspense
+export default function SurveyPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Cargando encuesta...</p>
+        </div>
+      </div>
+    }>
+      <SurveyContent />
+    </Suspense>
   );
 }
