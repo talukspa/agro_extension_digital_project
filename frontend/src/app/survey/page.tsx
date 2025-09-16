@@ -9,13 +9,25 @@ import { USER_TYPE_DISPLAY_NAMES, USER_TYPES } from "@/lib/types/permissions";
 import { useTheme } from "@/lib/contexts/ThemeContext";
 import { EvidenceUpload, EvidenceList } from "@/components/evidence";
 import { Tabs, type NestedTabItem } from "@/components/ui/Tabs";
+import { useSurveyAutoSave } from "@/lib/hooks/useSurveyAutoSave";
+import { SaveStatusIndicator, ProgressIndicator } from "@/components/survey/SaveStatusIndicator";
+import { calculateProgress } from "@/lib/firebase/responses";
 
-// Helper para obtener el total de acciones y respuestas seleccionadas por theme
+// Helper para obtener progreso usando el mismo cálculo que el hook, pero adaptado al formato esperado
 function getProgress(actions: [string, Action][], answers: Record<string, string | undefined>) {
-  const total = actions.length;
-  const answered = actions.filter(([key]) => answers[key] !== undefined).length;
-  const percent = total === 0 ? 0 : Math.round((answered / total) * 100);
-  return { total, answered, percent };
+  const allActionKeys = actions.map(([key]) => key);
+  const answeredActionKeys = actions
+    .filter(([key]) => answers[key] !== undefined && answers[key] !== '')
+    .map(([key]) => key);
+  
+  const hookProgress = calculateProgress(allActionKeys, answeredActionKeys);
+  
+  // Adaptar al formato esperado por el componente Tabs
+  return {
+    total: hookProgress.totalQuestions,
+    answered: hookProgress.answeredQuestions,
+    percent: hookProgress.percentComplete
+  };
 }
 
 interface Action {
@@ -50,6 +62,23 @@ export default function SurveyPage() {
   const [error, setError] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  // Hook de auto-guardado - reemplaza selectedAnswers y lógica manual
+  // Solo se activa cuando tenemos usuario autenticado, business activo y estándar seleccionado
+  const {
+    selectedAnswers,
+    setSelectedAnswers,
+    saveStatus,
+    submitSurvey,
+    isLoading: isSaving,
+    progress,
+    saveCurrentState
+  } = useSurveyAutoSave({
+    standardId: (selected?.id && activeBusiness?.rut && user?.uid) ? selected.id : '',
+    standardActions: selected?.actions || {},
+    enableAutoSave: !authLoading && !!activeBusiness?.rut && !!user?.uid,
+    debounceMs: 1000 // Reducir a 1 segundo para mejor responsividad
+  });
+
   // Debug logs
   console.log('Survey Page - Debug Info:', {
     authLoading,
@@ -66,7 +95,6 @@ export default function SurveyPage() {
   });
   const [activeDimension, setActiveDimension] = useState<string | null>(null);
   const [activeTheme, setActiveTheme] = useState<string | null>(null);
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string | undefined>>({});
   const [evidenceRefreshTriggers, setEvidenceRefreshTriggers] = useState<Record<string, number>>({});
 
   // Cerrar menú cuando se hace clic fuera
@@ -81,6 +109,48 @@ export default function SurveyPage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isMenuOpen]);
+
+  // Guardar cuando la página pierde visibilidad (cambio de pestaña, etc.)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && selected && Object.keys(selectedAnswers).length > 0) {
+        console.log('👁️ Página oculta - guardando respuestas...');
+        // Usar Promise.resolve para manejar async de forma más robusta
+        Promise.resolve(saveCurrentState()).catch(error => {
+          console.warn('⚠️ Error al guardar por cambio de visibilidad:', error);
+        });
+      }
+    };
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (selected && Object.keys(selectedAnswers).length > 0) {
+        console.log('🔄 Página cerrándose - intentando guardar respuestas...');
+        
+        // Para beforeunload, no podemos esperar promesas async
+        // pero podemos usar navigator.sendBeacon si está disponible
+        if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
+          // Intentar guardado rápido usando beacon (mejor práctica para beforeunload)
+          console.log('📡 Using sendBeacon for emergency save');
+          // Nota: Esto requeriría un endpoint específico, por ahora solo loggeamos
+        }
+        
+        // Mostrar confirmación de salida si hay datos sin guardar
+        if (saveStatus.status !== 'saved') {
+          event.preventDefault();
+          event.returnValue = 'Hay respuestas sin guardar. ¿Estás seguro de que quieres salir?';
+          return event.returnValue;
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [selected, selectedAnswers, saveCurrentState, saveStatus.status]);
 
   const userInitials = user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'U';
   const userTypeDisplay = userType?.name ? USER_TYPE_DISPLAY_NAMES[userType.name as keyof typeof USER_TYPE_DISPLAY_NAMES] : 'Usuario';
@@ -97,32 +167,58 @@ export default function SurveyPage() {
   const canUploadEvidence = userType?.id === USER_TYPES.BUSINESS_USER;
   const canViewEvidence = [USER_TYPES.BUSINESS_USER, USER_TYPES.AUDITOR, USER_TYPES.ADMIN].includes(userType?.id as any);
 
-  useEffect(() => {
-    async function fetchStandards() {
-      setLoading(true);
-      setError(null);
-      try {
-        const querySnapshot = await getDocs(collection(db, "standards"));
-        const data: Standard[] = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Standard[];
-        setStandards(data);
-        
-        // Seleccionar el primer estándar por defecto
-        if (data.length > 0 && !selected) {
-          setSelected(data[0]);
+      useEffect(() => {
+        async function fetchStandards() {
+          setLoading(true);
+          setError(null);
+          try {
+            const querySnapshot = await getDocs(collection(db, "standards"));
+            const data: Standard[] = querySnapshot.docs.map((doc) => {
+              const docData = doc.data();
+              
+              // Convertir actions de lista a objeto usando standard_code como clave
+              let actionsObj: { [key: string]: Action } = {};
+              if (Array.isArray(docData.actions)) {
+                // Si actions es una lista, convertirla a objeto
+                docData.actions.forEach((action: any) => {
+                  if (action.standard_code) {
+                    actionsObj[action.standard_code] = action;
+                  }
+                });
+              } else if (docData.actions && typeof docData.actions === 'object') {
+                // Si ya es un objeto, usarlo directamente
+                actionsObj = docData.actions;
+              }
+              
+              return {
+                id: doc.id,
+                description: docData.description,
+                actions: actionsObj,
+              };
+            });
+            
+            console.log('Standards loaded:', data.map(std => ({
+              id: std.id,
+              description: std.description,
+              actionCount: Object.keys(std.actions).length,
+              sampleActions: Object.keys(std.actions).slice(0, 3)
+            })));
+            
+            setStandards(data);
+            
+            // Seleccionar el primer estándar por defecto
+            if (data.length > 0 && !selected) {
+              setSelected(data[0]);
+            }
+          } catch (err: any) {
+            console.error('Error loading standards:', err);
+            setError("Error al cargar los estándares");
+          } finally {
+            setLoading(false);
+          }
         }
-      } catch (err: any) {
-        setError("Error al cargar los estándares");
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchStandards();
-  }, []);
-
-
+        fetchStandards();
+      }, []);
   // Agrupar acciones por dimension y theme
   const getActionsByDimensionAndTheme = (actionsObj: { [key: string]: Action }) => {
     const grouped: { [dimension: string]: { [theme: string]: [string, Action][] } } = {};
@@ -193,7 +289,15 @@ export default function SurveyPage() {
                                   name={`answer-${key}`}
                                   className="form-radio text-primary focus:ring-ring"
                                   checked={selectedAnswers[key] === answer}
-                                  onChange={() => setSelectedAnswers((prev) => ({ ...prev, [key]: answer }))}
+                                  onChange={() => {
+                                    console.log(`🎯 Radio button changed - Key: ${key}, Answer: ${answer}`);
+                                    console.log(`🎯 Action data for key ${key}:`, action);
+                                    setSelectedAnswers((prev) => {
+                                      const newState = { ...prev, [key]: answer };
+                                      console.log(`🎯 New selectedAnswers state:`, newState);
+                                      return newState;
+                                    });
+                                  }}
                                 />
                                 <span className="text-card-foreground text-sm">{answer}</span>
                               </label>
@@ -259,7 +363,7 @@ export default function SurveyPage() {
       setActiveDimension(null);
     }
     setActiveTheme(null);
-    setSelectedAnswers({}); // Limpiar respuestas al cambiar de estándar
+    // NO limpiar selectedAnswers aquí - el hook se encarga de cargar los datos
     // eslint-disable-next-line
   }, [selected]);
 
@@ -273,34 +377,21 @@ export default function SurveyPage() {
     // eslint-disable-next-line
   }, [activeDimension, selected]);
 
-  // Verificar si la encuesta está completamente respondida
+  // Verificar si la encuesta está completamente respondida usando el progress del hook
   const isEncuestaCompleta = () => {
-    if (!selected) return false;
-    
-    const allActions = Object.values(getActionsByDimensionAndTheme(selected.actions))
-      .flatMap(themes => Object.values(themes))
-      .flat();
-    
-    return allActions.every(([key, action]) => {
-      // Solo verificar acciones que tienen valid_answers
-      if (!Array.isArray(action.valid_answers) || action.valid_answers.length === 0) {
-        return true; // Considerar como completada si no tiene opciones
-      }
-      return selectedAnswers[key] !== undefined;
-    });
+    return progress.percentComplete === 100;
   };
 
-  const handleEnviarEncuesta = () => {
+  const handleEnviarEncuesta = async () => {
     if (!isEncuestaCompleta()) return;
     
-    // Aquí iría la lógica para enviar la encuesta
-    console.log('Enviando encuesta:', {
-      standard: selected,
-      answers: selectedAnswers
-    });
-    
-    // Mostrar confirmación
-    alert('Encuesta enviada exitosamente');
+    try {
+      await submitSurvey();
+      alert('Encuesta enviada exitosamente');
+    } catch (error) {
+      console.error('Error enviando encuesta:', error);
+      alert('Error al enviar la encuesta. Por favor, intenta de nuevo.');
+    }
   };
 
   return (
@@ -453,6 +544,14 @@ export default function SurveyPage() {
           <p className="text-muted-foreground mt-1">
             Selecciona un estándar y completa la evaluación de acciones
           </p>
+          
+          {/* Indicadores de guardado y progreso */}
+          {selected && (
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-4">
+              <SaveStatusIndicator saveStatus={saveStatus} />
+              <ProgressIndicator progress={progress} className="flex-1" />
+            </div>
+          )}
         </div>
       
       {loading && <p className="text-muted-foreground">Cargando...</p>}
@@ -470,7 +569,17 @@ export default function SurveyPage() {
                 <select
                   id="standard-select"
                   value={selected?.id || ''}
-                  onChange={(e) => {
+                  onChange={async (e) => {
+                    // Guardar respuestas actuales antes de cambiar estándar
+                    if (selected && Object.keys(selectedAnswers).length > 0) {
+                      try {
+                        console.log('💾 Guardando respuestas antes de cambiar estándar...');
+                        await saveCurrentState();
+                      } catch (error) {
+                        console.warn('⚠️ Error al guardar antes del cambio:', error);
+                      }
+                    }
+                    
                     const selectedStandard = standards.find(std => std.id === e.target.value);
                     setSelected(selectedStandard || null);
                   }}
@@ -489,25 +598,18 @@ export default function SurveyPage() {
               <div className="flex flex-col items-center gap-2">
                 <Button
                   onClick={handleEnviarEncuesta}
-                  disabled={!isEncuestaCompleta()}
+                  disabled={!isEncuestaCompleta() || isSaving}
                   className={`px-6 py-2 font-medium ${
                     isEncuestaCompleta() 
                       ? 'bg-success text-success-foreground hover:bg-success/90' 
                       : 'bg-muted text-muted-foreground cursor-not-allowed'
                   }`}
                 >
-                  {isEncuestaCompleta() ? '✓ Enviar Encuesta' : 'Completar Encuesta'}
+                  {isSaving ? 'Enviando...' : isEncuestaCompleta() ? '✓ Enviar Encuesta' : 'Completar Encuesta'}
                 </Button>
                 {selected && (
                   <p className="text-xs text-muted-foreground text-center">
-                    {(() => {
-                      const allActions = Object.values(getActionsByDimensionAndTheme(selected.actions))
-                        .flatMap(themes => Object.values(themes))
-                        .flat()
-                        .filter(([, action]) => Array.isArray(action.valid_answers) && action.valid_answers.length > 0);
-                      const completedActions = allActions.filter(([key]) => selectedAnswers[key] !== undefined);
-                      return `${completedActions.length}/${allActions.length} acciones completadas`;
-                    })()}
+                    {progress.answeredQuestions}/{progress.totalQuestions} acciones completadas
                   </p>
                 )}
               </div>
