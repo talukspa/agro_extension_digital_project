@@ -10,10 +10,11 @@ import { USER_TYPES } from '@/lib/types/permissions';
 
 interface EvidenceListProps {
   questionId: string;
+  standardId: string;
   refreshTrigger?: number;
 }
 
-export default function EvidenceList({ questionId, refreshTrigger }: EvidenceListProps) {
+export default function EvidenceList({ questionId, standardId, refreshTrigger }: EvidenceListProps) {
   const { user, activeBusiness, userType } = useAuth();
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,6 +33,7 @@ export default function EvidenceList({ questionId, refreshTrigger }: EvidenceLis
       setError('');
       const evidenceList = await evidenceFirestoreService.getEvidenceForQuestion(
         activeBusiness.id,
+        standardId,
         questionId
       );
       setEvidence(evidenceList);
@@ -45,7 +47,7 @@ export default function EvidenceList({ questionId, refreshTrigger }: EvidenceLis
 
   useEffect(() => {
     loadEvidence();
-  }, [activeBusiness, questionId, refreshTrigger]);
+  }, [activeBusiness, questionId, standardId, refreshTrigger]);
 
   const handleDelete = async (evidenceItem: Evidence) => {
     if (!activeBusiness || !confirm('¿Estás seguro de que deseas eliminar esta evidencia?')) {
@@ -64,6 +66,7 @@ export default function EvidenceList({ questionId, refreshTrigger }: EvidenceLis
       if (fileName) {
         await evidenceStorageService.deleteEvidence(
           activeBusiness.id,
+          standardId,
           questionId,
           fileName
         );

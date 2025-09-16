@@ -42,11 +42,12 @@ export class EvidenceFirestoreService {
     }
   }
 
-  async getEvidenceForQuestion(businessId: string, questionId: string): Promise<Evidence[]> {
+  async getEvidenceForQuestion(businessId: string, standardId: string, questionId: string): Promise<Evidence[]> {
     try {
       const q = query(
         collection(db, this.collectionName),
         where('businessId', '==', businessId),
+        where('standardId', '==', standardId),
         where('questionId', '==', questionId),
         orderBy('uploadedAt', 'desc')
       );
@@ -76,6 +77,25 @@ export class EvidenceFirestoreService {
     } catch (error) {
       console.error('Error getting business evidence from Firestore:', error);
       throw new Error('Error al obtener la evidencia del negocio.');
+    }
+  }
+
+  async getEvidenceForStandard(businessId: string, standardId: string): Promise<Evidence[]> {
+    try {
+      const q = query(
+        collection(db, this.collectionName),
+        where('businessId', '==', businessId),
+        where('standardId', '==', standardId),
+        orderBy('uploadedAt', 'desc')
+      );
+      
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => 
+        this.convertEvidenceFromFirestore(doc.data(), doc.id)
+      );
+    } catch (error) {
+      console.error('Error getting standard evidence from Firestore:', error);
+      throw new Error('Error al obtener la evidencia del estándar.');
     }
   }
 

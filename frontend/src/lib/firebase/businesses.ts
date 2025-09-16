@@ -43,7 +43,8 @@ export const getBusiness = async (businessId: string): Promise<Business | null> 
       return null;
     }
     
-    const businessRef = doc(db, 'business_profiles', businessId);
+    // First try to get from 'businesses' collection (new structure)
+    const businessRef = doc(db, 'businesses', businessId);
     const businessSnap = await getDoc(businessRef);
     
     if (businessSnap.exists()) {
@@ -51,6 +52,22 @@ export const getBusiness = async (businessId: string): Promise<Business | null> 
       return {
         ...data,
         id: businessSnap.id,
+        createdAt: data.createdAt?.toDate(),
+        requestedAt: data.requestedAt?.toDate(),
+        approvedAt: data.approvedAt?.toDate(),
+        rejectedAt: data.rejectedAt?.toDate()
+      } as Business;
+    }
+    
+    // Fallback to 'business_profiles' collection (legacy)
+    const profileRef = doc(db, 'business_profiles', businessId);
+    const profileSnap = await getDoc(profileRef);
+    
+    if (profileSnap.exists()) {
+      const data = profileSnap.data();
+      return {
+        ...data,
+        id: profileSnap.id,
         createdAt: data.createdAt?.toDate(),
         requestedAt: data.requestedAt?.toDate(),
         approvedAt: data.approvedAt?.toDate(),

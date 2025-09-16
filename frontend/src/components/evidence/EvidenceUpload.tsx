@@ -9,12 +9,14 @@ import { Upload, X, FileText, Image as ImageIcon, AlertCircle } from 'lucide-rea
 
 interface EvidenceUploadProps {
   questionId: string;
+  standardId: string;
   onUploadComplete: () => void;
   disabled?: boolean;
 }
 
 export default function EvidenceUpload({ 
   questionId, 
+  standardId,
   onUploadComplete, 
   disabled = false 
 }: EvidenceUploadProps) {
@@ -67,6 +69,7 @@ export default function EvidenceUpload({
 
       const evidence = await evidenceStorageService.uploadEvidence(
         activeBusiness.id,
+        standardId,
         uploadRequest,
         user.uid
       );

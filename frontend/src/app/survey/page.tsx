@@ -207,6 +207,7 @@ export default function SurveyPage() {
                           {canUploadEvidence && (
                             <EvidenceUpload
                               questionId={key}
+                              standardId={selected?.id || ''}
                               onUploadComplete={() => handleEvidenceUploadComplete(key)}
                               disabled={false}
                             />
@@ -215,6 +216,7 @@ export default function SurveyPage() {
                           {canViewEvidence && (
                             <EvidenceList
                               questionId={key}
+                              standardId={selected?.id || ''}
                               refreshTrigger={evidenceRefreshTriggers[key]}
                             />
                           )}

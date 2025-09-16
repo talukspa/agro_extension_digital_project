@@ -1,6 +1,7 @@
 export interface Evidence {
   id: string;
   questionId: string;
+  standardId: string;
   businessId: string;
   userId: string;
   fileName: string;

@@ -72,12 +72,14 @@ export default function EvidenceDemo() {
         {/* Componentes de Evidencia */}
         <EvidenceUpload
           questionId={sampleQuestion.id}
+          standardId="demo-standard"
           onUploadComplete={handleUploadComplete}
           disabled={false}
         />
 
         <EvidenceList
           questionId={sampleQuestion.id}
+          standardId="demo-standard"
           refreshTrigger={refreshTrigger}
         />
       </div>

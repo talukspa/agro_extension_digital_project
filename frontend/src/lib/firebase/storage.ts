@@ -4,12 +4,13 @@ import type { Evidence, EvidenceUploadRequest } from '@/lib/types/evidence';
 import { v4 as uuidv4 } from 'uuid';
 
 export class EvidenceStorageService {
-  private getStoragePath(businessId: string, questionId: string, fileName: string): string {
-    return `businesses/${businessId}/evidence/${questionId}/${fileName}`;
+  private getStoragePath(businessId: string, standardId: string, questionId: string, fileName: string): string {
+    return `businesses/${businessId}/evidence/${standardId}/${questionId}/${fileName}`;
   }
 
   async uploadEvidence(
     businessId: string, 
+    standardId: string,
     uploadRequest: EvidenceUploadRequest,
     userId: string
   ): Promise<Evidence> {
@@ -18,7 +19,7 @@ export class EvidenceStorageService {
     // Generar nombre único para el archivo
     const fileExtension = file.name.split('.').pop() || '';
     const uniqueFileName = `${uuidv4()}.${fileExtension}`;
-    const storagePath = this.getStoragePath(businessId, questionId, uniqueFileName);
+    const storagePath = this.getStoragePath(businessId, standardId, questionId, uniqueFileName);
     
     try {
       // Subir archivo a Firebase Storage
@@ -28,7 +29,8 @@ export class EvidenceStorageService {
           userId,
           originalName: file.name,
           questionId,
-          businessId
+          businessId,
+          standardId
         }
       });
       
@@ -38,6 +40,7 @@ export class EvidenceStorageService {
       const evidence: Evidence = {
         id: uuidv4(),
         questionId,
+        standardId,
         businessId,
         userId,
         fileName: file.name,
@@ -72,8 +75,8 @@ export class EvidenceStorageService {
     }
   }
 
-  async deleteEvidence(businessId: string, questionId: string, fileName: string): Promise<void> {
-    const storagePath = this.getStoragePath(businessId, questionId, fileName);
+  async deleteEvidence(businessId: string, standardId: string, questionId: string, fileName: string): Promise<void> {
+    const storagePath = this.getStoragePath(businessId, standardId, questionId, fileName);
     const storageRef = ref(storage, storagePath);
     
     try {
