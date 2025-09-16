@@ -4,7 +4,8 @@ export interface Evidence {
   standardId: string;
   businessId: string;
   userId: string;
-  fileName: string;
+  fileName: string; // Nombre original del archivo
+  storageFileName: string; // Nombre único usado en Firebase Storage
   fileUrl: string;
   fileType: string;
   fileSize: number;

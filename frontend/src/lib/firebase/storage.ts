@@ -44,6 +44,7 @@ export class EvidenceStorageService {
         businessId,
         userId,
         fileName: file.name,
+        storageFileName: uniqueFileName,
         fileUrl: downloadURL,
         fileType: file.type,
         fileSize: file.size,

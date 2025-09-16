@@ -62,7 +62,7 @@ export default function EvidenceList({ questionId, standardId, refreshTrigger }:
 
     try {
       // Eliminar de Storage primero
-      const fileName = extractFileNameFromUrl(evidenceItem.fileUrl);
+      const fileName = evidenceItem.storageFileName || extractFileNameFromUrl(evidenceItem.fileUrl);
       if (fileName) {
         await evidenceStorageService.deleteEvidence(
           activeBusiness.id,
@@ -92,9 +92,20 @@ export default function EvidenceList({ questionId, standardId, refreshTrigger }:
   const extractFileNameFromUrl = (fileUrl: string): string => {
     try {
       const url = new URL(fileUrl);
-      const pathSegments = url.pathname.split('/');
-      // El formato es: /v0/b/{bucket}/o/businesses/{businessId}/evidence/{questionId}/{fileName}
-      const encodedFileName = pathSegments[pathSegments.length - 1];
+      // Para URLs de Firebase Storage: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{path}?{params}
+      const pathSegments = url.pathname.split('/o/');
+      if (pathSegments.length > 1) {
+        // Obtener la parte después de '/o/' y antes de '?'
+        const fullPath = pathSegments[1].split('?')[0];
+        // Decodificar la URL y obtener solo el nombre del archivo (última parte)
+        const decodedPath = decodeURIComponent(fullPath);
+        const pathParts = decodedPath.split('/');
+        return pathParts[pathParts.length - 1];
+      }
+      
+      // Fallback: usar el último segmento del pathname
+      const pathSegments2 = url.pathname.split('/');
+      const encodedFileName = pathSegments2[pathSegments2.length - 1];
       return decodeURIComponent(encodedFileName);
     } catch (error) {
       console.error('Error extracting filename from URL:', error);
