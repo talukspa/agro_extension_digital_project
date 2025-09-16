@@ -5,8 +5,10 @@ import { collection, getDocs, db } from "@/lib/firebase/utils";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
-import { USER_TYPE_DISPLAY_NAMES } from "@/lib/types/permissions";
+import { USER_TYPE_DISPLAY_NAMES, USER_TYPES } from "@/lib/types/permissions";
 import { useTheme } from "@/lib/contexts/ThemeContext";
+import { EvidenceUpload, EvidenceList } from "@/components/evidence";
+import { Tabs, type NestedTabItem } from "@/components/ui/Tabs";
 
 // Helper para obtener el total de acciones y respuestas seleccionadas por theme
 function getProgress(actions: [string, Action][], answers: Record<string, string | undefined>) {
@@ -41,7 +43,7 @@ interface Standard {
 export default function SurveyPage() {
   // Declaración única de todos los estados principales
   const { user, userType, activeBusiness, loading: authLoading, signOut } = useAuth();
-  const { theme, setTheme, currentTheme } = useTheme();
+  const { theme, setTheme, currentTheme, toggleTheme } = useTheme();
   const [standards, setStandards] = useState<Standard[]>([]);
   const [selected, setSelected] = useState<Standard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,6 +67,7 @@ export default function SurveyPage() {
   const [activeDimension, setActiveDimension] = useState<string | null>(null);
   const [activeTheme, setActiveTheme] = useState<string | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string | undefined>>({});
+  const [evidenceRefreshTriggers, setEvidenceRefreshTriggers] = useState<Record<string, number>>({});
 
   // Cerrar menú cuando se hace clic fuera
   useEffect(() => {
@@ -81,6 +84,18 @@ export default function SurveyPage() {
 
   const userInitials = user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'U';
   const userTypeDisplay = userType?.name ? USER_TYPE_DISPLAY_NAMES[userType.name as keyof typeof USER_TYPE_DISPLAY_NAMES] : 'Usuario';
+
+  // Función para manejar cuando se completa la carga de evidencia
+  const handleEvidenceUploadComplete = (questionId: string) => {
+    setEvidenceRefreshTriggers(prev => ({
+      ...prev,
+      [questionId]: (prev[questionId] || 0) + 1
+    }));
+  };
+
+  // Verificar si el usuario puede subir evidencia
+  const canUploadEvidence = userType?.id === USER_TYPES.BUSINESS_USER;
+  const canViewEvidence = [USER_TYPES.BUSINESS_USER, USER_TYPES.AUDITOR, USER_TYPES.ADMIN].includes(userType?.id as any);
 
   useEffect(() => {
     async function fetchStandards() {
@@ -119,6 +134,119 @@ export default function SurveyPage() {
       grouped[dim][theme].push([key, action]);
     });
     return grouped;
+  };
+
+  // Crear estructura de tabs para el componente Tabs
+  const createTabsFromActions = (actionsObj: { [key: string]: Action }): NestedTabItem[] => {
+    const actionsByDimension = getActionsByDimensionAndTheme(actionsObj);
+    
+    return Object.entries(actionsByDimension).map(([dimension, themes]) => {
+      const allDimensionActions = Object.values(themes).flat();
+      const dimensionProgress = getProgress(allDimensionActions, selectedAnswers);
+      
+      const subTabs = Object.entries(themes).map(([theme, actions]) => {
+        const themeProgress = getProgress(actions, selectedAnswers);
+        
+        return {
+          id: theme,
+          label: theme,
+          progress: themeProgress,
+          content: (
+            <div className="grid gap-4">
+              {actions.length > 0 ? (
+                actions.map(([key, action]) => {
+                  const isAnswered = selectedAnswers[key] !== undefined;
+                  return (
+                    <div 
+                      key={key} 
+                      className={`rounded border p-4 transition-all duration-300 ${
+                        isAnswered
+                          ? 'border-success bg-success-background shadow-md'
+                          : 'border-border bg-card hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`text-base font-semibold flex-1 ${
+                          isAnswered ? 'text-success' : 'text-primary'
+                        }`}>
+                          {action.action || key}
+                        </div>
+                        {/* Indicador visual de completitud */}
+                        {isAnswered && (
+                          <div className="flex-shrink-0">
+                            <svg className="w-5 h-5 text-success" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        )}
+                        {action.level && <span className="inline-block bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded">{action.level}</span>}
+                        {action.points !== undefined && <span className="inline-block bg-success text-success-foreground text-xs font-bold px-2 py-0.5 rounded ml-2">{action.points} pts</span>}
+                      </div>
+                      {Array.isArray(action.valid_answers) && action.valid_answers.length > 0 && (
+                        <div className="mt-4">
+                          <div className="text-sm font-medium text-foreground mb-1">Selecciona una opción:</div>
+                          <div className="flex flex-col gap-2">
+                            {action.valid_answers.map((answer, idx) => (
+                              <label key={idx} className="inline-flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name={`answer-${key}`}
+                                  className="form-radio text-primary focus:ring-ring"
+                                  checked={selectedAnswers[key] === answer}
+                                  onChange={() => setSelectedAnswers((prev) => ({ ...prev, [key]: answer }))}
+                                />
+                                <span className="text-card-foreground text-sm">{answer}</span>
+                              </label>
+                            ))}
+                          </div>
+                          {action.verification_detail && (
+                            <div className="mt-3 text-sm text-muted-foreground italic">Medio de verificación: {action.verification_detail}</div>
+                          )}
+
+                          {/* Componentes de Evidencia */}
+                          {canUploadEvidence && (
+                            <EvidenceUpload
+                              questionId={key}
+                              standardId={selected?.id || ''}
+                              onUploadComplete={() => handleEvidenceUploadComplete(key)}
+                              disabled={false}
+                            />
+                          )}
+
+                          {canViewEvidence && (
+                            <EvidenceList
+                              questionId={key}
+                              standardId={selected?.id || ''}
+                              refreshTrigger={evidenceRefreshTriggers[key]}
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-muted-foreground">No hay acciones registradas para este tema.</div>
+              )}
+            </div>
+          )
+        };
+      });
+
+      return {
+        id: dimension,
+        label: dimension,
+        progress: dimensionProgress,
+        content: <div />, // Content will be shown via subTabs
+        subTabs
+      };
+    });
+  };
+
+  // Handle tab changes
+  const handleTabChange = (dimensionId: string, themeId?: string) => {
+    setActiveDimension(dimensionId);
+    setActiveTheme(themeId || null);
   };
 
 
@@ -304,12 +432,7 @@ export default function SurveyPage() {
               
               {/* Toggle de tema - Solo emoji */}
               <button
-                onClick={() => {
-                  const themes = ['light', 'dark', 'system'] as const;
-                  const currentIndex = themes.indexOf(theme);
-                  const nextTheme = themes[(currentIndex + 1) % themes.length];
-                  setTheme(nextTheme);
-                }}
+                onClick={toggleTheme}
                 className="w-10 h-10 rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring flex items-center justify-center"
                 aria-label="Cambiar tema"
                 title={`Tema actual: ${theme === 'light' ? 'Claro' : theme === 'dark' ? 'Oscuro' : 'Sistema'}`}
@@ -393,130 +516,16 @@ export default function SurveyPage() {
           {selected && (
             <section className="bg-card p-4 rounded-lg border border-border shadow-sm">
               <h2 className="text-xl font-bold mb-4 text-primary">Acciones para: <span className="text-accent">{selected.description}</span></h2>
-              {/* Tabs de dimensiones */}
-              <div className="mb-2 flex flex-wrap gap-1 border-b-2 border-border sticky top-0 z-20 bg-card">
-                {Object.keys(getActionsByDimensionAndTheme(selected.actions)).map((dim, idx, arr) => {
-                  const allActions = Object.values(getActionsByDimensionAndTheme(selected.actions)[dim] || {}).flat();
-                  const progress = getProgress(allActions, selectedAnswers);
-                  const isActive = activeDimension === dim;
-                  return (
-                    <div key={dim} className="flex flex-col items-center min-w-0">
-                      <button
-                        className={`relative px-4 py-2 font-bold text-base border border-b-0 border-border whitespace-nowrap min-w-[120px]
-                          ${isActive
-                            ? "bg-card text-primary shadow-md z-20 border-t-2 border-x-2 border-b-0 border-primary rounded-t-2xl -mb-[2px]"
-                            : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground z-10 border-t border-x border-b-0 border-border rounded-t-2xl mb-0"}
-                        `}
-                        style={{ marginBottom: isActive ? '-2px' : '0' }}
-                        onClick={() => setActiveDimension(dim)}
-                        title={dim}
-                      >
-                        <span className="block">{dim}</span>
-                      </button>
-                      <div className="w-full h-2 mt-2 bg-muted rounded-full overflow-hidden min-w-[60px]">
-                        <div
-                          className={`h-2 rounded-full transition-all duration-300 ${progress.percent === 100 ? "bg-success" : "bg-primary"}`}
-                          style={{ width: `${progress.percent}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {/* Tabs de themes dentro de la dimensión */}
-              {activeDimension && (
-                <div className="mb-4 overflow-x-auto border-b-2 border-border sticky top-[56px] z-10 bg-card">
-                  <div className="flex gap-1">
-                    {Object.keys(getActionsByDimensionAndTheme(selected.actions)[activeDimension] || {}).map((theme, idx, arr) => {
-                      const actions = getActionsByDimensionAndTheme(selected.actions)[activeDimension][theme] || [];
-                      const progress = getProgress(actions, selectedAnswers);
-                      const isActive = activeTheme === theme;
-                      return (
-                        <div key={theme} className="flex flex-col items-center min-w-0">
-                          <button
-                            className={`relative px-3 py-1.5 font-semibold text-sm border border-b-0 border-border whitespace-nowrap min-w-[100px]
-                              ${isActive
-                                ? "bg-card text-success shadow z-20 border-t-2 border-x-2 border-b-0 border-success rounded-t-xl -mb-[2px]"
-                                : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground z-10 border-t border-x border-b-0 border-border rounded-t-xl mb-0"}
-                            `}
-                            style={{ marginBottom: isActive ? '-2px' : '0' }}
-                            onClick={() => setActiveTheme(theme)}
-                            title={theme}
-                          >
-                            <span className="block">{theme}</span>
-                          </button>
-                          <div className="w-full h-1.5 mt-1 bg-muted rounded-full overflow-hidden min-w-[50px]">
-                            <div
-                              className={`h-1.5 rounded-full transition-all duration-300 ${progress.percent === 100 ? "bg-success" : "bg-primary"}`}
-                              style={{ width: `${progress.percent}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {/* Acciones filtradas por dimension y theme */}
-              <div className="grid gap-4">
-                {activeDimension && activeTheme && getActionsByDimensionAndTheme(selected.actions)[activeDimension]?.[activeTheme]?.length > 0 ? (
-                  getActionsByDimensionAndTheme(selected.actions)[activeDimension][activeTheme].map(([key, action]) => {
-                    const isAnswered = selectedAnswers[key] !== undefined;
-                    return (
-                      <div 
-                        key={key} 
-                        className={`rounded border p-4 transition-all duration-300 ${
-                          isAnswered
-                            ? 'border-success bg-success-background shadow-md'
-                            : 'border-border bg-card hover:border-primary/50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className={`text-base font-semibold flex-1 ${
-                            isAnswered ? 'text-success' : 'text-primary'
-                          }`}>
-                            {action.action || key}
-                          </div>
-                          {/* Indicador visual de completitud */}
-                          {isAnswered && (
-                            <div className="flex-shrink-0">
-                              <svg className="w-5 h-5 text-success" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            </div>
-                          )}
-                          {action.level && <span className="inline-block bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded">{action.level}</span>}
-                          {action.points !== undefined && <span className="inline-block bg-success text-success-foreground text-xs font-bold px-2 py-0.5 rounded ml-2">{action.points} pts</span>}
-                      </div>
-                      {Array.isArray(action.valid_answers) && action.valid_answers.length > 0 && (
-                        <div className="mt-4">
-                          <div className="text-sm font-medium text-foreground mb-1">Selecciona una opción:</div>
-                          <div className="flex flex-col gap-2">
-                            {action.valid_answers.map((answer, idx) => (
-                              <label key={idx} className="inline-flex items-center gap-2 cursor-pointer">
-                                <input
-                                  type="radio"
-                                  name={`answer-${key}`}
-                                  className="form-radio text-primary focus:ring-ring"
-                                  checked={selectedAnswers[key] === answer}
-                                  onChange={() => setSelectedAnswers((prev) => ({ ...prev, [key]: answer }))}
-                                />
-                                <span className="text-card-foreground text-sm">{answer}</span>
-                              </label>
-                            ))}
-                          </div>
-                          {action.verification_detail && (
-                            <div className="mt-3 text-sm text-muted-foreground italic">Medio de verificación: {action.verification_detail}</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-                ) : (
-                  <div className="text-muted-foreground">No hay acciones registradas para esta combinación.</div>
-                )}
-              </div>
+              
+              {/* Tabs Component */}
+              <Tabs
+                tabs={createTabsFromActions(selected.actions)}
+                defaultTab={activeDimension || undefined}
+                defaultSubTab={activeTheme || undefined}
+                variant="agricultural"
+                sticky={true}
+                onTabChange={handleTabChange}
+              />
             </section>
           )}
         </>

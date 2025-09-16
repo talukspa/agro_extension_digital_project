@@ -1,0 +1,270 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { evidenceFirestoreService } from '@/lib/firebase/evidence';
+import { evidenceStorageService } from '@/lib/firebase/storage';
+import type { Evidence } from '@/lib/types/evidence';
+import { File, Image as ImageIcon, Download, Trash2, Eye, FileText, AlertCircle } from 'lucide-react';
+import { USER_TYPES } from '@/lib/types/permissions';
+
+interface EvidenceListProps {
+  questionId: string;
+  standardId: string;
+  refreshTrigger?: number;
+}
+
+export default function EvidenceList({ questionId, standardId, refreshTrigger }: EvidenceListProps) {
+  const { user, activeBusiness, userType } = useAuth();
+  const [evidence, setEvidence] = useState<Evidence[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+
+  const canDelete = userType?.id === USER_TYPES.BUSINESS_USER || userType?.id === USER_TYPES.ADMIN;
+
+  const loadEvidence = async () => {
+    if (!activeBusiness) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setError('');
+      const evidenceList = await evidenceFirestoreService.getEvidenceForQuestion(
+        activeBusiness.id,
+        standardId,
+        questionId
+      );
+      setEvidence(evidenceList);
+    } catch (error) {
+      console.error('Error loading evidence:', error);
+      setError('Error al cargar la evidencia');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadEvidence();
+  }, [activeBusiness, questionId, standardId, refreshTrigger]);
+
+  const handleDelete = async (evidenceItem: Evidence) => {
+    if (!activeBusiness || !confirm('¿Estás seguro de que deseas eliminar esta evidencia?')) {
+      return;
+    }
+
+    if (deletingIds.has(evidenceItem.id)) {
+      return; // Ya se está eliminando
+    }
+
+    setDeletingIds(prev => new Set([...prev, evidenceItem.id]));
+
+    try {
+      // Eliminar de Storage primero
+      const fileName = evidenceItem.storageFileName || extractFileNameFromUrl(evidenceItem.fileUrl);
+      if (fileName) {
+        await evidenceStorageService.deleteEvidence(
+          activeBusiness.id,
+          standardId,
+          questionId,
+          fileName
+        );
+      }
+
+      // Luego eliminar de Firestore
+      await evidenceFirestoreService.deleteEvidence(evidenceItem.id);
+      
+      // Recargar lista
+      await loadEvidence();
+    } catch (error) {
+      console.error('Error deleting evidence:', error);
+      setError('Error al eliminar la evidencia');
+    } finally {
+      setDeletingIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(evidenceItem.id);
+        return newSet;
+      });
+    }
+  };
+
+  const extractFileNameFromUrl = (fileUrl: string): string => {
+    try {
+      const url = new URL(fileUrl);
+      // Para URLs de Firebase Storage: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{path}?{params}
+      const pathSegments = url.pathname.split('/o/');
+      if (pathSegments.length > 1) {
+        // Obtener la parte después de '/o/' y antes de '?'
+        const fullPath = pathSegments[1].split('?')[0];
+        // Decodificar la URL y obtener solo el nombre del archivo (última parte)
+        const decodedPath = decodeURIComponent(fullPath);
+        const pathParts = decodedPath.split('/');
+        return pathParts[pathParts.length - 1];
+      }
+      
+      // Fallback: usar el último segmento del pathname
+      const pathSegments2 = url.pathname.split('/');
+      const encodedFileName = pathSegments2[pathSegments2.length - 1];
+      return decodeURIComponent(encodedFileName);
+    } catch (error) {
+      console.error('Error extracting filename from URL:', error);
+      return '';
+    }
+  };
+
+  const getFileIcon = (fileType: string) => {
+    if (fileType.startsWith('image/')) {
+      return <ImageIcon className="h-4 w-4 text-primary" />;
+    }
+    if (fileType === 'application/pdf') {
+      return <FileText className="h-4 w-4 text-destructive" />;
+    }
+    return <File className="h-4 w-4 text-muted-foreground" />;
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const formatDate = (date: Date): string => {
+    return new Intl.DateTimeFormat('es-ES', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
+  };
+
+  const handleView = (fileUrl: string) => {
+    window.open(fileUrl, '_blank');
+  };
+
+  const handleDownload = (fileUrl: string, fileName: string) => {
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.download = fileName;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  if (loading) {
+    return (
+      <div className="mt-4 p-4 bg-muted/30 rounded-lg border border-border">
+        <div className="flex items-center justify-center py-4">
+          <div className="w-5 h-5 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin mr-2"></div>
+          <span className="text-sm text-muted-foreground">Cargando evidencia...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mt-4 p-4 bg-destructive/10 rounded-lg border border-destructive/20">
+        <div className="flex items-center">
+          <AlertCircle className="h-4 w-4 text-destructive mr-2" />
+          <span className="text-sm text-destructive">{error}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (evidence.length === 0) {
+    return (
+      <div className="mt-4 p-4 bg-muted/30 rounded-lg border border-border">
+        <p className="text-sm text-muted-foreground text-center py-2">
+          No hay evidencia adjuntada para esta pregunta
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 p-4 bg-muted/30 rounded-lg border border-border">
+      <h4 className="text-sm font-medium text-foreground mb-3 flex items-center">
+        <File className="h-4 w-4 mr-2" />
+        Evidencia Adjuntada ({evidence.length})
+      </h4>
+      
+      <div className="space-y-3">
+        {evidence.map((item) => {
+          const isDeleting = deletingIds.has(item.id);
+          const canDeleteThisItem = canDelete && (item.userId === user?.uid || userType?.id === USER_TYPES.ADMIN);
+
+          return (
+            <div key={item.id} className={`
+              flex items-center justify-between p-3 bg-card rounded-lg border border-border
+              ${isDeleting ? 'opacity-50' : ''}
+            `}>
+              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                {getFileIcon(item.fileType)}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-card-foreground truncate">
+                    {item.fileName}
+                  </p>
+                  {item.description && item.description.trim() && (
+                    <p className="text-xs text-muted-foreground truncate mt-1">
+                      {item.description}
+                    </p>
+                  )}
+                  <div className="flex items-center space-x-2 mt-1">
+                    <span className="text-xs text-muted-foreground">
+                      {formatFileSize(item.fileSize)}
+                    </span>
+                    <span className="text-xs text-muted-foreground/50">•</span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(item.uploadedAt)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-2 ml-4">
+                <button
+                  onClick={() => handleView(item.fileUrl)}
+                  className="p-2 text-muted-foreground hover:text-primary transition-colors rounded-md hover:bg-primary/10"
+                  title="Ver archivo"
+                  disabled={isDeleting}
+                >
+                  <Eye className="h-4 w-4" />
+                </button>
+                
+                <button
+                  onClick={() => handleDownload(item.fileUrl, item.fileName)}
+                  className="p-2 text-muted-foreground hover:text-success transition-colors rounded-md hover:bg-success/10"
+                  title="Descargar"
+                  disabled={isDeleting}
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+                
+                {canDeleteThisItem && (
+                  <button
+                    onClick={() => handleDelete(item)}
+                    className="p-2 text-muted-foreground hover:text-destructive transition-colors rounded-md hover:bg-destructive/10 disabled:cursor-not-allowed"
+                    title="Eliminar"
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? (
+                      <div className="w-4 h-4 border border-muted-foreground border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

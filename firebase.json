@@ -1,6 +1,6 @@
 {
   "projects": {
-    "default": "agro-extension-dev"
+    "default": "agro-extension-digital-npe"
   },
   "hosting": {
     "public": "frontend/out",
@@ -32,6 +32,12 @@
     "rules": "cicd/modules/database/firestore-security-rules.rules",
     "indexes": "firestore.indexes.json"
   },
+  "storage": [
+    {
+      "bucket": "agro-extension-digital-npe.firebasestorage.app",
+      "rules": "storage.rules"
+    }
+  ],
   "emulators": {
     "auth": {
       "port": 9099
