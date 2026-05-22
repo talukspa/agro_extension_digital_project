@@ -83,7 +83,7 @@
 1. Meta posts to the webhook Cloud Run service (URL unchanged).
 2. Webhook resolves the target agent (`agent_aa` or `agent_pp`) from existing `ESTANDAR_*_APP_NAME` logic.
 3. Webhook reads the corresponding engine resource name from Secret Manager (`engine-aa-resource-name` / `engine-pp-resource-name`), cached per process with `@lru_cache`.
-4. Webhook resolves the `session_id` for this `wa_id` by calling `engine.async_list_sessions(user_id=wa_id)` and picking the most recent active session; if none exists (or the latest is older than `SESSION_IDLE_RESET_SECONDS`), calls `engine.async_create_session(user_id=wa_id)`. Agent Runtime is the source of truth for sessions — no extra store needed in the webhook.
+4. Webhook resolves the `session_id` for this `wa_id` deterministically: `session_id = sender_wa_id` (the WhatsApp phone number). The existing webhook already uses this pattern against ADK's FastAPI surface (`messages.py:102` calls `create_agent_session(sender_wa_id, app_name, sender_wa_id)`). On Agent Runtime, the rewritten `create_agent_session` calls `engine.async_create_session(user_id=wa_id, session_id=wa_id)` and treats AlreadyExists as success (get-or-create). Agent Runtime is the source of truth for session events — no extra store in the webhook, no per-message list call.
 5. Webhook calls `engine.async_stream_query(user_id=wa_id, session_id=session_id, message=text)`, concatenates `content.parts[*].text` from streamed events, posts the reply back to WhatsApp.
 6. Agent Runtime executes the ADK graph (RAG sub-agent + LangGraph BigQuery sub-agent). Session events persist automatically. Memory Bank extracts long-term facts asynchronously.
 
@@ -131,8 +131,9 @@ app = AdkApp(agent=root_agent, enable_tracing=True)
 ### 4.2 Modified files
 
 - `agents/pyproject.toml` — add `google-cloud-aiplatform[adk,agent_engines]>=1.135.0`, `google-cloud-secret-manager`, `google-cloud-discoveryengine`.
-- `webhook-application/whatsapp_webhook/utils/agent_client.py` — new module wrapping `vertexai.agent_engines.get(name).async_stream_query(...)` and the session-resolution helper (list-or-create against Agent Runtime). Replaces the previous HTTP client targeting `APP_URL`. See section 8 (Appendix B).
-- `webhook-application/whatsapp_webhook/api/*.py` — call the new `agent_client.query_agent(...)` instead of the previous HTTP client. Drop `AGENT_HTTP_TIMEOUT` handling.
+- `webhook-application/whatsapp_webhook/external_services/agent_client.py` — **existing file**, rewritten. Today it wraps an `httpx.AsyncClient` POST to `{APP_URL}/run` and a session create/get via `{APP_URL}/apps/{app_name}/users/{user_id}/sessions/{session_id}`; the rewrite preserves the existing public functions (`send_to_agent`, `create_agent_session`) so `whatsapp_webhook/messages.py` callers don't need to change shape — only the internals swap to the Vertex AI SDK. See section 8 (Appendix B).
+- `webhook-application/whatsapp_webhook/utils/app_config.py` — drop the `agent_url` and `agent_http_timeout` fields.
+- `webhook-application/whatsapp_webhook/auth/google_auth.py` — `get_id_token(agent_url)` is no longer called; remove if it has no other callers, otherwise leave the helper untouched.
 
 ### 4.3 Deleted at cutover
 
@@ -522,14 +523,24 @@ if __name__ == "__main__":
     main()
 ```
 
-### Appendix B — `webhook-application/whatsapp_webhook/utils/agent_client.py` (reference)
+### Appendix B — `webhook-application/whatsapp_webhook/external_services/agent_client.py` (reference)
+
+This file already exists; the rewrite preserves the public functions `send_to_agent(app_name, user_id, session_id, message)` and `create_agent_session(user_id, app_name, session_id)` so callers in `whatsapp_webhook/messages.py` don't change shape — only the internals swap from `httpx` to the Vertex AI SDK.
 
 ```python
-"""Vertex AI Agent Runtime client used by the WhatsApp webhook."""
+"""Vertex AI Agent Runtime client used by the WhatsApp webhook.
+
+Replaces the previous httpx-based client that POSTed to `{APP_URL}/run` and
+`{APP_URL}/apps/{app_name}/users/{user_id}/sessions/{session_id}`. Public
+signatures are preserved so callers in `messages.py` don't need to change.
+"""
+import logging
 import os
 from functools import lru_cache
+from typing import Any
 
 import vertexai
+from google.api_core import exceptions as gax
 from google.cloud import secretmanager
 from vertexai import agent_engines
 
@@ -544,53 +555,55 @@ def _init() -> None:
 
 @lru_cache(maxsize=2)
 def get_engine(app_name: str):
+    """Resolve the reasoningEngine resource name from Secret Manager and cache the client.
+
+    `app_name` is the existing aa/pp key from app_config (e.g. config.aa_app_name).
+    """
     _init()
+    short = "aa" if "aa" in app_name.lower() else "pp"
     project = os.environ["GOOGLE_CLOUD_PROJECT"]
-    secret_id = f"engine-{app_name}-resource-name"
+    secret_id = f"engine-{short}-resource-name"
     name = f"projects/{project}/secrets/{secret_id}/versions/latest"
     sm = secretmanager.SecretManagerServiceClient()
     resource_name = sm.access_secret_version(request={"name": name}).payload.data.decode()
     return agent_engines.get(resource_name)
 
 
-SESSION_IDLE_RESET_SECONDS = int(os.environ.get("SESSION_IDLE_RESET_SECONDS", "21600"))  # 6h
+async def create_agent_session(
+    user_id: str, app_name: str, session_id: str
+) -> dict[str, Any]:
+    """Get-or-create a session with a deterministic id.
 
-
-def _seconds_since_epoch(now_epoch: float) -> float:
-    """Sessions expose last_update_time as a float (seconds-since-epoch, UTC)."""
-    import time
-    return time.time() - float(now_epoch)
-
-
-async def resolve_session(engine, user_id: str) -> str:
-    """Return the freshest active session id for user_id, creating one if needed.
-
-    The AdkApp SDK does NOT guarantee ordering on async_list_sessions, and it
-    returns a ListSessionsResponse object (not a bare list) — must read
-    `.sessions` and sort client-side by last_update_time descending.
+    The existing webhook uses session_id == sender_wa_id, so the Agent Runtime
+    session is keyed the same way. AlreadyExists is treated as success.
     """
-    response = await engine.async_list_sessions(user_id=user_id)
-    sessions = sorted(
-        getattr(response, "sessions", None) or [],
-        key=lambda s: s.get("last_update_time", 0.0),
-        reverse=True,
-    )
-    if sessions:
-        freshest = sessions[0]
-        last = freshest.get("last_update_time")
-        if last is not None and _seconds_since_epoch(last) < SESSION_IDLE_RESET_SECONDS:
-            return freshest["id"]
-    new_session = await engine.async_create_session(user_id=user_id)
-    return new_session["id"]
-
-
-async def query_agent(app_name: str, user_id: str, message: str) -> str:
     engine = get_engine(app_name)
-    session_id = await resolve_session(engine, user_id)
+    try:
+        return await engine.async_create_session(
+            user_id=user_id, session_id=session_id
+        )
+    except gax.AlreadyExists:
+        logging.info(
+            "Session %s already exists for user %s on %s",
+            session_id, user_id, app_name,
+        )
+        return await engine.async_get_session(
+            user_id=user_id, session_id=session_id
+        )
+
+
+async def send_to_agent(
+    app_name: str, user_id: str, session_id: str, message: str
+) -> dict[str, Any]:
+    """Stream a query to Agent Runtime, returning the concatenated assistant text."""
+    engine = get_engine(app_name)
+    logging.info(f"Sending message to agent {app_name} for user {user_id}")
     out: list[str] = []
+    raw_events: list[dict] = []
     async for event in engine.async_stream_query(
         user_id=user_id, session_id=session_id, message=message
     ):
+        raw_events.append(event)
         # event["content"]["parts"][i] is either {"text": ...} (assistant token)
         # or {"function_call": ...} / {"function_response": ...} (tool events).
         # The `if text:` guard naturally skips tool-call parts.
@@ -599,7 +612,16 @@ async def query_agent(app_name: str, user_id: str, message: str) -> str:
             text = part.get("text")
             if text:
                 out.append(text)
-    return "".join(out)
+    response_text = "".join(out).strip()
+    if not response_text:
+        logging.warning(
+            f"Empty response from agent {app_name}: {len(raw_events)} events"
+        )
+        return {
+            "response": "Error: Could not extract text from agent response.",
+            "raw_response": raw_events,
+        }
+    return {"response": response_text, "raw_response": raw_events}
 ```
 
 ### Appendix C — Authoritative sources (as of 2026-05-21)
