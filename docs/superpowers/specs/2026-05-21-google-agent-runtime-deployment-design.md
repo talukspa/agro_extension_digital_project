@@ -82,7 +82,7 @@
 1. Meta posts to the webhook Cloud Run service (URL unchanged).
 2. Webhook resolves the target agent (`agent_aa` or `agent_pp`) from existing `ESTANDAR_*_APP_NAME` logic.
 3. Webhook reads the corresponding engine resource name from Secret Manager (`engine-aa-resource-name` / `engine-pp-resource-name`), cached per process with `@lru_cache`.
-4. Webhook looks up the `session_id` for this `wa_id` in Firestore (small `wa_sessions/{wa_id}` doc). If absent, calls `engine.async_create_session(user_id=wa_id)` and stores the returned id.
+4. Webhook resolves the `session_id` for this `wa_id` by calling `engine.async_list_sessions(user_id=wa_id)` and picking the most recent active session; if none exists (or the latest is older than `SESSION_IDLE_RESET_SECONDS`), calls `engine.async_create_session(user_id=wa_id)`. Agent Runtime is the source of truth for sessions — no extra store needed in the webhook.
 5. Webhook calls `engine.async_stream_query(user_id=wa_id, session_id=session_id, message=text)`, concatenates `content.parts[*].text` from streamed events, posts the reply back to WhatsApp.
 6. Agent Runtime executes the ADK graph (RAG sub-agent + LangGraph BigQuery sub-agent). Session events persist automatically. Memory Bank extracts long-term facts asynchronously.
 
@@ -124,9 +124,8 @@ app = AdkApp(agent=root_agent, enable_tracing=True)
 ### 4.2 Modified files
 
 - `agents/pyproject.toml` — add `google-cloud-aiplatform[adk,agent_engines]>=1.135.0`, `google-cloud-secret-manager`, `google-cloud-discoveryengine`.
-- `webhook-application/whatsapp_webhook/utils/agent_client.py` — new module wrapping `vertexai.agent_engines.get(name).async_stream_query(...)`. Replaces the previous HTTP client targeting `APP_URL`. See section 8 (Appendix B).
+- `webhook-application/whatsapp_webhook/utils/agent_client.py` — new module wrapping `vertexai.agent_engines.get(name).async_stream_query(...)` and the session-resolution helper (list-or-create against Agent Runtime). Replaces the previous HTTP client targeting `APP_URL`. See section 8 (Appendix B).
 - `webhook-application/whatsapp_webhook/api/*.py` — call the new `agent_client.query_agent(...)` instead of the previous HTTP client. Drop `AGENT_HTTP_TIMEOUT` handling.
-- `webhook-application/whatsapp_webhook/utils/sessions.py` — new small Firestore helper for `wa_id → session_id` mapping.
 
 ### 4.3 Deleted at cutover
 
@@ -202,12 +201,12 @@ resource "google_project_iam_member" "runtime_bindings" {
 resource "google_secret_manager_secret" "engine_aa_name" {
   secret_id = "engine-aa-resource-name"
   project   = var.project_id
-  replication { automatic = true }
+  replication { auto {} }
 }
 resource "google_secret_manager_secret" "engine_pp_name" {
   secret_id = "engine-pp-resource-name"
   project   = var.project_id
-  replication { automatic = true }
+  replication { auto {} }
 }
 
 resource "google_secret_manager_secret_iam_member" "webhook_reads_engine_aa" {
@@ -452,7 +451,7 @@ def write_secret(project: str, secret_id: str, value: str) -> None:
             request={
                 "parent": parent,
                 "secret_id": secret_id,
-                "secret": {"replication": {"automatic": {}}},
+                "secret": {"replication": {"automatic": {}}},  # API still uses 'automatic'; TF provider uses 'auto'
             }
         )
     client.add_secret_version(
@@ -504,11 +503,22 @@ if __name__ == "__main__":
 ```python
 """Vertex AI Agent Runtime client used by the WhatsApp webhook."""
 import os
+from datetime import datetime, timezone
 from functools import lru_cache
+from typing import Any
 
 import vertexai
 from google.cloud import secretmanager
 from vertexai import agent_engines
+
+
+def _seconds_since(ts: Any) -> float:
+    """Coerce SDK-returned timestamp (datetime or ISO string) to seconds since now."""
+    if isinstance(ts, str):
+        ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - ts).total_seconds()
 
 
 @lru_cache(maxsize=1)
@@ -530,8 +540,26 @@ def get_engine(app_name: str):
     return agent_engines.get(resource_name)
 
 
-async def query_agent(app_name: str, user_id: str, session_id: str, message: str) -> str:
+SESSION_IDLE_RESET_SECONDS = int(os.environ.get("SESSION_IDLE_RESET_SECONDS", "21600"))  # 6h
+
+
+async def resolve_session(engine, user_id: str) -> str:
+    """Return the most-recent active session id for user_id, creating one if needed."""
+    sessions = await engine.async_list_sessions(user_id=user_id)
+    # sessions is iterable of dicts ordered most-recent-first per current SDK behavior;
+    # fall back to create if none usable.
+    for s in sessions or []:
+        last_update_ts = s.get("last_update_time") or s.get("update_time")
+        if last_update_ts and _seconds_since(last_update_ts) < SESSION_IDLE_RESET_SECONDS:
+            return s["id"]
+        break  # only need the freshest
+    new_session = await engine.async_create_session(user_id=user_id)
+    return new_session["id"]
+
+
+async def query_agent(app_name: str, user_id: str, message: str) -> str:
     engine = get_engine(app_name)
+    session_id = await resolve_session(engine, user_id)
     out: list[str] = []
     async for event in engine.async_stream_query(
         user_id=user_id, session_id=session_id, message=message
