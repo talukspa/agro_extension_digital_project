@@ -203,6 +203,94 @@ resource "google_cloud_run_v2_service_iam_member" "webhook_invokes_agent_aa" {
   member   = "serviceAccount:${google_service_account.webhook_app_sa.email}"
 }
 
+# --------------------------------------------------------------------
+# Agent Runtime (Vertex AI / Gemini Enterprise Agent Platform) — Phase 1
+# Additive resources. The old Cloud Run agent service and SA stay in
+# place until the cleanup phase (post-soak).
+# --------------------------------------------------------------------
+
+resource "google_storage_bucket" "agent_engine_staging" {
+  name                        = "${var.project_id}-agent-engine-staging"
+  location                    = var.region
+  uniform_bucket_level_access = true
+  force_destroy               = false
+  lifecycle_rule {
+    condition { age = 30 }
+    action { type = "Delete" }
+  }
+}
+
+resource "google_service_account" "agent_aa_runtime" {
+  account_id   = "agent-aa-runtime"
+  display_name = "Agent AA — Agent Runtime SA"
+  project      = var.project_id
+}
+
+resource "google_service_account" "agent_pp_runtime" {
+  account_id   = "agent-pp-runtime"
+  display_name = "Agent PP — Agent Runtime SA"
+  project      = var.project_id
+}
+
+locals {
+  runtime_roles = [
+    "roles/aiplatform.user",
+    "roles/discoveryengine.viewer",
+    "roles/bigquery.dataViewer",
+    "roles/bigquery.jobUser",
+    "roles/bigquery.readSessionUser",
+    "roles/cloudtrace.agent",
+    "roles/logging.logWriter",
+  ]
+  runtime_sas = {
+    aa = google_service_account.agent_aa_runtime.email
+    pp = google_service_account.agent_pp_runtime.email
+  }
+  runtime_bindings = {
+    for pair in setproduct(keys(local.runtime_sas), local.runtime_roles) :
+    "${pair[0]}-${pair[1]}" => { sa = local.runtime_sas[pair[0]], role = pair[1] }
+  }
+}
+
+resource "google_project_iam_member" "runtime_bindings" {
+  for_each = local.runtime_bindings
+  project  = var.project_id
+  role     = each.value.role
+  member   = "serviceAccount:${each.value.sa}"
+}
+
+resource "google_secret_manager_secret" "engine_aa_name" {
+  secret_id = "engine-aa-resource-name"
+  project   = var.project_id
+  replication { auto {} }
+}
+
+resource "google_secret_manager_secret" "engine_pp_name" {
+  secret_id = "engine-pp-resource-name"
+  project   = var.project_id
+  replication { auto {} }
+}
+
+resource "google_secret_manager_secret_iam_member" "webhook_reads_engine_aa" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.engine_aa_name.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.webhook_app_sa.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "webhook_reads_engine_pp" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.engine_pp_name.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.webhook_app_sa.email}"
+}
+
+resource "google_project_iam_member" "webhook_invokes_engines" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.webhook_app_sa.email}"
+}
+
 terraform {
   backend "gcs" {}
 }
