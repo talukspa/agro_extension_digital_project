@@ -3,6 +3,7 @@
 Tests are async (pytest-asyncio is already configured in pyproject.toml).
 All network calls are stubbed via mocks — no GCP creds required.
 """
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -13,10 +14,11 @@ from google.api_core import exceptions as gax
 def _env(monkeypatch):
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "agro-extension-digital-npe")
     monkeypatch.setenv("GOOGLE_CLOUD_LOCATION", "us-central1")
-    # Reset the lru_caches so each test gets a fresh engine.
+    # Reset the init cache and the per-resource-name engine dict so each test
+    # gets a clean slate.
     from whatsapp_webhook.external_services import agent_client
     agent_client._init.cache_clear()
-    agent_client.get_engine.cache_clear()
+    agent_client._engine_cache.clear()
 
 
 @pytest.mark.asyncio
@@ -88,3 +90,78 @@ async def test_send_to_agent_returns_error_payload_when_no_text():
             message="hola",
         )
     assert "Error" in result["response"]
+
+
+def test_short_for_known_app_names_round_trip(monkeypatch):
+    """_short_for must map the configured aa_app_name and pp_app_name."""
+    from whatsapp_webhook.external_services import agent_client
+    assert agent_client._short_for("agent_aa") == "aa"
+    assert agent_client._short_for("agent_pp") == "pp"
+
+
+def test_short_for_raises_on_unknown_app_name():
+    """Anything outside config.aa_app_name / config.pp_app_name fails loud."""
+    from whatsapp_webhook.external_services import agent_client
+    with pytest.raises(ValueError, match="Unknown agent app_name"):
+        agent_client._short_for("agent_xx")
+
+
+@pytest.mark.asyncio
+async def test_send_to_agent_times_out_with_error_payload(monkeypatch):
+    """A hung stream must hit the configured timeout, not block forever."""
+    from whatsapp_webhook.external_services import agent_client
+    # Shrink the timeout to keep the test fast.
+    monkeypatch.setattr(agent_client, "QUERY_TIMEOUT_SECONDS", 0.05)
+
+    async def hanging_stream(*, user_id, session_id, message):
+        # Yields once then sleeps forever
+        yield {"content": {"parts": [{"text": "starting"}]}}
+        await asyncio.sleep(10)
+
+    engine = MagicMock()
+    engine.async_stream_query = lambda **kw: hanging_stream(**kw)
+    with patch.object(agent_client, "get_engine", return_value=engine):
+        result = await agent_client.send_to_agent(
+            app_name="agent_aa", user_id="+56999", session_id="+56999",
+            message="hola",
+        )
+    assert "Error" in result["response"]
+    assert "tiempo" in result["response"].lower()
+
+
+def test_get_engine_picks_up_secret_rotation(monkeypatch):
+    """Re-reading SM means a rewritten resource_name -> fresh engine handle."""
+    from whatsapp_webhook.external_services import agent_client
+
+    versions = iter([
+        b"projects/p/locations/us-central1/reasoningEngines/OLD",
+        b"projects/p/locations/us-central1/reasoningEngines/NEW",
+    ])
+
+    class FakeSM:
+        def access_secret_version(self, request):
+            data = MagicMock()
+            data.payload.data = next(versions)
+            return data
+
+    monkeypatch.setattr(
+        agent_client.secretmanager, "SecretManagerServiceClient", lambda: FakeSM()
+    )
+    seen: list[str] = []
+
+    def fake_get(name):
+        seen.append(name)
+        m = MagicMock()
+        m.resource_name = name
+        return m
+
+    monkeypatch.setattr(agent_client.agent_engines, "get", fake_get)
+    monkeypatch.setattr(agent_client, "_init", lambda: None)
+
+    first = agent_client.get_engine("agent_aa")
+    second = agent_client.get_engine("agent_aa")
+    assert first is not second
+    assert seen == [
+        "projects/p/locations/us-central1/reasoningEngines/OLD",
+        "projects/p/locations/us-central1/reasoningEngines/NEW",
+    ]
