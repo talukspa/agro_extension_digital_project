@@ -9,6 +9,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 import os
 from agent_aa_app.tools import text2sql_tools
 from agent_aa_app.utils.langgraph_agent import LangGraphAgent
+from agent_aa_app.llm_global import GlobalGemini, GEMINI_LOCATION
 from agent_aa_app.prompts import (
     agent_aa_instruction,
     agent_aa_bq_instruction,
@@ -29,7 +30,7 @@ vertex_search_tool_chileprunes_cl = VertexAiSearchTool(
 
 aa_agent_rag = LlmAgent(
     name="aa_agent_rag",
-    model="gemini-3.1-flash-lite",
+    model=GlobalGemini(model="gemini-3.1-flash-lite"),
     instruction=agent_aa_rag_instruction(),
     description=agent_aa_rag_description(),
     tools=[
@@ -40,9 +41,9 @@ aa_agent_rag = LlmAgent(
     ],
 )
 
-llm = ChatVertexAI(model_name="gemini-3.5-flash")
+llm = ChatVertexAI(model_name="gemini-3.5-flash", location=GEMINI_LOCATION)
 bq_agent = create_react_agent(
-    model=ChatVertexAI(model_name="gemini-3.5-flash"),
+    model=ChatVertexAI(model_name="gemini-3.5-flash", location=GEMINI_LOCATION),
     tools=text2sql_tools,
     prompt=text2sql_instruction().format(dialect="bigquery", top_k=16),
     checkpointer=InMemorySaver(),
@@ -57,7 +58,7 @@ aa_agent_bq = LangGraphAgent(
 
 root_agent = LlmAgent(
     name="aa_agent",
-    model="gemini-3.5-flash",
+    model=GlobalGemini(model="gemini-3.5-flash"),
     instruction=agent_aa_instruction(),
     tools=[
         agent_tool.AgentTool(agent=aa_agent_rag),

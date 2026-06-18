@@ -2,8 +2,9 @@ import os
 from langchain_google_vertexai import ChatVertexAI
 from langchain_community.utilities import SQLDatabase
 from langchain_community.agent_toolkits import SQLDatabaseToolkit
+from agent_pp_app.llm_global import GEMINI_LOCATION
 
-llm = ChatVertexAI(model_name="gemini-3.5-flash")
+llm = ChatVertexAI(model_name="gemini-3.5-flash", location=GEMINI_LOCATION)
 
 BIGQUERY_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT")
 BIGQUERY_DATASET = os.getenv("BIGQUERY_DATASET")
