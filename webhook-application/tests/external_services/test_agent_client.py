@@ -1,0 +1,90 @@
+"""Unit tests for the rewritten Vertex AI Agent Runtime client.
+
+Tests are async (pytest-asyncio is already configured in pyproject.toml).
+All network calls are stubbed via mocks — no GCP creds required.
+"""
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from google.api_core import exceptions as gax
+
+
+@pytest.fixture(autouse=True)
+def _env(monkeypatch):
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "agro-extension-digital-npe")
+    monkeypatch.setenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+    # Reset the lru_caches so each test gets a fresh engine.
+    from whatsapp_webhook.external_services import agent_client
+    agent_client._init.cache_clear()
+    agent_client.get_engine.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_create_agent_session_returns_existing_on_already_exists():
+    """get_or_create semantics: AlreadyExists -> async_get_session is called."""
+    from whatsapp_webhook.external_services import agent_client
+
+    engine = MagicMock()
+    engine.async_create_session = AsyncMock(side_effect=gax.AlreadyExists("dup"))
+    engine.async_get_session = AsyncMock(return_value={"id": "+56999", "events": []})
+    with patch.object(agent_client, "get_engine", return_value=engine):
+        out = await agent_client.create_agent_session(
+            user_id="+56999", app_name="agent_aa", session_id="+56999",
+        )
+    assert out["id"] == "+56999"
+    engine.async_get_session.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_create_agent_session_returns_new_when_absent():
+    from whatsapp_webhook.external_services import agent_client
+
+    engine = MagicMock()
+    engine.async_create_session = AsyncMock(return_value={"id": "+56999"})
+    with patch.object(agent_client, "get_engine", return_value=engine):
+        out = await agent_client.create_agent_session(
+            user_id="+56999", app_name="agent_aa", session_id="+56999",
+        )
+    assert out["id"] == "+56999"
+    engine.async_create_session.assert_awaited_once_with(
+        user_id="+56999", session_id="+56999",
+    )
+
+
+@pytest.mark.asyncio
+async def test_send_to_agent_concatenates_assistant_text():
+    """Multiple events with text parts -> concatenated response string."""
+    from whatsapp_webhook.external_services import agent_client
+
+    async def fake_stream(*, user_id, session_id, message):
+        yield {"content": {"parts": [{"text": "Hola "}]}}
+        yield {"content": {"parts": [{"function_call": {"name": "search"}}]}}
+        yield {"content": {"parts": [{"text": "mundo."}]}}
+
+    engine = MagicMock()
+    engine.async_stream_query = lambda **kw: fake_stream(**kw)
+    with patch.object(agent_client, "get_engine", return_value=engine):
+        result = await agent_client.send_to_agent(
+            app_name="agent_aa", user_id="+56999", session_id="+56999",
+            message="hola",
+        )
+    assert result["response"] == "Hola mundo."
+    assert len(result["raw_response"]) == 3
+
+
+@pytest.mark.asyncio
+async def test_send_to_agent_returns_error_payload_when_no_text():
+    """Tool-call-only stream -> empty string -> error payload."""
+    from whatsapp_webhook.external_services import agent_client
+
+    async def fake_stream(*, user_id, session_id, message):
+        yield {"content": {"parts": [{"function_call": {"name": "search"}}]}}
+
+    engine = MagicMock()
+    engine.async_stream_query = lambda **kw: fake_stream(**kw)
+    with patch.object(agent_client, "get_engine", return_value=engine):
+        result = await agent_client.send_to_agent(
+            app_name="agent_aa", user_id="+56999", session_id="+56999",
+            message="hola",
+        )
+    assert "Error" in result["response"]
