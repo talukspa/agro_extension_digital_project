@@ -91,8 +91,12 @@ resource "google_storage_bucket" "agent_engine_staging" {
   uniform_bucket_level_access = true
   force_destroy               = false
   lifecycle_rule {
-    condition { age = 30 }
-    action { type = "Delete" }
+    condition {
+      age = 30
+    }
+    action {
+      type = "Delete"
+    }
   }
 }
 
@@ -138,13 +142,17 @@ resource "google_project_iam_member" "runtime_bindings" {
 resource "google_secret_manager_secret" "engine_aa_name" {
   secret_id = "engine-aa-resource-name"
   project   = var.project_id
-  replication { auto {} }
+  replication {
+    auto {}
+  }
 }
 
 resource "google_secret_manager_secret" "engine_pp_name" {
   secret_id = "engine-pp-resource-name"
   project   = var.project_id
-  replication { auto {} }
+  replication {
+    auto {}
+  }
 }
 
 resource "google_secret_manager_secret_iam_member" "webhook_reads_engine_aa" {
