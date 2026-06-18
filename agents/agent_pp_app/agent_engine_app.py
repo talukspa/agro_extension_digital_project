@@ -6,4 +6,4 @@ from vertexai.agent_engines import AdkApp
 
 from agent_pp_app.agent import root_agent
 
-app = AdkApp(agent=root_agent, enable_tracing=True)
+app = AdkApp(agent=root_agent)

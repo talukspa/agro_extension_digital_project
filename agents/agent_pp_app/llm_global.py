@@ -7,7 +7,7 @@ import os
 from google import genai
 from google.adk.models import Gemini
 
-GEMINI_LOCATION = "global"
+GEMINI_LOCATION = os.environ.get("GEMINI_LOCATION", "global")
 
 
 class GlobalGemini(Gemini):

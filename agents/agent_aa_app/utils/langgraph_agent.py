@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 from typing import AsyncGenerator
 from typing import Callable, Optional
 from typing import Union
@@ -22,7 +23,7 @@ from langchain_core.messages import HumanMessage
 from langchain_core.messages import SystemMessage
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph as CompiledGraph
-from pydantic import ConfigDict
+from pydantic import ConfigDict, PrivateAttr
 from typing_extensions import override
 
 from google.adk.events.event import Event
@@ -69,6 +70,12 @@ class LangGraphAgent(BaseAgent):
 
   instruction: str = ''
 
+  # Guards the lazy graph_factory init from concurrent first invocations.
+  # Without this, two requests on a fresh engine instance can both pass the
+  # `self.graph is None` check, both call the factory, and the loser ends up
+  # operating on an orphaned graph (lost InMemorySaver state for that turn).
+  _graph_lock: asyncio.Lock = PrivateAttr(default_factory=asyncio.Lock)
+
   @override
   async def _run_async_impl(
       self,
@@ -76,11 +83,13 @@ class LangGraphAgent(BaseAgent):
   ) -> AsyncGenerator[Event, None]:
 
     if self.graph is None:
-      if self.graph_factory is None:
-        raise ValueError(
-            f'LangGraphAgent {self.name!r}: neither `graph` nor `graph_factory` set'
-        )
-      self.graph = self.graph_factory()
+      async with self._graph_lock:
+        if self.graph is None:
+          if self.graph_factory is None:
+            raise ValueError(
+                f'LangGraphAgent {self.name!r}: neither `graph` nor `graph_factory` set'
+            )
+          self.graph = self.graph_factory()
 
     # Needed for langgraph checkpointer (for subsequent invocations; multi-turn)
     config: RunnableConfig = {'configurable': {'thread_id': ctx.session.id}}
