@@ -11,7 +11,11 @@ jobs:
 
     env:
       PROJECT_ID: agro-extension-digital-npe
-      GAR_REPO_WEBHOOK: us-central1-docker.pkg.dev/agro-extension-digital-npe/agents/agent-webhook-app
+      # Match the path Cloud Run actually pulls from (per backend Terraform's
+      # gar_image_location_webhook input). Prior value pointed at a separate
+      # `agents/agent-webhook-app` repo, so workflow builds never reached the
+      # live service.
+      GAR_REPO_WEBHOOK: us-central1-docker.pkg.dev/agro-extension-digital-npe/agro-extension-digital/webhook
       GAR_REPO_FRONTEND: us-central1-docker.pkg.dev/agro-extension-digital-npe/agents/agent-frontend-app
 
     steps:

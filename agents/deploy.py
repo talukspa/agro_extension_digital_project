@@ -48,9 +48,18 @@ RUNTIME_ENV_KEYS = [
 
 # Telemetry env vars required post-ADK 1.18 to actually export traces.
 # See https://github.com/google/adk-python/issues/3498.
+#
+# OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT defaults to "false"
+# because the WhatsApp message body usually contains PII (names, phone
+# numbers, locations, business detail). Anyone with roles/logging.viewer
+# on Cloud Trace would see verbatim user text. Operators can flip it to
+# "true" per-env via OTEL_CAPTURE_MESSAGE_CONTENT before running deploy.py
+# (e.g. on a debug-only deploy in npe), but it must stay off in prd.
 TELEMETRY_ENV = {
     "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
-    "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true",
+    "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": os.environ.get(
+        "OTEL_CAPTURE_MESSAGE_CONTENT", "false"
+    ),
 }
 
 
