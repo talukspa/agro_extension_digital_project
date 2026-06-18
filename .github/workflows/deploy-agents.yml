@@ -1,0 +1,66 @@
+name: Deploy ADK agents to Agent Runtime
+
+# Bootstrap note: this workflow reads DATASTORE_*_ID and BIGQUERY_DATASET from
+# Secret Manager (one secret per env var, e.g. `datastore-aa-id`). Those
+# secrets are NOT created by the Phase 1 Terraform — pre-populate them via
+# gcloud (or a follow-up Terraform commit) before the first run, e.g.:
+#   gcloud secrets create datastore-aa-id --replication-policy=automatic
+#   echo -n "<value>" | gcloud secrets versions add datastore-aa-id --data-file=-
+# Repeat for: datastore-pp-id, datastore-guides-id, datastore-faq-id,
+# datastore-chileprunes-cl-id, bigquery-dataset, in BOTH the npe and prd
+# projects.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [npe, prd]
+        required: true
+        default: npe
+  push:
+    branches: [main]
+    paths:
+      - 'agents/**'
+      - '.github/workflows/deploy-agents.yml'
+
+concurrency:
+  group: deploy-agents-${{ github.event.inputs.environment || 'npe' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    env:
+      ENVIRONMENT: ${{ github.event.inputs.environment || 'npe' }}
+      GOOGLE_CLOUD_LOCATION: us-central1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Auth + project
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          echo "GOOGLE_CLOUD_PROJECT=agro-extension-digital-${ENVIRONMENT}" >> $GITHUB_ENV
+          echo "$GCP_SA_KEY" > /tmp/account.json
+          gcloud auth activate-service-account --key-file=/tmp/account.json
+          gcloud config set project agro-extension-digital-${ENVIRONMENT}
+
+      - name: Load runtime env vars from Secret Manager
+        run: |
+          for k in DATASTORE_AA_ID DATASTORE_PP_ID DATASTORE_GUIDES_ID \
+                   DATASTORE_FAQ_ID DATASTORE_CHILEPRUNES_CL_ID BIGQUERY_DATASET; do
+            secret_id="$(echo $k | tr A-Z_ a-z- )"
+            v=$(gcloud secrets versions access latest --secret="$secret_id")
+            echo "$k=$v" >> $GITHUB_ENV
+          done
+
+      - uses: astral-sh/setup-uv@v3
+
+      - name: Install deploy deps
+        working-directory: agents
+        run: uv sync
+
+      - name: Deploy engines (create or update)
+        working-directory: agents
+        run: uv run python deploy.py --env "${ENVIRONMENT}"
