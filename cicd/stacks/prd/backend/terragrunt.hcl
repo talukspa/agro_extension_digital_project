@@ -31,6 +31,12 @@ locals {
   # URLs base para PRD
   facebook_aa_url = "https://graph.facebook.com/${local.common_vars.facebook.graph_api_version}/${local.env_vars.facebook.aa_app_id}"
   facebook_pp_url = "https://graph.facebook.com/${local.common_vars.facebook.graph_api_version}/${local.env_vars.facebook.pp_app_id}"
+
+  # Datastores específicos de PRD (resueltos a su path completo)
+  datastores = {
+    for k, v in local.env_vars.datastores :
+    k => "projects/${local.project_id}/locations/global/collections/default_collection/dataStores/${v}"
+  }
 }
 
 inputs = {
@@ -51,6 +57,14 @@ inputs = {
   service_account_webhook_app              = "agent-webhook-sa-${local.environment}"
   service_account_display_name_webhook_app = "Agent Webhook Service Account PRD"
   gar_image_location_webhook               = "us-central1-docker.pkg.dev/${local.project_id}/agro-extension-digital/webhook:latest"
+
+  # Agent Runtime config — same pattern as DEV.
+  bigquery_dataset            = local.env_vars.bigquery.dataset
+  datastore_aa_id             = local.datastores.aa
+  datastore_pp_id             = local.datastores.pp
+  datastore_guides_id         = local.datastores.guides
+  datastore_faq_id            = local.datastores.faq
+  datastore_chileprunes_cl_id = local.datastores.chileprunes
 
   # Secrets y tokens (proyecto PRD)
   wsp_token         = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=wsp-token", "--project=${local.project_id}")

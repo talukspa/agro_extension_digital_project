@@ -23,6 +23,15 @@ resource "google_cloud_run_v2_service" "cloud_run_name_webhook" {
     containers {
       image = var.gar_image_location_webhook
 
+      # Required by the Vertex AI Agent Runtime client in agent_client.py.
+      env {
+        name  = "GOOGLE_CLOUD_PROJECT"
+        value = var.project_id
+      }
+      env {
+        name  = "GOOGLE_CLOUD_LOCATION"
+        value = var.region
+      }
       env {
         name  = "WHATSAPP_HTTP_TIMEOUT"
         value = var.whatsapp_http_timeout
@@ -173,6 +182,48 @@ resource "google_project_iam_member" "webhook_invokes_engines" {
   project = var.project_id
   role    = "roles/aiplatform.user"
   member  = "serviceAccount:${google_service_account.webhook_app_sa.email}"
+}
+
+# --------------------------------------------------------------------
+# Runtime-config Secret Manager secrets read by deploy-agents.yml and
+# by the engines at run time. Values come from per-env env.yaml.
+# --------------------------------------------------------------------
+locals {
+  runtime_config_secrets = {
+    "datastore-aa-id"             = var.datastore_aa_id
+    "datastore-pp-id"             = var.datastore_pp_id
+    "datastore-guides-id"         = var.datastore_guides_id
+    "datastore-faq-id"            = var.datastore_faq_id
+    "datastore-chileprunes-cl-id" = var.datastore_chileprunes_cl_id
+    "bigquery-dataset"            = var.bigquery_dataset
+  }
+}
+
+resource "google_secret_manager_secret" "runtime_config" {
+  for_each  = local.runtime_config_secrets
+  project   = var.project_id
+  secret_id = each.key
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "runtime_config" {
+  for_each    = local.runtime_config_secrets
+  secret      = google_secret_manager_secret.runtime_config[each.key].id
+  secret_data = each.value
+}
+
+# Both runtime SAs need to read these secrets at engine startup.
+resource "google_secret_manager_secret_iam_member" "runtime_reads_config" {
+  for_each = {
+    for pair in setproduct(keys(local.runtime_config_secrets), keys(local.runtime_sas)) :
+    "${pair[0]}-${pair[1]}" => { secret_id = pair[0], sa = local.runtime_sas[pair[1]] }
+  }
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.runtime_config[each.value.secret_id].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${each.value.sa}"
 }
 
 terraform {

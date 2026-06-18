@@ -93,3 +93,37 @@ variable "max_scale" {
   type        = number
   default     = 10
 }
+
+# --------------------------------------------------------------------
+# Agent Runtime config — surfaced to deploy.py via Secret Manager.
+# Per-env values come from cicd/stacks/<env>/env.yaml -> terragrunt.hcl.
+# --------------------------------------------------------------------
+variable "bigquery_dataset" {
+  description = "BigQuery dataset name; surfaced via Secret Manager secret 'bigquery-dataset'."
+  type        = string
+}
+
+variable "datastore_aa_id" {
+  description = "Full Vertex AI Search datastore resource path for AA. Surfaced via 'datastore-aa-id' secret."
+  type        = string
+}
+
+variable "datastore_pp_id" {
+  description = "Full Vertex AI Search datastore resource path for PP. Surfaced via 'datastore-pp-id' secret."
+  type        = string
+}
+
+variable "datastore_guides_id" {
+  description = "Datastore path for guides. Surfaced via 'datastore-guides-id' secret."
+  type        = string
+}
+
+variable "datastore_faq_id" {
+  description = "Datastore path for FAQ. Surfaced via 'datastore-faq-id' secret."
+  type        = string
+}
+
+variable "datastore_chileprunes_cl_id" {
+  description = "Datastore path for chileprunes-cl. Surfaced via 'datastore-chileprunes-cl-id' secret."
+  type        = string
+}

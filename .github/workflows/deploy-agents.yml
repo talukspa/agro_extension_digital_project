@@ -1,14 +1,14 @@
 name: Deploy ADK agents to Agent Runtime
 
-# Bootstrap note: this workflow reads DATASTORE_*_ID and BIGQUERY_DATASET from
-# Secret Manager (one secret per env var, e.g. `datastore-aa-id`). Those
-# secrets are NOT created by the Phase 1 Terraform — pre-populate them via
-# gcloud (or a follow-up Terraform commit) before the first run, e.g.:
-#   gcloud secrets create datastore-aa-id --replication-policy=automatic
-#   echo -n "<value>" | gcloud secrets versions add datastore-aa-id --data-file=-
-# Repeat for: datastore-pp-id, datastore-guides-id, datastore-faq-id,
-# datastore-chileprunes-cl-id, bigquery-dataset, in BOTH the npe and prd
-# projects.
+# This workflow reads DATASTORE_*_ID and BIGQUERY_DATASET from Secret Manager.
+# Those secrets are created and populated by `cicd/modules/backend` Terraform
+# (sourced from cicd/stacks/<env>/env.yaml). No manual bootstrap is required.
+#
+# The service account in `secrets.GCP_SA_KEY` must have
+# `roles/secretmanager.secretAccessor` on these six secrets in the target env's
+# GCP project (datastore-aa-id, datastore-pp-id, datastore-guides-id,
+# datastore-faq-id, datastore-chileprunes-cl-id, bigquery-dataset). Grant once
+# per env if not already granted.
 
 on:
   workflow_dispatch:
