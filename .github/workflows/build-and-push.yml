@@ -11,7 +11,6 @@ jobs:
 
     env:
       PROJECT_ID: agro-extension-digital-npe
-      GAR_REPO: us-central1-docker.pkg.dev/agro-extension-digital-npe/agents/agent-aa-app
       GAR_REPO_WEBHOOK: us-central1-docker.pkg.dev/agro-extension-digital-npe/agents/agent-webhook-app
       GAR_REPO_FRONTEND: us-central1-docker.pkg.dev/agro-extension-digital-npe/agents/agent-frontend-app
 
@@ -29,21 +28,6 @@ jobs:
           echo "GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
           echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
-      - name: Build agents Docker image
-        working-directory: agents
-        run: |
-          docker build -t $GAR_REPO:latest \
-                       -t $GAR_REPO:${GIT_SHA} \
-                       $( [[ "$GITHUB_REF" == refs/tags/* ]] && echo "-t $GAR_REPO:${TAG_NAME}" ) .
-
-      - name: Push agents Docker images
-        working-directory: agents
-        run: |
-          docker push $GAR_REPO:latest
-          docker push $GAR_REPO:${GIT_SHA}
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            docker push $GAR_REPO:${TAG_NAME}
-          fi
       - name: Build whatapps webhook Docker image
         working-directory: webhook-application
         run: |
