@@ -42,16 +42,26 @@ aa_agent_rag = LlmAgent(
 )
 
 llm = ChatVertexAI(model_name="gemini-3.5-flash", location=GEMINI_LOCATION)
-bq_agent = create_react_agent(
-    model=ChatVertexAI(model_name="gemini-3.5-flash", location=GEMINI_LOCATION),
-    tools=text2sql_tools,
-    prompt=text2sql_instruction().format(dialect="bigquery", top_k=16),
-    checkpointer=InMemorySaver(),
-)
+
+
+def _build_bq_graph():
+    """Build the LangGraph BigQuery react agent lazily.
+
+    Holds non-picklable state (CompiledStateGraph + SQLDatabase Engine), so
+    must be deferred past the deepcopy that vertexai.agent_engines.create()
+    runs on the AdkApp. Runs once, server-side, on first invocation.
+    """
+    return create_react_agent(
+        model=ChatVertexAI(model_name="gemini-3.5-flash", location=GEMINI_LOCATION),
+        tools=text2sql_tools,
+        prompt=text2sql_instruction().format(dialect="bigquery", top_k=16),
+        checkpointer=InMemorySaver(),
+    )
+
 
 aa_agent_bq = LangGraphAgent(
     name="aa_agent_bq",
-    graph=bq_agent,
+    graph_factory=_build_bq_graph,
     instruction=agent_aa_bq_instruction(),
     description=agent_aa_bq_description(),
 )

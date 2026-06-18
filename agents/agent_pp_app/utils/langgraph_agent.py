@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from typing import AsyncGenerator
+from typing import Callable, Optional
 from typing import Union
 
 from google.genai import types
@@ -48,14 +49,23 @@ def _get_last_human_messages(events: list[Event]) -> list[HumanMessage]:
 
 
 class LangGraphAgent(BaseAgent):
-  """Currently a concept implementation, supports single and multi-turn."""
+  """Currently a concept implementation, supports single and multi-turn.
+
+  Set `graph_factory=...` instead of `graph=...` when the graph holds
+  non-picklable state (e.g. langgraph.prebuilt.create_react_agent returns
+  a CompiledStateGraph with module references). The factory runs once on
+  the first invocation — server-side in the engine — so vertexai
+  agent_engines.create() can deepcopy this agent without touching the
+  compiled graph.
+  """
 
   model_config = ConfigDict(
       arbitrary_types_allowed=True,
   )
   """The pydantic model config."""
 
-  graph: CompiledGraph
+  graph: Optional[CompiledGraph] = None
+  graph_factory: Optional[Callable[[], CompiledGraph]] = None
 
   instruction: str = ''
 
@@ -64,6 +74,13 @@ class LangGraphAgent(BaseAgent):
       self,
       ctx: InvocationContext,
   ) -> AsyncGenerator[Event, None]:
+
+    if self.graph is None:
+      if self.graph_factory is None:
+        raise ValueError(
+            f'LangGraphAgent {self.name!r}: neither `graph` nor `graph_factory` set'
+        )
+      self.graph = self.graph_factory()
 
     # Needed for langgraph checkpointer (for subsequent invocations; multi-turn)
     config: RunnableConfig = {'configurable': {'thread_id': ctx.session.id}}

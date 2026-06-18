@@ -11,7 +11,6 @@ This follows ADK's documented override pattern (see google.adk.models.Gemini
 docstring).
 """
 import os
-from functools import cached_property
 
 from google import genai
 from google.adk.models import Gemini
@@ -20,8 +19,12 @@ GEMINI_LOCATION = "global"
 
 
 class GlobalGemini(Gemini):
-    @cached_property
+    @property
     def api_client(self) -> genai.Client:
+        # NOTE: plain @property (not @cached_property): the AdkApp gets
+        # deepcopy'd at engine-create time, and a cached genai.Client holds
+        # a module reference that fails to pickle. ADK's own Gemini caches
+        # the client; we trade a per-call client init for picklability.
         return genai.Client(
             vertexai=True,
             project=os.environ.get("GOOGLE_CLOUD_PROJECT"),

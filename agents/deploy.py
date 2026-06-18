@@ -25,13 +25,16 @@ REQUIREMENTS = [
 
 AGENTS = {
     "agent_aa": {
-        "module_path": "agents/agent_aa_app",
+        # module_path is relative to CWD at deploy time; the workflow + the
+        # local run both invoke from agents/, so the package dir is just
+        # the leaf name.
+        "module_path": "agent_aa_app",
         "app_module": "agent_aa_app.agent_engine_app",
         "display_name": "Adecuación Agroindustrial",
         "secret_id": "engine-aa-resource-name",
     },
     "agent_pp": {
-        "module_path": "agents/agent_pp_app",
+        "module_path": "agent_pp_app",
         "app_module": "agent_pp_app.agent_engine_app",
         "display_name": "Planificación de Producción",
         "secret_id": "engine-pp-resource-name",
