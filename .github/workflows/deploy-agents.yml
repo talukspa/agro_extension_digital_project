@@ -4,11 +4,15 @@ name: Deploy ADK agents to Agent Runtime
 # Those secrets are created and populated by `cicd/modules/backend` Terraform
 # (sourced from cicd/stacks/<env>/env.yaml). No manual bootstrap is required.
 #
-# The service account in `secrets.GCP_SA_KEY` must have
-# `roles/secretmanager.secretAccessor` on these six secrets in the target env's
-# GCP project (datastore-aa-id, datastore-pp-id, datastore-guides-id,
-# datastore-faq-id, datastore-chileprunes-cl-id, bigquery-dataset). Grant once
-# per env if not already granted.
+# The deployer identity behind `secrets.GCP_SA_KEY` needs several grants to run
+# deploy.py (actAs on the runtime SAs, objectAdmin on the staging bucket,
+# aiplatform.user, secretVersionAdder on the engine-name secrets, secretAccessor
+# on the six runtime-config secrets). These are codified in Terraform — set
+# `deployer_sa_email` in each env's env.yaml so `cicd/modules/backend` applies
+# them. No manual per-env IAM grants required.
+#
+# Dispatching to `prd` runs under the `prd` GitHub Environment; configure it
+# with required reviewers in repo settings to gate production deploys.
 
 on:
   workflow_dispatch:
@@ -31,6 +35,9 @@ concurrency:
 jobs:
   deploy:
     runs-on: self-hosted
+    # Binds the run to a GitHub Environment (npe/prd). Add required reviewers to
+    # the `prd` environment in repo settings to gate production dispatches.
+    environment: ${{ github.event.inputs.environment || 'npe' }}
     env:
       ENVIRONMENT: ${{ github.event.inputs.environment || 'npe' }}
       GOOGLE_CLOUD_LOCATION: us-central1
@@ -64,3 +71,9 @@ jobs:
       - name: Deploy engines (create or update)
         working-directory: agents
         run: uv run python deploy.py --env "${ENVIRONMENT}"
+
+      # Self-hosted runners are not ephemeral — remove the key material so it
+      # does not persist on disk between jobs. Runs even if the deploy fails.
+      - name: Remove service-account key
+        if: always()
+        run: rm -f /tmp/account.json

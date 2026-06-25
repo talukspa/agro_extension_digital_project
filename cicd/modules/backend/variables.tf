@@ -127,3 +127,18 @@ variable "datastore_chileprunes_cl_id" {
   description = "Datastore path for chileprunes-cl. Surfaced via 'datastore-chileprunes-cl-id' secret."
   type        = string
 }
+
+variable "deployer_sa_email" {
+  description = <<-EOT
+    Email of the CI/CD deployer service account (the identity behind
+    secrets.GCP_SA_KEY in deploy-agents.yml). When non-empty, Terraform grants
+    it everything deploy.py needs: iam.serviceAccountUser (actAs) on the two
+    runtime SAs, storage.objectAdmin on the staging bucket, project
+    aiplatform.user, secretmanager.secretVersionAdder on the engine-name
+    secrets, and secretmanager.secretAccessor on the runtime-config secrets.
+    Leave empty to skip these bindings (e.g. if the deployer already holds
+    broader project grants out of band).
+  EOT
+  type        = string
+  default     = ""
+}

@@ -57,6 +57,11 @@ inputs = {
   service_account_display_name_webhook_app = "Agent Webhook Service Account DEV"
   gar_image_location_webhook               = "us-central1-docker.pkg.dev/${local.project_id}/agro-extension-digital/webhook:latest"
 
+  # CI/CD deployer SA (the identity behind GCP_SA_KEY in deploy-agents.yml).
+  # Set cicd.deployer_sa_email in env.yaml to have Terraform grant the deploy
+  # IAM; absent/empty → deployer bindings are skipped.
+  deployer_sa_email = try(local.env_vars.cicd.deployer_sa_email, "")
+
   # Agent Runtime config — populated into Secret Manager by the backend
   # module; read by deploy-agents.yml and injected into the engines as env.
   bigquery_dataset            = local.env_vars.bigquery.dataset

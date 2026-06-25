@@ -99,6 +99,11 @@ resource "google_storage_bucket" "agent_engine_staging" {
   location                    = var.region
   uniform_bucket_level_access = true
   force_destroy               = false
+  # 30-day cleanup of the transient code archives deploy.py uploads. No prefix
+  # filter: the Agent Engine SDK's staging object path is not a stable public
+  # contract, so a guessed prefix could silently match nothing and disable the
+  # rule. The bucket holds only transient staging artifacts today, so an
+  # unfiltered age rule is safe.
   lifecycle_rule {
     condition {
       age = 30
@@ -106,6 +111,10 @@ resource "google_storage_bucket" "agent_engine_staging" {
     action {
       type = "Delete"
     }
+  }
+  # Guard the bucket itself against accidental `terraform destroy`.
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
@@ -178,6 +187,11 @@ resource "google_secret_manager_secret_iam_member" "webhook_reads_engine_pp" {
   member    = "serviceAccount:${google_service_account.webhook_app_sa.email}"
 }
 
+# TODO(iam-scope): project-level roles/aiplatform.user is broader than ideal —
+# it grants the whole AI Platform surface, not just the two engines. Vertex AI
+# Agent Engine has no resource-level IAM today, so this is currently
+# unavoidable; scope down to the specific engines once Google ships
+# engine-scoped bindings.
 resource "google_project_iam_member" "webhook_invokes_engines" {
   project = var.project_id
   role    = "roles/aiplatform.user"
@@ -185,8 +199,75 @@ resource "google_project_iam_member" "webhook_invokes_engines" {
 }
 
 # --------------------------------------------------------------------
+# CI/CD deployer service-account bindings (deploy-agents.yml → GCP_SA_KEY).
+# deploy.py performs ~5 privileged actions; codifying them here keeps a fresh
+# env reproducible from Terraform instead of relying on manual one-off grants.
+# Inert until var.deployer_sa_email is set (per-env, from env.yaml).
+# --------------------------------------------------------------------
+locals {
+  deployer_enabled = var.deployer_sa_email != ""
+  deployer_member  = "serviceAccount:${var.deployer_sa_email}"
+}
+
+# Create/update reasoning engines. NOTE: aiplatform.user covers create/update
+# (the only operations deploy.py performs). If engine creation ever returns
+# PERMISSION_DENIED, escalate just this binding to roles/aiplatform.admin.
+resource "google_project_iam_member" "deployer_aiplatform" {
+  count   = local.deployer_enabled ? 1 : 0
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = local.deployer_member
+}
+
+# Upload the staged code archive during agent_engines.create().
+resource "google_storage_bucket_iam_member" "deployer_staging" {
+  count  = local.deployer_enabled ? 1 : 0
+  bucket = google_storage_bucket.agent_engine_staging.name
+  role   = "roles/storage.objectAdmin"
+  member = local.deployer_member
+}
+
+# actAs the runtime SAs (agent_engines.create(service_account=…) requires it).
+resource "google_service_account_iam_member" "deployer_acts_as_runtime" {
+  for_each = local.deployer_enabled ? {
+    aa = google_service_account.agent_aa_runtime.name
+    pp = google_service_account.agent_pp_runtime.name
+  } : {}
+  service_account_id = each.value
+  role               = "roles/iam.serviceAccountUser"
+  member             = local.deployer_member
+}
+
+# Write the resolved engine resource names back to Secret Manager
+# (deploy.py:write_secret → add_secret_version).
+resource "google_secret_manager_secret_iam_member" "deployer_writes_engine_names" {
+  for_each = local.deployer_enabled ? {
+    aa = google_secret_manager_secret.engine_aa_name.secret_id
+    pp = google_secret_manager_secret.engine_pp_name.secret_id
+  } : {}
+  project   = var.project_id
+  secret_id = each.value
+  role      = "roles/secretmanager.secretVersionAdder"
+  member    = local.deployer_member
+}
+
+# Read the runtime-config secrets in the "Load runtime env vars" workflow step.
+resource "google_secret_manager_secret_iam_member" "deployer_reads_config" {
+  for_each  = local.deployer_enabled ? local.runtime_config_secrets : {}
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.runtime_config[each.key].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = local.deployer_member
+}
+
+# --------------------------------------------------------------------
 # Runtime-config Secret Manager secrets read by deploy-agents.yml and
 # by the engines at run time. Values come from per-env env.yaml.
+#
+# These hold non-confidential runtime config (datastore IDs, dataset name)
+# that already lives in committed env.yaml — they are NOT secrets in the
+# confidentiality sense. Secret Manager is used here only for a uniform,
+# rotatable delivery channel into the engines, not to hide the values.
 # --------------------------------------------------------------------
 locals {
   runtime_config_secrets = {
