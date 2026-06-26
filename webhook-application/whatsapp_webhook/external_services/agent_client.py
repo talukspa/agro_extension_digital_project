@@ -40,6 +40,16 @@ def _init() -> None:
     )
 
 
+@lru_cache(maxsize=1)
+def _sm_client() -> secretmanager.SecretManagerServiceClient:
+    """One Secret Manager client reused across messages.
+
+    get_engine() runs on the per-message hot path (twice per turn); building a
+    fresh client there opens a new gRPC channel + ADC handshake each time.
+    """
+    return secretmanager.SecretManagerServiceClient()
+
+
 def _short_for(app_name: str) -> str:
     """Map app_name to the 'aa' / 'pp' Secret Manager key suffix.
 
@@ -68,9 +78,8 @@ def get_engine(app_name: str):
     project = os.environ["GOOGLE_CLOUD_PROJECT"]
     secret_id = f"engine-{short}-resource-name"
     name = f"projects/{project}/secrets/{secret_id}/versions/latest"
-    sm = secretmanager.SecretManagerServiceClient()
     resource_name = (
-        sm.access_secret_version(request={"name": name}).payload.data.decode()
+        _sm_client().access_secret_version(request={"name": name}).payload.data.decode()
     )
     cached = _engine_cache.get(resource_name)
     if cached is None:

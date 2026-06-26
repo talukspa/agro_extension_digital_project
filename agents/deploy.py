@@ -9,6 +9,7 @@ from importlib import import_module
 from typing import Optional
 
 import vertexai
+from google.api_core import exceptions as gax
 from google.cloud import secretmanager
 from vertexai import agent_engines
 
@@ -63,9 +64,15 @@ TELEMETRY_ENV = {
 }
 
 
+# Force the google-genai client onto Vertex AI. Carried over from the old
+# Cloud Run deploy (deploy-agent.sh set GOOGLE_GENAI_USE_VERTEXAI=TRUE);
+# defensive, since every model already constructs genai.Client(vertexai=True).
+STATIC_ENV = {"GOOGLE_GENAI_USE_VERTEXAI": "true"}
+
+
 def env_vars_for(agent_key: str) -> dict[str, str]:
     base = {k: os.environ[k] for k in RUNTIME_ENV_KEYS}
-    return base | TELEMETRY_ENV
+    return base | STATIC_ENV | TELEMETRY_ENV
 
 
 def find_existing(display_name: str) -> Optional[str]:
@@ -81,7 +88,7 @@ def write_secret(project: str, secret_id: str, value: str) -> None:
     name = f"{parent}/secrets/{secret_id}"
     try:
         client.get_secret(request={"name": name})
-    except Exception:
+    except gax.NotFound:
         client.create_secret(
             request={
                 "parent": parent,
@@ -122,6 +129,16 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--env", choices=["npe", "prd"], required=True)
     args = p.parse_args()
+    # Fail fast with a clear message if the runtime config env vars (loaded from
+    # Secret Manager by deploy-agents.yml) are missing — otherwise the first
+    # engine could deploy and the second abort with an opaque KeyError, leaving
+    # the webhook half-migrated.
+    missing = [k for k in RUNTIME_ENV_KEYS if not os.environ.get(k)]
+    if missing:
+        raise SystemExit(
+            f"Missing required runtime env vars: {', '.join(missing)}. "
+            "Did the 'Load runtime env vars from Secret Manager' step run?"
+        )
     project = f"agro-extension-digital-{args.env}"
     location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
     bucket = f"gs://{project}-agent-engine-staging"

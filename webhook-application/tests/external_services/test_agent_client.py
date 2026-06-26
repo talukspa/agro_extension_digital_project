@@ -18,6 +18,7 @@ def _env(monkeypatch):
     # gets a clean slate.
     from whatsapp_webhook.external_services import agent_client
     agent_client._init.cache_clear()
+    agent_client._sm_client.cache_clear()
     agent_client._engine_cache.clear()
 
 
