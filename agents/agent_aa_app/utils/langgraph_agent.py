@@ -31,6 +31,30 @@ from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 
 
+def _content_to_text(content: object) -> str:
+  """Coerce a LangChain message ``content`` to a plain string.
+
+  ``content`` is usually a ``str`` but can be a list of content blocks
+  (dicts with a ``text`` key, or plain strings) for multimodal / tool-call
+  messages. Concatenate the textual parts and drop non-text blocks.
+  """
+  if content is None:
+    return ''
+  if isinstance(content, str):
+    return content
+  if isinstance(content, list):
+    parts = []
+    for block in content:
+      if isinstance(block, str):
+        parts.append(block)
+      elif isinstance(block, dict):
+        text = block.get('text')
+        if text:
+          parts.append(text)
+    return ''.join(parts)
+  return str(content)
+
+
 def _get_last_human_messages(events: list[Event]) -> list[HumanMessage]:
   """Extracts last human messages from given list of events.
 
@@ -45,7 +69,9 @@ def _get_last_human_messages(events: list[Event]) -> list[HumanMessage]:
     if messages and event.author != 'user':
       break
     if event.author == 'user' and event.content and event.content.parts:
-      messages.append(HumanMessage(content=event.content.parts[0].text))
+      messages.append(
+          HumanMessage(content=event.content.parts[0].text or '')
+      )
   return list(reversed(messages))
 
 
@@ -95,7 +121,9 @@ class LangGraphAgent(BaseAgent):
     config: RunnableConfig = {'configurable': {'thread_id': ctx.session.id}}
 
     # Add instruction as SystemMessage if graph state is empty
-    current_graph_state = self.graph.get_state(config)
+    # Use the async graph API — this coroutine runs on the event loop and the
+    # sync get_state/invoke would block it (and any concurrent invocations).
+    current_graph_state = await self.graph.aget_state(config)
     graph_messages = (
         current_graph_state.values.get('messages', [])
         if current_graph_state.values
@@ -110,8 +138,10 @@ class LangGraphAgent(BaseAgent):
     messages += self._get_messages(ctx.session.events)
 
     # Use the Runnable
-    final_state = self.graph.invoke({'messages': messages}, config)
-    result = final_state['messages'][-1].content
+    final_state = await self.graph.ainvoke({'messages': messages}, config)
+    # LangChain message .content may be a str or a list of content blocks
+    # (e.g. multimodal / tool-call parts). Coerce to a plain string.
+    result = _content_to_text(final_state['messages'][-1].content)
 
     result_event = Event(
         invocation_id=ctx.invocation_id,
@@ -161,7 +191,7 @@ class LangGraphAgent(BaseAgent):
       if not event.content or not event.content.parts:
         continue
       if event.author == 'user':
-        messages.append(HumanMessage(content=event.content.parts[0].text))
+        messages.append(HumanMessage(content=event.content.parts[0].text or ''))
       elif event.author == self.name:
-        messages.append(AIMessage(content=event.content.parts[0].text))
+        messages.append(AIMessage(content=event.content.parts[0].text or ''))
     return messages

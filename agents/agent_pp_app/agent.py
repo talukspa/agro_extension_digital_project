@@ -7,7 +7,7 @@ from langchain_google_vertexai import ChatVertexAI
 from langgraph.checkpoint.memory import InMemorySaver
 
 import os
-from agent_pp_app.tools import text2sql_tools
+from agent_pp_app.tools import get_text2sql_tools
 from agent_pp_app.utils.langgraph_agent import LangGraphAgent
 from agent_pp_app.llm_global import GlobalGemini, GEMINI_LOCATION
 from agent_pp_app.prompts import (
@@ -41,14 +41,11 @@ pp_agent_rag = LlmAgent(
     ],
 )
 
-llm = ChatVertexAI(model_name="gemini-3.5-flash", location=GEMINI_LOCATION)
-
-
 def _build_bq_graph():
     """Lazy LangGraph constructor — see agent_aa_app/agent.py for rationale."""
     return create_react_agent(
         model=ChatVertexAI(model_name="gemini-3.5-flash", location=GEMINI_LOCATION),
-        tools=text2sql_tools,
+        tools=get_text2sql_tools(),
         prompt=text2sql_instruction().format(dialect="bigquery", top_k=16),
         checkpointer=InMemorySaver(),
     )

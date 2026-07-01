@@ -13,15 +13,19 @@ from google.api_core import exceptions as gax
 from google.cloud import secretmanager
 from vertexai import agent_engines
 
+# Pinned to the versions resolved in agents/uv.lock so the deployed engine
+# runs the exact dependency set we test against locally. KEEP THIS LIST IN
+# SYNC with agents/pyproject.toml + agents/uv.lock — bump these pins whenever
+# the lockfile is regenerated.
 REQUIREMENTS = [
-    "google-cloud-aiplatform[adk,agent_engines]>=1.135.0",
-    "google-adk>=1.35.0,<2.0.0",
-    "langchain-community",
-    "langchain-google-vertexai",
-    "langgraph",
-    "sqlalchemy-bigquery",
-    "google-cloud-bigquery-storage",
-    "google-cloud-discoveryengine",
+    "google-cloud-aiplatform[adk,agent_engines]==1.157.0",
+    "google-adk==1.35.0",
+    "langchain-community==0.4.2",
+    "langchain-google-vertexai==3.2.4",
+    "langgraph==1.2.4",
+    "sqlalchemy-bigquery==1.17.0",
+    "google-cloud-bigquery-storage==2.39.0",
+    "google-cloud-discoveryengine==0.13.12",
 ]
 
 AGENTS = {
@@ -70,16 +74,28 @@ TELEMETRY_ENV = {
 STATIC_ENV = {"GOOGLE_GENAI_USE_VERTEXAI": "true"}
 
 
-def env_vars_for(agent_key: str) -> dict[str, str]:
+def env_vars_for(agent_key: str, project: Optional[str] = None) -> dict[str, str]:
     base = {k: os.environ[k] for k in RUNTIME_ENV_KEYS}
-    return base | STATIC_ENV | TELEMETRY_ENV
+    # Ship GOOGLE_CLOUD_PROJECT explicitly: tools.py / llm_global.py read it at
+    # runtime, and we don't want the engine to depend on implicit injection.
+    project = project or os.environ.get("GOOGLE_CLOUD_PROJECT")
+    project_env = {"GOOGLE_CLOUD_PROJECT": project} if project else {}
+    return base | project_env | STATIC_ENV | TELEMETRY_ENV
 
 
-def find_existing(display_name: str) -> Optional[str]:
-    for eng in agent_engines.list():
-        if eng.display_name == display_name:
-            return eng.resource_name
-    return None
+def read_secret(project: str, secret_id: str) -> Optional[str]:
+    """Return the latest value stored in ``secret_id``, or None if missing.
+
+    None means either the secret does not exist or it has no accessible
+    version yet — both are treated by the caller as "no engine to update".
+    """
+    client = secretmanager.SecretManagerServiceClient()
+    name = f"projects/{project}/secrets/{secret_id}/versions/latest"
+    try:
+        resp = client.access_secret_version(request={"name": name})
+    except gax.NotFound:
+        return None
+    return resp.payload.data.decode()
 
 
 def write_secret(project: str, secret_id: str, value: str) -> None:
@@ -96,6 +112,17 @@ def write_secret(project: str, secret_id: str, value: str) -> None:
                 "secret": {"replication": {"automatic": {}}},
             }
         )
+    else:
+        # Secret already exists — avoid version sprawl by skipping the write
+        # when the latest version already holds this exact value.
+        try:
+            latest = client.access_secret_version(
+                request={"name": f"{name}/versions/latest"}
+            )
+            if latest.payload.data.decode() == value:
+                return
+        except gax.NotFound:
+            pass  # secret exists but has no accessible version yet
     client.add_secret_version(
         request={"parent": name, "payload": {"data": value.encode()}}
     )
@@ -103,21 +130,29 @@ def write_secret(project: str, secret_id: str, value: str) -> None:
 
 def deploy_one(key: str, cfg: dict, project: str, sa: str) -> None:
     mod = import_module(cfg["app_module"])
-    existing = find_existing(cfg["display_name"])
     kwargs = dict(
         agent_engine=mod.app,
         requirements=REQUIREMENTS,
         extra_packages=[cfg["module_path"]],
         display_name=cfg["display_name"],
-        env_vars=env_vars_for(key),
+        env_vars=env_vars_for(key, project),
         service_account=sa,
         min_instances=0,
         max_instances=3,
     )
-    if existing:
+    # Idempotency is keyed off the stored resource name (not the mutable
+    # display_name): read it from Secret Manager and update that engine.
+    resource_name = read_secret(project, cfg["secret_id"])
+    engine = None
+    if resource_name:
+        try:
+            engine = agent_engines.get(resource_name)
+        except gax.NotFound:
+            # Secret pointed at an engine that no longer exists — recreate.
+            engine = None
+    if engine is not None:
         # update() is an instance method on AgentEngine, not a module-level
-        # function — fetch the engine first, then call .update(**kwargs).
-        engine = agent_engines.get(existing)
+        # function — call .update(**kwargs) on the fetched engine.
         engine = engine.update(**kwargs)
     else:
         engine = agent_engines.create(**kwargs)

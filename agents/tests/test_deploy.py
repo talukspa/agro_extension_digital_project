@@ -59,17 +59,46 @@ def test_env_vars_for_raises_when_required_key_missing(monkeypatch):
         deploy.env_vars_for("agent_aa")
 
 
-def test_find_existing_returns_resource_name_on_match(monkeypatch):
+def test_env_vars_for_ships_google_cloud_project(monkeypatch):
+    """GOOGLE_CLOUD_PROJECT must be shipped explicitly to the engine env."""
     import deploy
-    fake = MagicMock(
-        display_name="Adecuación Agroindustrial",
-        resource_name="projects/p/locations/us-central1/reasoningEngines/123",
+    for k, v in {
+        "DATASTORE_AA_ID": "ds-aa",
+        "DATASTORE_PP_ID": "ds-pp",
+        "DATASTORE_GUIDES_ID": "ds-g",
+        "DATASTORE_FAQ_ID": "ds-faq",
+        "DATASTORE_CHILEPRUNES_CL_ID": "ds-cl",
+        "BIGQUERY_DATASET": "ds-bq",
+    }.items():
+        monkeypatch.setenv(k, v)
+    env = deploy.env_vars_for("agent_aa", "agro-extension-digital-npe")
+    assert env["GOOGLE_CLOUD_PROJECT"] == "agro-extension-digital-npe"
+
+
+# Idempotency is now keyed off the resource name stored in Secret Manager
+# (find_existing / display_name matching was removed), so we test read_secret.
+def test_read_secret_returns_stored_resource_name(monkeypatch):
+    import deploy
+    fake_client = MagicMock()
+    fake_client.access_secret_version.return_value = MagicMock(
+        payload=MagicMock(
+            data=b"projects/p/locations/us-central1/reasoningEngines/123"
+        )
     )
-    monkeypatch.setattr(deploy.agent_engines, "list", lambda: [fake])
-    assert deploy.find_existing("Adecuación Agroindustrial") == fake.resource_name
+    monkeypatch.setattr(
+        deploy.secretmanager, "SecretManagerServiceClient", lambda: fake_client
+    )
+    assert (
+        deploy.read_secret("proj", "engine-aa-resource-name")
+        == "projects/p/locations/us-central1/reasoningEngines/123"
+    )
 
 
-def test_find_existing_returns_none_on_no_match(monkeypatch):
+def test_read_secret_returns_none_when_secret_missing(monkeypatch):
     import deploy
-    monkeypatch.setattr(deploy.agent_engines, "list", lambda: [])
-    assert deploy.find_existing("nope") is None
+    fake_client = MagicMock()
+    fake_client.access_secret_version.side_effect = deploy.gax.NotFound("nope")
+    monkeypatch.setattr(
+        deploy.secretmanager, "SecretManagerServiceClient", lambda: fake_client
+    )
+    assert deploy.read_secret("proj", "missing") is None

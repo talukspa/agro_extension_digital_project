@@ -1,23 +1,36 @@
+from pathlib import Path
+
+_PROMPTS_DIR = Path(__file__).parent / "prompts"
+
+
+def _read(relpath: str) -> str:
+    # Resolve prompt files relative to this module, not the CWD, so imports
+    # work regardless of where the process was launched from.
+    with open(_PROMPTS_DIR / relpath) as f:
+        return f.read()
+
+
 def agent_pp_instruction():
-    with open("agent_pp_app/prompts/agent_pp/instruction.md") as f:
-        return f.read()
-    
+    return _read("agent_pp/instruction.md")
+
+
 def agent_pp_bq_instruction():
-    with open("agent_pp_app/prompts/agent_pp_bq/instruction.md") as f:
-        return f.read()
-    
+    return _read("agent_pp_bq/instruction.md")
+
+
 def agent_pp_bq_description():
-    with open("agent_pp_app/prompts/agent_pp_bq/description.md") as f:
-        return f.read()
-    
+    return _read("agent_pp_bq/description.md")
+
+
 def agent_pp_rag_instruction():
-    with open("agent_pp_app/prompts/agent_pp_rag/instruction.md") as f:
-        return f.read()
-    
+    return _read("agent_pp_rag/instruction.md")
+
+
 def agent_pp_rag_description():
-    with open("agent_pp_app/prompts/agent_pp_rag/description.md") as f:
-        return f.read()
-    
+    return _read("agent_pp_rag/description.md")
+
+
 def text2sql_instruction():
-    with open("agent_aa_app/prompts/text2sql/instruction.md") as f:
-        return f.read()
+    # Was erroneously loading agent_aa_app's text2sql prompt; use this
+    # package's own copy under agent_pp_app/prompts/text2sql/.
+    return _read("text2sql/instruction.md")
