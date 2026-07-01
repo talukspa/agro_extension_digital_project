@@ -6,6 +6,7 @@ signatures are preserved so callers in messages.py don't need to change.
 """
 import asyncio
 import os
+import time
 from functools import lru_cache
 from typing import Any
 
@@ -23,6 +24,11 @@ _logger = get_logger("agent_client")
 SESSION_TIMEOUT_SECONDS = float(os.getenv("AGENT_SESSION_TIMEOUT", "15"))
 QUERY_TIMEOUT_SECONDS = float(os.getenv("AGENT_QUERY_TIMEOUT", "90"))
 
+# TTL (seconds) for the resolved Secret Manager resource_name cache. Keeps
+# the per-message access_secret_version RPC off the hot path while staying
+# responsive to deploy.py rotating the engine within one TTL window.
+SECRET_TTL_SECONDS = float(os.getenv("AGENT_SECRET_TTL", "45"))
+
 # Cache the AgentEngine handle by RESOURCE NAME, not by app_name. When
 # deploy.py rewrites the Secret Manager value (a new engine has replaced
 # the old one), the SM lookup returns the new resource_name and we miss
@@ -30,6 +36,11 @@ QUERY_TIMEOUT_SECONDS = float(os.getenv("AGENT_QUERY_TIMEOUT", "90"))
 # in memory but cost nothing. This avoids the stale-handle outage that a
 # per-app_name @lru_cache would cause after redeploy.
 _engine_cache: dict[str, Any] = {}
+
+# Short-lived cache of app_name -> (resource_name, expiry_monotonic). Avoids
+# calling access_secret_version on every message while staying rotation-aware
+# within SECRET_TTL_SECONDS.
+_resource_name_cache: dict[str, tuple[str, float]] = {}
 
 
 @lru_cache(maxsize=1)
@@ -66,24 +77,45 @@ def _short_for(app_name: str) -> str:
     )
 
 
-def get_engine(app_name: str):
-    """Resolve the reasoningEngine and return an AgentEngine handle.
+async def _resolve_resource_name(app_name: str) -> str:
+    """Return the reasoningEngine resource_name for app_name.
 
-    Reads the resource name from Secret Manager on every call (the secret
-    rotates whenever deploy.py creates/updates an engine), but caches the
-    AgentEngine handle per unique resource_name to amortize the SDK fetch.
+    Served from a short TTL cache; on miss/expiry the blocking Secret Manager
+    RPC runs in a worker thread so it never stalls the async event loop.
     """
-    _init()
+    now = time.monotonic()
+    cached = _resource_name_cache.get(app_name)
+    if cached is not None and cached[1] > now:
+        return cached[0]
+
     short = _short_for(app_name)
     project = os.environ["GOOGLE_CLOUD_PROJECT"]
     secret_id = f"engine-{short}-resource-name"
     name = f"projects/{project}/secrets/{secret_id}/versions/latest"
-    resource_name = (
-        _sm_client().access_secret_version(request={"name": name}).payload.data.decode()
+    resource_name = await asyncio.to_thread(
+        lambda: _sm_client()
+        .access_secret_version(request={"name": name})
+        .payload.data.decode()
     )
+    _resource_name_cache[app_name] = (resource_name, now + SECRET_TTL_SECONDS)
+    return resource_name
+
+
+async def get_engine(app_name: str):
+    """Resolve the reasoningEngine and return an AgentEngine handle.
+
+    The resolved resource_name is served from a TTL cache (see
+    SECRET_TTL_SECONDS) so access_secret_version does not run on every message,
+    while a rotated engine is still picked up within one TTL window. The
+    AgentEngine handle is cached per unique resource_name to amortize the SDK
+    fetch. Both blocking RPCs run via asyncio.to_thread to keep the event loop
+    free.
+    """
+    await asyncio.to_thread(_init)
+    resource_name = await _resolve_resource_name(app_name)
     cached = _engine_cache.get(resource_name)
     if cached is None:
-        cached = agent_engines.get(resource_name)
+        cached = await asyncio.to_thread(agent_engines.get, resource_name)
         _engine_cache[resource_name] = cached
     return cached
 
@@ -92,7 +124,7 @@ async def create_agent_session(
     user_id: str, app_name: str, session_id: str
 ) -> dict[str, Any]:
     """Get-or-create a session with a deterministic id (session_id == wa_id)."""
-    engine = get_engine(app_name)
+    engine = await get_engine(app_name)
     try:
         return await asyncio.wait_for(
             engine.async_create_session(user_id=user_id, session_id=session_id),
@@ -117,7 +149,7 @@ async def send_to_agent(
     app_name: str, user_id: str, session_id: str, message: str
 ) -> dict[str, Any]:
     """Stream a query to Agent Runtime, returning the concatenated assistant text."""
-    engine = get_engine(app_name)
+    engine = await get_engine(app_name)
     _logger.info(
         "agent_query.start",
         extra={
@@ -134,6 +166,13 @@ async def send_to_agent(
                 user_id=user_id, session_id=session_id, message=message
             ):
                 raw_events.append(event)
+                # Skip partial (incremental) streaming events: when the engine
+                # streams token-by-token it emits partial events plus a final
+                # cumulative one, so collecting partials would duplicate text
+                # N-fold. Whether partials appear depends on the engine's
+                # streaming config; guarding here is safe either way.
+                if event.get("partial"):
+                    continue
                 # event["content"]["parts"][i] is either {"text": ...} (assistant
                 # token) or {"function_call": ...} / {"function_response": ...}
                 # (tool events). The `if text:` guard skips tool-call parts.

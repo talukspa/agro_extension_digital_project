@@ -20,6 +20,7 @@ def _env(monkeypatch):
     agent_client._init.cache_clear()
     agent_client._sm_client.cache_clear()
     agent_client._engine_cache.clear()
+    agent_client._resource_name_cache.clear()
 
 
 @pytest.mark.asyncio
@@ -130,9 +131,17 @@ async def test_send_to_agent_times_out_with_error_payload(monkeypatch):
     assert "tiempo" in result["response"].lower()
 
 
-def test_get_engine_picks_up_secret_rotation(monkeypatch):
-    """Re-reading SM means a rewritten resource_name -> fresh engine handle."""
+@pytest.mark.asyncio
+async def test_get_engine_picks_up_secret_rotation(monkeypatch):
+    """Re-reading SM means a rewritten resource_name -> fresh engine handle.
+
+    TTL is forced to 0 so the resolved resource_name is never served from cache,
+    exercising rotation on back-to-back calls.
+    """
     from whatsapp_webhook.external_services import agent_client
+
+    # Disable the resource_name TTL cache so every call re-reads Secret Manager.
+    monkeypatch.setattr(agent_client, "SECRET_TTL_SECONDS", 0.0)
 
     versions = iter([
         b"projects/p/locations/us-central1/reasoningEngines/OLD",
@@ -159,8 +168,8 @@ def test_get_engine_picks_up_secret_rotation(monkeypatch):
     monkeypatch.setattr(agent_client.agent_engines, "get", fake_get)
     monkeypatch.setattr(agent_client, "_init", lambda: None)
 
-    first = agent_client.get_engine("agent_aa")
-    second = agent_client.get_engine("agent_aa")
+    first = await agent_client.get_engine("agent_aa")
+    second = await agent_client.get_engine("agent_aa")
     assert first is not second
     assert seen == [
         "projects/p/locations/us-central1/reasoningEngines/OLD",

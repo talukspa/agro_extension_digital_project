@@ -3,7 +3,6 @@ FastAPI application factory and configuration.
 """
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import os
 import tomllib
@@ -46,18 +45,12 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
     
-    # Add CORS middleware
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["GET", "POST"],
-        allow_headers=["*"],
-    )
-    
+    # No CORS middleware: this is a server-to-server webhook (Meta -> Cloud Run),
+    # never called from a browser, so CORS is pointless here.
+
     # Include routers
     app.include_router(webhook_router)
-    
+
     # Add health check endpoint
     @app.get("/health", response_model=HealthCheckResponse)
     async def health_check():
@@ -65,9 +58,9 @@ def create_app() -> FastAPI:
         return HealthCheckResponse(
             status="healthy",
             version=version,
-            environment="production"
+            environment=config.environment
         )
-    
+
     # Add root endpoint
     @app.get("/")
     async def root():
@@ -77,13 +70,13 @@ def create_app() -> FastAPI:
                 "service": "WhatsApp Webhook Service",
                 "version": version,
                 "status": "running",
-                "environment": "production"
+                "environment": config.environment
             }
         )
-    
+
     app_logger.info(f"FastAPI application created successfully", extra={
         "version": version,
-        "environment": "production"
+        "environment": config.environment
     })
     
     return app

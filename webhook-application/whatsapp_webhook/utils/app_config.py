@@ -3,6 +3,7 @@ Simplified and centralized configuration management for the WhatsApp webhook app
 """
 
 import os
+from typing import Optional
 from pydantic import BaseModel
 
 class AppConfig(BaseModel):
@@ -10,6 +11,10 @@ class AppConfig(BaseModel):
     log_level: str
     verify_token: str
     wsp_token: str
+    # Meta App Secret used to validate the X-Hub-Signature-256 header on
+    # incoming webhook POSTs. Sourced from WHATSAPP_APP_SECRET. When unset the
+    # webhook fails closed (rejects every POST) — see api/webhooks.py.
+    app_secret: Optional[str] = None
     # HTTP client timeout (seconds) — WhatsApp API only; agent traffic now
     # goes through google-cloud-aiplatform which manages its own timeouts.
     whatsapp_http_timeout: float = 30.0
@@ -24,18 +29,32 @@ class AppConfig(BaseModel):
     pp_facebook_app_url: str
     pp_app_name: str
 
+    # Local-dev / runtime server settings (used by main.py __main__ block).
+    host: str = "0.0.0.0"
+    port: int = 8080
+    environment: str = "production"
+
+    @property
+    def is_development(self) -> bool:
+        """True when running in a local/dev environment."""
+        return self.environment.lower() in ("development", "dev", "local")
+
 def load_config_from_env() -> AppConfig:
     """Loads the application configuration from environment variables."""
     return AppConfig(
         log_level=os.getenv("LOG_LEVEL", "INFO"),
         verify_token=os.getenv("VERIFY_TOKEN"),
         wsp_token=os.getenv("WSP_TOKEN"),
+        app_secret=os.getenv("WHATSAPP_APP_SECRET"),
         whatsapp_http_timeout=float(os.getenv("WHATSAPP_HTTP_TIMEOUT", "30")),
         whatsapp_base_url=os.getenv("WHATSAPP_BASE_URL", "https://graph.facebook.com/v22.0"),
         aa_facebook_app_url=os.getenv("ESTANDAR_AA_FACEBOOK_APP"),
         aa_app_name=os.getenv("ESTANDAR_AA_APP_NAME"),
         pp_facebook_app_url=os.getenv("ESTANDAR_PP_FACEBOOK_APP"),
         pp_app_name=os.getenv("ESTANDAR_PP_APP_NAME"),
+        host=os.getenv("HOST", "0.0.0.0"),
+        port=int(os.getenv("PORT", "8080")),
+        environment=os.getenv("ENVIRONMENT", "production"),
     )
 
 # Singleton instance to be used across the application
