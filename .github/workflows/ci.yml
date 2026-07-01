@@ -2,7 +2,9 @@ name: CI
 
 # Quality gate for pull requests: runs the Python, frontend, Terraform, and
 # workflow-lint suites. No cloud credentials and no deploys — everything here is
-# offline/local (pytest, vitest, terraform test/plan -backend=false, scanners).
+# offline/local (pytest, vitest, terraform test/plan -backend=false, scanners),
+# so these run on GitHub-hosted ubuntu-latest (the deploy/build workflows keep
+# using the self-hosted runners that have GCP access).
 
 on:
   pull_request:
@@ -16,7 +18,7 @@ concurrency:
 
 jobs:
   python:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
@@ -35,7 +37,7 @@ jobs:
           --cov=whatsapp_webhook --cov-report=term-missing --cov-fail-under=80
 
   frontend:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
@@ -54,7 +56,7 @@ jobs:
         run: npm run test:coverage
 
   terraform:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -76,7 +78,7 @@ jobs:
           terraform test
 
   policy-scan:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -88,7 +90,7 @@ jobs:
           checkov --config-file .checkov.yaml
 
   actionlint:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: actionlint
