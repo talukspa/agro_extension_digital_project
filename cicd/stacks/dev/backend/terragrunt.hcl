@@ -55,7 +55,9 @@ inputs = {
   cloud_run_name_webhook                   = "agent-webhook-${local.environment}"
   service_account_webhook_app              = "agent-webhook-sa-${local.environment}"
   service_account_display_name_webhook_app = "Agent Webhook Service Account DEV"
-  gar_image_location_webhook               = "us-central1-docker.pkg.dev/${local.project_id}/agro-extension-digital/webhook:latest"
+  # La imagen del webhook vive en el proyecto NPE para ambos entornos
+  # (common.containers.project); source explícito para mantener consistencia con PRD.
+  gar_image_location_webhook = "${local.common_vars.containers.registry}/${local.common_vars.containers.project}/agro-extension-digital/webhook:latest"
 
   # CI/CD deployer SA (the identity behind GCP_SA_KEY in deploy-agents.yml).
   # Set cicd.deployer_sa_email in env.yaml to have Terraform grant the deploy

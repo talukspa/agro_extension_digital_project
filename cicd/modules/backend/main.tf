@@ -89,9 +89,24 @@ resource "google_cloud_run_v2_service_iam_binding" "noauth_webhook" {
 }
 
 # --------------------------------------------------------------------
-# Agent Runtime (Vertex AI / Gemini Enterprise Agent Platform) — Phase 1
-# Additive resources. The old Cloud Run agent service and SA stay in
-# place until the cleanup phase (post-soak).
+# Agent Runtime (Vertex AI / Gemini Enterprise Agent Platform)
+#
+# These are the additive Agent Runtime resources. NOTE: the old Cloud Run agent
+# service, its service account, and their IAM bindings have already been REMOVED
+# from this Terraform config. They still exist live and in state, so the NEXT
+# `terraform apply` on this backend stack DESTROYS them (a hard cutover) — it
+# does NOT leave them "in place until post-soak". The runbook expects exactly 5
+# destroys here (old agent service + SA + 2 role bindings + the
+# webhook→agent Cloud Run invoker binding).
+#
+# OPERATOR DECISION before applying (do ONE of these — Terraform will not):
+#   (A) Preserve for rollback: `terraform state rm` the old agent addresses
+#       (e.g. the old google_cloud_run_v2_service / google_service_account /
+#       google_*_iam_* for the agent) BEFORE apply, so they survive as
+#       unmanaged resources you can fall back to during the soak window; OR
+#   (B) Accept the hard cutover: apply as-is and rely on the runbook's
+#       image/traffic rollback path if the new engines misbehave.
+# Do NOT run `terraform state rm` from CI — it is a manual, deliberate step.
 # --------------------------------------------------------------------
 
 resource "google_storage_bucket" "agent_engine_staging" {
@@ -157,6 +172,16 @@ resource "google_project_iam_member" "runtime_bindings" {
   member   = "serviceAccount:${each.value.sa}"
 }
 
+# CUTOVER ORDERING (CRITICAL): these two secrets are created here as EMPTY
+# containers — no secret version. Their versions (the reasoningEngine resource
+# names) are seeded by `deploy.py`, run via `.github/workflows/deploy-agents.yml`.
+# The public webhook resolves the engine handle with `access latest` on these
+# secrets on every inbound message. Therefore deploy-agents.yml MUST run and
+# succeed (Phase 2 of the runbook) BEFORE the webhook goes live / receives
+# traffic — otherwise `access latest` returns NOT_FOUND and the public webhook
+# 500s on every request. Sequence: (1) apply this backend stack, (2) run
+# deploy-agents.yml to seed the engine-name secret versions, (3) deploy/redeploy
+# the webhook image. See docs/superpowers/runbook-agent-runtime-deploy.md.
 resource "google_secret_manager_secret" "engine_aa_name" {
   secret_id = "engine-aa-resource-name"
   project   = var.project_id

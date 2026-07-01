@@ -98,11 +98,6 @@ variable "firebase_measurement_id" {
 }
 
 # Backend Services URLs
-variable "agent_aa_service_url" {
-  description = "URL of the Agent AA service"
-  type        = string
-}
-
 variable "webhook_service_url" {
   description = "URL of the Webhook service"
   type        = string

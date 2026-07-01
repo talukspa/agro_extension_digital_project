@@ -43,6 +43,16 @@ The webhook Cloud Run service has a fresh revision serving the old image with th
 
 ## Phase 2 — Deploy engines
 
+**Ordering (critical):** `engine-aa-resource-name` / `engine-pp-resource-name` are
+created by Phase 1 as empty secret containers with **no version**. The webhook
+resolves the engine handle via `gcloud secrets versions access latest` on these
+secrets on every inbound WhatsApp message. If the webhook goes live before this
+phase seeds those versions, `access latest` returns `NOT_FOUND` and the public
+webhook **500s on every request**. So this phase (deploy.py writing the engine
+resource names back to the secrets) MUST complete successfully **before** the
+webhook is exposed to traffic (Phase 3 redeploy). Never point production WhatsApp
+at the webhook until Phase 2 is green.
+
 ```bash
 gh workflow run deploy-agents.yml -f environment=<env>
 # Watch progress

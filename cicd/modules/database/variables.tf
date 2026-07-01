@@ -45,18 +45,6 @@ service cloud.firestore {
 EOF
 }
 
-variable "firestore_admin_users" {
-  description = "Lista de usuarios con permisos de administrador en Firestore"
-  type        = list(string)
-  default     = []
-}
-
-variable "firestore_user_service_accounts" {
-  description = "Lista de service accounts con permisos de usuario en Firestore"
-  type        = list(string)
-  default     = []
-}
-
 variable "enable_daily_backup" {
   description = "Habilitar backup diario automático"
   type        = bool

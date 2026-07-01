@@ -22,7 +22,7 @@ locals {
   # Cargar configuración base desde archivos yaml
   common_vars = yamldecode(file(find_in_parent_folders("common.yaml")))
   env_vars    = yamldecode(file("../env.yaml"))
-  
+
   # Valores base desde env.yaml (específicos del ambiente)
   project_id  = local.env_vars.project.id
   region      = local.common_vars.gcp.default_region
@@ -34,25 +34,13 @@ inputs = {
   project_id        = local.project_id
   environment       = local.environment
   database_location = local.region
-  
+
   # Configuración específica de DEV
-  database_name               = "agro-extension-db"
-  delete_protection_enabled   = false  # En DEV permitimos eliminar para testing
-  enable_daily_backup        = false   # No necesario en DEV
-  backup_retention_days      = 7       # Retención mínima en DEV
-  
-  # Usuarios admin para DEV (agregar emails según necesidad)
-  firestore_admin_users = [
-    # "admin@ciruelacertificada.cl"
-  ]
-  
-  # Service accounts que necesitan acceso a Firestore
-  firestore_user_service_accounts = [
-    # Estos se obtienen de otros módulos de Terragrunt
-    # En una implementación real, usarías dependency para obtener los emails
-    # Por ahora los dejamos vacíos y se pueden agregar manualmente
-  ]
-  
+  database_name             = "agro-extension-db"
+  delete_protection_enabled = false # En DEV permitimos eliminar para testing
+  enable_daily_backup       = false # No necesario en DEV
+  backup_retention_days     = 7     # Retención mínima en DEV
+
   # Reglas de seguridad específicas para DEV (más permisivas para testing)
   firestore_security_rules = <<EOF
 rules_version = '2';

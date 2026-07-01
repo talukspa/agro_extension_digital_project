@@ -42,6 +42,14 @@ jobs:
     env:
       ENVIRONMENT: ${{ github.event.inputs.environment || 'npe' }}
       GOOGLE_CLOUD_LOCATION: us-central1
+      # Isolate this job's gcloud state in a per-job config dir instead of the
+      # shared ~/.config/gcloud. The runner is self-hosted (non-ephemeral) and
+      # shared with build-and-push.yml / deploy.yaml; activating the deployer SA
+      # into the global store would leak it between jobs, and a global
+      # `gcloud auth revoke --all` cleanup would nuke those other workflows'
+      # credentials. A private CLOUDSDK_CONFIG we rm -rf at the end contains
+      # both the activated credential and the key file to this job alone.
+      CLOUDSDK_CONFIG: ${{ runner.temp }}/gcloud-deploy-agents
     steps:
       - uses: actions/checkout@v4
 
@@ -50,8 +58,9 @@ jobs:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
           echo "GOOGLE_CLOUD_PROJECT=agro-extension-digital-${ENVIRONMENT}" >> $GITHUB_ENV
-          echo "$GCP_SA_KEY" > /tmp/account.json
-          gcloud auth activate-service-account --key-file=/tmp/account.json
+          mkdir -p "$CLOUDSDK_CONFIG"
+          echo "$GCP_SA_KEY" > "$CLOUDSDK_CONFIG/account.json"
+          gcloud auth activate-service-account --key-file="$CLOUDSDK_CONFIG/account.json"
           gcloud config set project agro-extension-digital-${ENVIRONMENT}
 
       - name: Load runtime env vars from Secret Manager
@@ -73,8 +82,11 @@ jobs:
         working-directory: agents
         run: uv run python deploy.py --env "${ENVIRONMENT}"
 
-      # Self-hosted runners are not ephemeral — remove the key material so it
-      # does not persist on disk between jobs. Runs even if the deploy fails.
-      - name: Remove service-account key
+      # Self-hosted runners are not ephemeral. Remove the per-job gcloud config
+      # dir, which holds both the activated credential and the key file — this
+      # deactivates the deployer SA and deletes the key without touching the
+      # shared gcloud store other workflows on this runner rely on. Runs even
+      # if the deploy fails.
+      - name: Remove gcloud credentials
         if: always()
-        run: rm -f /tmp/account.json
+        run: rm -rf "$CLOUDSDK_CONFIG"
