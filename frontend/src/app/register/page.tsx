@@ -51,7 +51,7 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      await signUp(email, password);
+      await signUp(email, password, displayName);
       // User profile will be created automatically by the AuthContext
       router.push('/dashboard');
     } catch (error: any) {

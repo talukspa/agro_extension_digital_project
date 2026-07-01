@@ -3,12 +3,13 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/contexts/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
-import { USER_TYPE_DISPLAY_NAMES } from "@/lib/types/permissions";
+import { USER_TYPE_DISPLAY_NAMES, USER_TYPES } from "@/lib/types/permissions";
 import { useTheme } from "@/lib/contexts/ThemeContext";
 
-export default function StatsPage() {
+function StatsContent() {
   const { user, userType, activeBusiness, loading: authLoading, signOut } = useAuth();
   const { theme, setTheme, currentTheme, toggleTheme } = useTheme();
   const router = useRouter();
@@ -227,5 +228,16 @@ export default function StatsPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function StatsPage() {
+  return (
+    <ProtectedRoute
+      requiredUserTypes={[USER_TYPES.BUSINESS_USER, USER_TYPES.BUSINESS_OWNER, USER_TYPES.ADMIN]}
+      requireApproval={true}
+    >
+      <StatsContent />
+    </ProtectedRoute>
   );
 }

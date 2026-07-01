@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import { createAuditorProfile, updateUserProfile } from '@/lib/firebase/firestore';
 import { USER_TYPES } from '@/lib/types/permissions';
 import { Button } from '@/components/ui/Button';
 
-export default function AuditorApplicationPage() {
+function AuditorApplicationContent() {
   const [formData, setFormData] = useState({
     certifications: [''],
     specializations: [''],
@@ -312,5 +313,13 @@ export default function AuditorApplicationPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function AuditorApplicationPage() {
+  return (
+    <ProtectedRoute requireApproval={false}>
+      <AuditorApplicationContent />
+    </ProtectedRoute>
   );
 }
