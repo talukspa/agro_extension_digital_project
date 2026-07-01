@@ -11,6 +11,11 @@
 #
 # Also asserts the daily backup schedule is gated by enable_daily_backup.
 
+# Mock the google provider so `terraform test` runs fully offline (no ADC /
+# credentials needed). Assertions here check configured inputs, not
+# provider-computed values, so mocked responses are sufficient.
+mock_provider "google" {}
+
 variables {
   project_id  = "test-project"
   environment = "prd"

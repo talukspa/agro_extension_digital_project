@@ -13,6 +13,11 @@
 
 # Minimal dummy values so `plan` succeeds offline (no real GCP calls at plan
 # time: the module has no data sources).
+# Mock the google provider so `terraform test` runs fully offline (no ADC /
+# credentials needed). Assertions here check configured inputs, not
+# provider-computed values, so mocked responses are sufficient.
+mock_provider "google" {}
+
 variables {
   project_id                               = "test-project"
   region                                   = "us-central1"

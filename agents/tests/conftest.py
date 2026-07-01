@@ -16,6 +16,19 @@ os.environ.setdefault("DATASTORE_GUIDES_ID", "test-datastore-guides")
 os.environ.setdefault("DATASTORE_FAQ_ID", "test-datastore-faq")
 os.environ.setdefault("DATASTORE_CHILEPRUNES_CL_ID", "test-datastore-chileprunes")
 
+# Building root_agent (imported by the agent_engine_app shims) runs Vertex/
+# aiplatform initialization, which calls google.auth.default() and fails
+# offline — no ADC, no project — as it does on CI runners without gcloud creds.
+# Stub it to return anonymous credentials + the placeholder project so imports
+# stay hermetic.
+import google.auth  # noqa: E402
+from google.auth.credentials import AnonymousCredentials  # noqa: E402
+
+google.auth.default = lambda *args, **kwargs: (
+    AnonymousCredentials(),
+    os.environ["GOOGLE_CLOUD_PROJECT"],
+)
+
 from langchain_community.utilities import SQLDatabase  # noqa: E402
 
 SQLDatabase.from_uri = classmethod(lambda cls, *args, **kwargs: MagicMock(spec=SQLDatabase))

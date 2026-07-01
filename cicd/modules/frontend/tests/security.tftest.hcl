@@ -10,6 +10,11 @@
 #   - No reference to the removed agent_aa_service_url / NEXT_PUBLIC_AGENT_AA_URL
 #     (the AA agent is now a Vertex AI Agent Engine, not a Cloud Run URL).
 
+# Mock the google provider so `terraform test` runs fully offline (no ADC /
+# credentials needed). Assertions here check configured inputs, not
+# provider-computed values, so mocked responses are sufficient.
+mock_provider "google" {}
+
 variables {
   project_id                            = "test-project"
   environment                           = "prd"
