@@ -1,0 +1,97 @@
+name: CI
+
+# Quality gate for pull requests: runs the Python, frontend, Terraform, and
+# workflow-lint suites. No cloud credentials and no deploys — everything here is
+# offline/local (pytest, vitest, terraform test/plan -backend=false, scanners).
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+
+      - name: agents — pytest + coverage (fail under 80%)
+        working-directory: agents
+        run: >-
+          uv run --with pytest-cov pytest tests/
+          --cov=agent_aa_app --cov=agent_pp_app --cov=deploy
+          --cov-report=term-missing --cov-fail-under=80
+
+      - name: webhook — pytest + coverage (fail under 80%)
+        working-directory: webhook-application
+        run: >-
+          uv run --with pytest-cov --extra test pytest tests/
+          --cov=whatsapp_webhook --cov-report=term-missing --cov-fail-under=80
+
+  frontend:
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install deps
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests + coverage
+        run: npm run test:coverage
+
+  terraform:
+    runs-on: self-hosted
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [backend, database, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: fmt
+        run: terraform -chdir=cicd/modules/${{ matrix.module }} fmt -check -recursive
+
+      - name: init + validate + test
+        run: |
+          cd cicd/modules/${{ matrix.module }}
+          terraform init -backend=false
+          terraform validate
+          terraform test
+
+  policy-scan:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: checkov
+        run: |
+          pip install --quiet checkov
+          checkov --config-file .checkov.yaml
+
+  actionlint:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: actionlint
+        run: |
+          bash <(curl -s https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          ./actionlint -color

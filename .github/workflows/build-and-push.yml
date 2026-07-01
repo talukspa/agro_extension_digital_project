@@ -22,12 +22,6 @@ jobs:
       # live service.
       GAR_REPO_WEBHOOK: us-central1-docker.pkg.dev/agro-extension-digital-npe/agro-extension-digital/webhook
       GAR_REPO_FRONTEND: us-central1-docker.pkg.dev/agro-extension-digital-npe/agents/agent-frontend-app
-      # Isolate this job's gcloud/Docker credential state in a per-job config
-      # dir instead of relying on ambient runner gcloud state. The runner is
-      # self-hosted (non-ephemeral) and shared with deploy.yaml /
-      # deploy-agents.yml. A private CLOUDSDK_CONFIG we rm -rf at the end scopes
-      # the activated credential and key file to this job alone.
-      CLOUDSDK_CONFIG: ${{ runner.temp }}/gcloud-build-and-push
 
     steps:
       - name: Checkout code
@@ -37,6 +31,14 @@ jobs:
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
+          # Isolate this job's gcloud credential state in a per-job config dir
+          # instead of relying on ambient runner gcloud state (self-hosted,
+          # non-ephemeral runner shared with deploy.yaml / deploy-agents.yml).
+          # Uses $RUNNER_TEMP (the `runner.temp` expression is not available in
+          # job env) and exports the path to $GITHUB_ENV so later steps and
+          # cleanup inherit it.
+          export CLOUDSDK_CONFIG="$RUNNER_TEMP/gcloud-build-and-push"
+          echo "CLOUDSDK_CONFIG=$CLOUDSDK_CONFIG" >> "$GITHUB_ENV"
           mkdir -p "$CLOUDSDK_CONFIG"
           echo "$GCP_SA_KEY" > "$CLOUDSDK_CONFIG/account.json"
           gcloud auth activate-service-account --key-file="$CLOUDSDK_CONFIG/account.json"

@@ -113,7 +113,20 @@ resource "google_storage_bucket" "agent_engine_staging" {
   name                        = "${var.project_id}-agent-engine-staging"
   location                    = var.region
   uniform_bucket_level_access = true
-  force_destroy               = false
+  # Block any public ACL/IAM grant on this bucket at the resource level, not just
+  # via org policy (satisfies checkov CKV_GCP_114). It only ever holds transient
+  # deploy archives, which must never be publicly reachable.
+  public_access_prevention = "enforced"
+  force_destroy            = false
+
+  # checkov:skip=CKV_GCP_62: Access logging intentionally disabled. This is a
+  #   transient staging bucket holding only ephemeral deploy code archives that
+  #   the 30-day lifecycle rule below deletes; per-request access logs add cost
+  #   and a second log bucket with no security value for non-durable artifacts.
+  # checkov:skip=CKV_GCP_78: Object versioning intentionally disabled. The
+  #   objects are write-once, single-use staging archives (re-uploaded on every
+  #   deploy); versioning would only retain superseded archives and fight the
+  #   lifecycle cleanup, again with no security benefit.
   # 30-day cleanup of the transient code archives deploy.py uploads. No prefix
   # filter: the Agent Engine SDK's staging object path is not a stable public
   # contract, so a guessed prefix could silently match nothing and disable the

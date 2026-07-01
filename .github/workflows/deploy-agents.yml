@@ -42,14 +42,6 @@ jobs:
     env:
       ENVIRONMENT: ${{ github.event.inputs.environment || 'npe' }}
       GOOGLE_CLOUD_LOCATION: us-central1
-      # Isolate this job's gcloud state in a per-job config dir instead of the
-      # shared ~/.config/gcloud. The runner is self-hosted (non-ephemeral) and
-      # shared with build-and-push.yml / deploy.yaml; activating the deployer SA
-      # into the global store would leak it between jobs, and a global
-      # `gcloud auth revoke --all` cleanup would nuke those other workflows'
-      # credentials. A private CLOUDSDK_CONFIG we rm -rf at the end contains
-      # both the activated credential and the key file to this job alone.
-      CLOUDSDK_CONFIG: ${{ runner.temp }}/gcloud-deploy-agents
     steps:
       - uses: actions/checkout@v4
 
@@ -57,7 +49,17 @@ jobs:
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
-          echo "GOOGLE_CLOUD_PROJECT=agro-extension-digital-${ENVIRONMENT}" >> $GITHUB_ENV
+          # Isolate this job's gcloud state in a per-job config dir instead of
+          # the shared ~/.config/gcloud. The runner is self-hosted
+          # (non-ephemeral) and shared with build-and-push.yml / deploy.yaml;
+          # activating the deployer SA into the global store would leak it
+          # between jobs. This private CLOUDSDK_CONFIG holds both the activated
+          # credential and the key file, and is rm -rf'd at the end. $RUNNER_TEMP
+          # (not the `runner.temp` expression, which isn't available in job env)
+          # is exported to $GITHUB_ENV so later steps and cleanup inherit it.
+          export CLOUDSDK_CONFIG="$RUNNER_TEMP/gcloud-deploy-agents"
+          echo "CLOUDSDK_CONFIG=$CLOUDSDK_CONFIG" >> "$GITHUB_ENV"
+          echo "GOOGLE_CLOUD_PROJECT=agro-extension-digital-${ENVIRONMENT}" >> "$GITHUB_ENV"
           mkdir -p "$CLOUDSDK_CONFIG"
           echo "$GCP_SA_KEY" > "$CLOUDSDK_CONFIG/account.json"
           gcloud auth activate-service-account --key-file="$CLOUDSDK_CONFIG/account.json"
