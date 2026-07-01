@@ -41,7 +41,7 @@ AGENTS = {
     "agent_pp": {
         "module_path": "agent_pp_app",
         "app_module": "agent_pp_app.agent_engine_app",
-        "display_name": "Planificación de Producción",
+        "display_name": "Producción Primaria",
         "secret_id": "engine-pp-resource-name",
     },
 }
@@ -74,13 +74,15 @@ TELEMETRY_ENV = {
 STATIC_ENV = {"GOOGLE_GENAI_USE_VERTEXAI": "true"}
 
 
-def env_vars_for(agent_key: str, project: Optional[str] = None) -> dict[str, str]:
+def env_vars_for(agent_key: str) -> dict[str, str]:
+    # Do NOT set GOOGLE_CLOUD_PROJECT / GOOGLE_CLOUD_LOCATION here: Agent Engine
+    # reserves those names and rejects create() if they appear in
+    # deployment_spec.env ("Environment variable name '...' is reserved"). The
+    # runtime injects them automatically — which is exactly what tools.py /
+    # llm_global.py read via os.environ at runtime. (An earlier change shipped
+    # GOOGLE_CLOUD_PROJECT explicitly; that broke real deploys, so it's gone.)
     base = {k: os.environ[k] for k in RUNTIME_ENV_KEYS}
-    # Ship GOOGLE_CLOUD_PROJECT explicitly: tools.py / llm_global.py read it at
-    # runtime, and we don't want the engine to depend on implicit injection.
-    project = project or os.environ.get("GOOGLE_CLOUD_PROJECT")
-    project_env = {"GOOGLE_CLOUD_PROJECT": project} if project else {}
-    return base | project_env | STATIC_ENV | TELEMETRY_ENV
+    return base | STATIC_ENV | TELEMETRY_ENV
 
 
 def read_secret(project: str, secret_id: str) -> Optional[str]:
@@ -93,7 +95,11 @@ def read_secret(project: str, secret_id: str) -> Optional[str]:
     name = f"projects/{project}/secrets/{secret_id}/versions/latest"
     try:
         resp = client.access_secret_version(request={"name": name})
-    except gax.NotFound:
+    except (gax.NotFound, gax.FailedPrecondition):
+        # NotFound: secret or version absent. FailedPrecondition: the latest
+        # version is DISABLED/DESTROYED — e.g. an operator disabled it to force
+        # a clean redeploy (see the rollback runbook). Both mean "no engine to
+        # update" → the caller recreates.
         return None
     return resp.payload.data.decode()
 
@@ -121,8 +127,8 @@ def write_secret(project: str, secret_id: str, value: str) -> None:
             )
             if latest.payload.data.decode() == value:
                 return
-        except gax.NotFound:
-            pass  # secret exists but has no accessible version yet
+        except (gax.NotFound, gax.FailedPrecondition):
+            pass  # no accessible version yet (absent, or latest disabled/destroyed)
     client.add_secret_version(
         request={"parent": name, "payload": {"data": value.encode()}}
     )
@@ -135,7 +141,7 @@ def deploy_one(key: str, cfg: dict, project: str, sa: str) -> None:
         requirements=REQUIREMENTS,
         extra_packages=[cfg["module_path"]],
         display_name=cfg["display_name"],
-        env_vars=env_vars_for(key, project),
+        env_vars=env_vars_for(key),
         service_account=sa,
         min_instances=0,
         max_instances=3,

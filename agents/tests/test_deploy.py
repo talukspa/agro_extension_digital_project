@@ -59,8 +59,10 @@ def test_env_vars_for_raises_when_required_key_missing(monkeypatch):
         deploy.env_vars_for("agent_aa")
 
 
-def test_env_vars_for_ships_google_cloud_project(monkeypatch):
-    """GOOGLE_CLOUD_PROJECT must be shipped explicitly to the engine env."""
+def test_env_vars_for_omits_reserved_project_var(monkeypatch):
+    """GOOGLE_CLOUD_PROJECT / _LOCATION are reserved by Agent Engine and must
+    NOT be shipped in deployment_spec.env — create() rejects them. The runtime
+    injects them automatically."""
     import deploy
     for k, v in {
         "DATASTORE_AA_ID": "ds-aa",
@@ -71,8 +73,10 @@ def test_env_vars_for_ships_google_cloud_project(monkeypatch):
         "BIGQUERY_DATASET": "ds-bq",
     }.items():
         monkeypatch.setenv(k, v)
-    env = deploy.env_vars_for("agent_aa", "agro-extension-digital-npe")
-    assert env["GOOGLE_CLOUD_PROJECT"] == "agro-extension-digital-npe"
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "agro-extension-digital-npe")
+    env = deploy.env_vars_for("agent_aa")
+    assert "GOOGLE_CLOUD_PROJECT" not in env
+    assert "GOOGLE_CLOUD_LOCATION" not in env
 
 
 # Idempotency is now keyed off the resource name stored in Secret Manager
@@ -102,6 +106,22 @@ def test_read_secret_returns_none_when_secret_missing(monkeypatch):
         deploy.secretmanager, "SecretManagerServiceClient", lambda: fake_client
     )
     assert deploy.read_secret("proj", "missing") is None
+
+
+def test_read_secret_returns_none_when_latest_version_disabled(monkeypatch):
+    # An operator may disable the latest engine-name secret version to force a
+    # clean redeploy (see the rollback runbook). access_secret_version then
+    # raises FailedPrecondition, not NotFound — read_secret must still return
+    # None so deploy_one recreates instead of crashing.
+    import deploy
+    fake_client = MagicMock()
+    fake_client.access_secret_version.side_effect = deploy.gax.FailedPrecondition(
+        "version is in DISABLED state"
+    )
+    monkeypatch.setattr(
+        deploy.secretmanager, "SecretManagerServiceClient", lambda: fake_client
+    )
+    assert deploy.read_secret("proj", "engine-aa-resource-name") is None
 
 
 # ---------------------------------------------------------------------------

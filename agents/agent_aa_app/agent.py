@@ -19,13 +19,33 @@ from agent_aa_app.prompts import (
     text2sql_instruction,
 )
 
-vertex_search_tool_aa = VertexAiSearchTool(data_store_id=os.getenv("DATASTORE_AA_ID"))
-vertex_search_tool_guides = VertexAiSearchTool(
-    data_store_id=os.getenv("DATASTORE_GUIDES_ID")
+def _datastore(short_id: str) -> str:
+    """Build the full Vertex AI Search datastore resource name.
+
+    ADK's VertexAiSearchTool requires the full resource name, not the bare id;
+    passing just the id makes the engine's GenerateContent call fail with
+    "Invalid Vertex AI datastore resource name". The datastores live in the
+    `global` location under the default collection; GOOGLE_CLOUD_PROJECT is
+    injected by Agent Engine at runtime.
+    """
+    project = os.environ["GOOGLE_CLOUD_PROJECT"]
+    return (
+        f"projects/{project}/locations/global/collections/"
+        f"default_collection/dataStores/{short_id}"
+    )
+
+
+vertex_search_tool_aa = VertexAiSearchTool(
+    data_store_id=_datastore(os.environ["DATASTORE_AA_ID"])
 )
-vertex_search_tool_faq = VertexAiSearchTool(data_store_id=os.getenv("DATASTORE_FAQ_ID"))
+vertex_search_tool_guides = VertexAiSearchTool(
+    data_store_id=_datastore(os.environ["DATASTORE_GUIDES_ID"])
+)
+vertex_search_tool_faq = VertexAiSearchTool(
+    data_store_id=_datastore(os.environ["DATASTORE_FAQ_ID"])
+)
 vertex_search_tool_chileprunes_cl = VertexAiSearchTool(
-    data_store_id=os.getenv("DATASTORE_CHILEPRUNES_CL_ID")
+    data_store_id=_datastore(os.environ["DATASTORE_CHILEPRUNES_CL_ID"])
 )
 
 aa_agent_rag = LlmAgent(
