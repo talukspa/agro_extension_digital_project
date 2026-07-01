@@ -47,6 +47,10 @@ variable "enable_daily_backup" {
   default     = true
 }
 
+# Kept as a validated input contract: both database stacks pass `environment`
+# and the validation fails fast on anything but dev/prd. No resource references
+# it directly, so tflint flags it as unused — that's expected here.
+# tflint-ignore: terraform_unused_declarations
 variable "environment" {
   description = "Ambiente de deployment (dev, prd)"
   type        = string

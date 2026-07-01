@@ -87,8 +87,18 @@ jobs:
           python-version: "3.12"
       - name: checkov
         run: |
-          pip install --quiet checkov
+          pip install --quiet checkov==3.3.6
           checkov --config-file .checkov.yaml
+
+  tflint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: terraform-linters/setup-tflint@v4
+      - name: tflint
+        run: |
+          tflint --init --chdir=cicd
+          tflint --chdir=cicd --recursive
 
   actionlint:
     runs-on: ubuntu-latest

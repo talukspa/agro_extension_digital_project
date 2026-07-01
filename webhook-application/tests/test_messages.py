@@ -207,8 +207,8 @@ async def test_background_task_exception_is_logged_via_done_callback(caplog):
         await asyncio.sleep(0)
 
     assert "Background webhook processing failed" in caplog.text
-    # Task should have been discarded from the retention set.
-    assert all(not t for t in ()) or len(messages._background_tasks) == 0
+    # The done-callback must discard the finished task from the retention set.
+    assert len(messages._background_tasks) == 0
 
 
 @pytest.mark.asyncio

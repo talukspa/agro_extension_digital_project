@@ -21,7 +21,17 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['src/**'],
+      // The legacy app is largely untested, so global coverage is intentionally
+      // NOT gated (a global floor would be meaningless or block every PR).
+      // Instead gate the security-critical auth gate so it cannot regress.
+      // Raise/extend these as more of the app gets covered.
+      thresholds: {
+        'src/components/ProtectedRoute.tsx': {
+          statements: 85,
+          branches: 85,
+          lines: 85,
+        },
+      },
     },
   },
 });
