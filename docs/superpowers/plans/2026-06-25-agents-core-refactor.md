@@ -46,6 +46,15 @@ PR-C  planner + RAG quality (eval harness first/parallel)
 
 `deploy.py:find_existing()` matches an existing engine by `display_name`. This plan corrects PP's display name from `"Planificación de Producción"` to `"Producción Primaria"` (matches `cicd/stacks/dev/env.yaml:38` → `produccion-primaria`). Consequence: the first PR-A deploy will **not** match the existing PP engine and will **create a new PP engine** (new resource name → `write_secret` rewrites `engine-pp-resource-name` → the webhook's `get_engine` follows the new resource name on its next call). This is a clean cutover, but it leaves the **old PP engine orphaned**. Task 14 deletes it after soak. AA's display name is unchanged, so AA updates in place. This behavior is documented in Task 11 and gated in Task 13.
 
+### Update (2026-07-01) — validated by the #43 live `npe` deploy
+
+Since this plan was written, **#43 replaced `find_existing()`**: `deploy.py` now keys idempotency off the **stored engine resource name** (the `engine-{aa,pp}-resource-name` Secret Manager value), not `display_name`. A full deploy + direct-query test in `npe` confirmed the real behavior and surfaced three fixes PR-A must carry forward (each is landed in #43; do not regress them):
+
+- **The PP rename no longer orphans an engine.** With resource-name keying, changing `display_name` reads the stored resource name, `agent_engines.get()`s it, and calls `.update(display_name=…)` → the PP engine renames **in place** (verified live: the redeploy updated PP's display name with no new engine created). **The `find_existing`/`display_name` hazard above is superseded** — Task 14's orphan cleanup now only applies to engines left over from *before* #43, and Task 13's gating for a "new PP engine" is no longer triggered by the rename alone.
+- **`deploy.py` must treat a DISABLED engine-name secret version as "no engine".** `access_secret_version` raises `FailedPrecondition` (not `NotFound`) when the latest version is disabled/destroyed — a documented rollback step. `read_secret`/`write_secret` must catch **both**, or the deploy crashes mid-run. (Fixed in #43; PR-A's `deploy.py` edits — Task 6 — must preserve it.)
+- **Never put `GOOGLE_CLOUD_PROJECT` / `GOOGLE_CLOUD_LOCATION` in the engine `env_vars`.** Agent Engine reserves those names and rejects `create()` with `"Environment variable name '…' is reserved"`. The runtime injects them; the code reads them via `os.environ`. (Fixed in #43 by dropping them from `env_vars_for`; PR-A must not reintroduce.)
+- **`core/agent.py:build_app` must pass the FULL datastore resource name to `VertexAiSearchTool`**, not the bare id — `projects/{project}/locations/global/collections/default_collection/dataStores/{id}`. The bare id makes every RAG query fail server-side with `"Invalid Vertex AI datastore resource name"` (root-caused via Cloud Logging in the #43 live test; all five dev datastores are in the `global` location). **This is the highest-risk carry-forward** because PR-A rewrites the search-tool construction (Task 4) — build the full path there, with a unit test asserting the format.
+
 ---
 
 ## File Map
@@ -1178,6 +1187,46 @@ RN=<old-pp-resource-name>
 python -c "import vertexai;from vertexai import agent_engines;vertexai.init(project='agro-extension-digital-<env>',location='us-central1');agent_engines.get('$RN').delete(force=True)"
 ```
 Expected: only the stale engine is removed; the active one (`"Producción Primaria"`) stays.
+
+---
+
+## Conversation compaction (added 2026-07-01)
+
+**Problem.** Each `wa_id` maps to one long-lived Agent Runtime Session (`session_id == wa_id`, the get-or-create pattern from #43). Every WhatsApp turn appends events, and the full history is re-sent to Gemini on each query. Over a long user relationship this inflates token cost and per-turn latency and erodes answer quality ("lost in the middle" / context rot). The #43 live test already shows a single PP turn reaching ~42s when it fans out to RAG + BigQuery; unbounded history growth compounds that. Compaction is short-term **working-memory** hygiene — distinct from Memory Bank long-term curation (deferred to PR-C), so it can land independently.
+
+**Native mechanism (recommended): ADK Context Compaction.** ADK ≥1.16 (we run 1.35) ships `EventsCompactionConfig`. It runs **asynchronously** in the Runner, LLM-summarizes older events over a sliding window, and writes the summary back into the Session as a new event — transparent to the webhook's `send_to_agent` (it still just streams the final answer). Two trigger strategies; **token-based wins if both are set**:
+
+```python
+# NOTE: verify the exact import paths + AdkApp threading on ADK 1.35 before coding.
+from google.adk.apps import App, EventsCompactionConfig
+
+App(
+    name=name,
+    root_agent=root_agent,
+    events_compaction_config=EventsCompactionConfig(
+        # token-based (primary): compact once the session crosses the budget,
+        # keep the most recent turns raw.
+        token_threshold=int(os.getenv("COMPACTION_TOKEN_THRESHOLD", "32000")),
+        event_retention_size=int(os.getenv("COMPACTION_RETENTION", "6")),
+        # sliding-window fallback (turn-based):
+        compaction_interval=int(os.getenv("COMPACTION_INTERVAL", "20")),
+        overlap_size=2,  # carry 2 prior-summary events for continuity
+    ),
+)
+```
+
+Summarization uses `LlmEventSummarizer` (a Gemini model, `prompt_template` customizable). Point it at a cheap model (e.g. a flash-lite) so compaction never dominates turn latency. Env knobs mirror the `BQ_MAX_BYTES` per-engine-override pattern already in this plan.
+
+**Open questions — verify before committing (do not assume):**
+- **AdkApp threading.** We deploy via `vertexai.agent_engines.AdkApp(agent=root_agent)` in `build_app`, not the bare ADK `App`. Confirm how `events_compaction_config` reaches the running app — it may need to be passed through `AdkApp`, set on the `App` that `AdkApp` wraps, or configured on the agent. This is the main unknown and gates whether compaction fits cleanly in `build_app`.
+- **One owner only.** Agent Engine managed Sessions ALSO offer platform-side periodic Gemini summarization. Running both double-summarizes and wastes tokens. Pick one — prefer the **ADK-level `EventsCompactionConfig`** for explicit, testable, in-repo control unless the Agent-Engine-level path is strictly required.
+- **Managed-session compatibility.** Confirm the summary events ADK writes are accepted/rendered correctly by Agent Runtime managed Sessions (they store `SessionEvents`); a deployed check is the only real proof.
+
+**Scope call.** Small, localized to `build_app` (one config object + one env-driven test). Options: **(a)** fold into PR-A's `build_app` if the AdkApp threading is clean; **(b)** ship as its own small PR after PR-A's deploy soaks. Recommend **(a)** unless the threading turns out non-trivial, then **(b)**.
+
+**Test:**
+- Unit: `build_app(...)` attaches an `EventsCompactionConfig` with the env-derived thresholds (assert the object + values).
+- Deployed (extend Task 11): drive N synthetic turns against the npe engine, then assert a **summary event appears** in the session and answers stay coherent across the compaction boundary.
 
 ---
 
