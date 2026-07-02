@@ -35,7 +35,7 @@ PR-C  planner + RAG quality (eval harness first/parallel)
 
 | #44 proposed | This plan does | Why |
 |---|---|---|
-| Rename packages to `adecuacion_agroindustrial` / `produccion_primaria` | **Keep `agent_aa_app` / `agent_pp_app` dir names** | Smaller blast radius: `deploy.py` keys, secret IDs (`engine-aa-…`), runtime SA emails, and the webhook router stay untouched; preserves `find_existing` idempotency for AA. Rename can be a trivial later PR. |
+| Rename packages to `adecuacion_agroindustrial` / `produccion_primaria` | **Keep `agent_aa_app` / `agent_pp_app` dir names** | Smaller blast radius: `deploy.py` keys, secret IDs (`engine-aa-…`), runtime SA emails, and the webhook router stay untouched; keeps the `engine-{aa,pp}-resource-name` secret-keyed idempotency (#43) stable. Rename can be a trivial later PR. |
 | BQ tools raise, then harden in a later commit | **Tools return `{ok, error, …}` from the start** | DRY — no reason to build raising tools then rewrite them in the same PR. |
 | `BQ_MAX_BYTES` default 100 MB | **Default 1 GB** (`BQ_MAX_BYTES`, per-engine env override) | Rodrigo Q4: 100 MB is a foot-gun for legitimate analytic queries; keep it as a safety net, not a target. |
 | Drop WhatsApp formatting from prompts entirely | **Keep one belt-and-suspenders plain-text line in the shared prompt** AND a deterministic sanitizer | Rodrigo V5: sanitizer can't cover every Markdown construct; a one-line prompt hint is cheap insurance. |
@@ -529,7 +529,7 @@ git commit -m "refactor(agents): relocate prompts to core/, extract shared rules
 **Files:**
 - Create: `agents/core/agent.py`, `agents/tests/test_core_agent.py`
 
-`build_app` constructs the RAG sub-agent (Vertex AI Search, unchanged from today), the BQ sub-agent (now an ordinary `LlmAgent` with the four function tools — no more `LangGraphAgent`), the root supervisor, and wraps the root in an `AdkApp`. `main_datastore_env` is the per-agent datastore env var name (`DATASTORE_AA_ID` or `DATASTORE_PP_ID`); the guides/faq/chileprunes datastores are shared.
+`build_app` constructs the RAG sub-agent (Vertex AI Search — but the datastore MUST be the full resource name via `_datastore`, not the bare id today's code passes; see the 2026-07-01 update above), the BQ sub-agent (now an ordinary `LlmAgent` with the four function tools — no more `LangGraphAgent`), the root supervisor, and wraps the root in an `AdkApp`. `main_datastore_env` is the per-agent datastore env var name (`DATASTORE_AA_ID` or `DATASTORE_PP_ID`); the guides/faq/chileprunes datastores are shared.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -571,6 +571,15 @@ def test_bq_subagent_uses_four_function_tools():
     bq = next(t.agent for t in app.agent.tools if t.agent.name == "aa_agent_bq")
     fn_names = {t.func.__name__ for t in bq.tools}
     assert fn_names == {"list_tables", "get_schema", "check_query", "run_query"}
+
+
+def test_datastore_builds_full_resource_name():
+    # Regression guard for the #43 live-deploy bug: the bare id breaks all RAG.
+    from core.agent import _datastore
+    assert _datastore("0001-example_123") == (
+        "projects/test-project/locations/global/collections/"
+        "default_collection/dataStores/0001-example_123"
+    )
 ```
 
 - [ ] **Step 2: Run — should fail with `ModuleNotFoundError: No module named 'core.agent'`**
@@ -603,6 +612,19 @@ def _prefix(name: str) -> str:
     return "agent_" + name.split("_", 1)[0]
 
 
+def _datastore(short_id: str) -> str:
+    # VertexAiSearchTool needs the FULL datastore resource name, NOT the bare id.
+    # Passing the bare id makes every RAG query fail server-side with
+    # "Invalid Vertex AI datastore resource name" (root-caused via Cloud Logging
+    # in the #43 npe live test; all datastores live in the `global` location).
+    # GOOGLE_CLOUD_PROJECT is injected by Agent Engine at runtime.
+    project = os.environ["GOOGLE_CLOUD_PROJECT"]
+    return (
+        f"projects/{project}/locations/global/collections/"
+        f"default_collection/dataStores/{short_id}"
+    )
+
+
 def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
     key = _prefix(name)
 
@@ -612,10 +634,10 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
         instruction=prompts.rag_instruction(key),
         description=prompts.rag_description(key),
         tools=[
-            VertexAiSearchTool(data_store_id=os.getenv(main_datastore_env)),
-            VertexAiSearchTool(data_store_id=os.getenv("DATASTORE_GUIDES_ID")),
-            VertexAiSearchTool(data_store_id=os.getenv("DATASTORE_FAQ_ID")),
-            VertexAiSearchTool(data_store_id=os.getenv("DATASTORE_CHILEPRUNES_CL_ID")),
+            VertexAiSearchTool(data_store_id=_datastore(os.environ[main_datastore_env])),
+            VertexAiSearchTool(data_store_id=_datastore(os.environ["DATASTORE_GUIDES_ID"])),
+            VertexAiSearchTool(data_store_id=_datastore(os.environ["DATASTORE_FAQ_ID"])),
+            VertexAiSearchTool(data_store_id=_datastore(os.environ["DATASTORE_CHILEPRUNES_CL_ID"])),
         ],
     )
 
@@ -649,7 +671,7 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
 - [ ] **Step 4: Run the tests — should pass**
 
 Run: `cd agents && uv run --group dev pytest tests/test_core_agent.py -v`
-Expected: 3 tests PASS.
+Expected: 4 tests PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -738,6 +760,8 @@ REQUIREMENTS = [
 ]
 ```
 (Removed: `langchain-community`, `langchain-google-vertexai`, `langgraph`, `sqlalchemy-bigquery`, `google-cloud-bigquery-storage`.)
+
+> **Pin these to the regenerated `uv.lock` versions (`==`), not `>=` ranges.** #43 pinned `REQUIREMENTS` for reproducible engine builds (Rodrigo's REQUIREMENTS-drift finding); shipping `>=` to the engine lets a new upstream release change what the deployed engine runs vs. what the tests ran against. After Task 7 regenerates the lock, copy the resolved versions here. Also do **not** touch `read_secret`/`write_secret` (DISABLED-version handling) or `env_vars_for` (must not ship the reserved `GOOGLE_CLOUD_PROJECT`) — both landed in #43; see the 2026-07-01 update.
 
 - [ ] **Step 2: Ship `core` with every engine + fix the PP display name**
 
@@ -1070,10 +1094,10 @@ gh pr create --draft --title "refactor(agents): shared core/ + native BQ tools +
 - ADK pin UNCHANGED at >=1.35.0,<2.0.0 (2.x bump is the next PR)
 
 ## Migration note
-Changing PP's display_name means the first deploy CREATES A NEW PP engine (find_existing matches by display_name). The secret rewrite points the webhook at it; the old PP engine is orphaned and deleted after soak (see plan Task 14). AA updates in place.
+Since #43, deploy.py keys idempotency off the stored engine resource name (not display_name / find_existing), so changing PP's display_name UPDATES the existing PP engine in place (same id) — no new engine, no orphan. Both AA and PP update in place. Verified in the #43 npe live deploy.
 
 ## Test plan
-- [x] agents: bq_tools (8), core_agent (3), shim (2), deploy — all green
+- [x] agents: bq_tools (8), core_agent (4), shim (2), deploy — all green
 - [x] webhook: whatsapp_format (10) + existing suite — green
 - [ ] npe deploy + DEPLOYED-engine smoke (verifies extra_packages ships core/)
 - [ ] 24h npe soak, error rate near-zero
@@ -1094,7 +1118,7 @@ EOF
 
 Run: `gh workflow run deploy-agents.yml --ref feature/agents-core-refactor -f environment=npe`
 Then watch: `gh run watch $(gh run list --workflow=deploy-agents.yml --limit=1 --json databaseId -q '.[0].databaseId')`
-Expected: success. The final step prints two `reasoningEngines/<id>` lines. The PP line will be a **new** engine id (display-name change → create, not update).
+Expected: success. The final step prints two `reasoningEngines/<id>` lines. Per #43's resource-name keying, the PP display-name change **updates the existing PP engine in place** (same id) — it does **not** create a new engine (see the 2026-07-01 update above; verified live). Both AA and PP update in place.
 
 - [ ] **Step 2: Confirm the secrets were rewritten**
 
@@ -1159,13 +1183,15 @@ Expected: zero / near-zero. Investigate any pattern before promoting.
 
 - [ ] **Step 3: Deploy to prd** (only after review approval):
 Run: `gh workflow run deploy-agents.yml --ref feature/agents-core-refactor -f environment=prd`
-Then repeat Task 11 steps 2–4 against `agro-extension-digital-prd`. The prd PP engine will likewise be newly created (display-name change).
+Then repeat Task 11 steps 2–4 against `agro-extension-digital-prd`. The prd PP engine likewise **updates in place** (same id) — the display-name change no longer creates a new engine (#43 resource-name keying).
 
 - [ ] **Step 4:** Watch prd error rate + latency for 2h. Then merge the PR to `main`.
 
 ### Task 14: Delete the orphaned old PP engines (post-merge cleanup)
 
 **Files:** none.
+
+> **Likely a no-op post-#43.** With resource-name keying, the PR-A deploy updates the existing PP engine in place — it does **not** create a new one — so the display-name rename produces no orphan. Run this task ONLY if a stale engine named `"Planificación de Producción"` actually exists in an env from a *pre-#43* (find_existing-era) deploy; otherwise skip. Confirm with the list command below before deleting anything.
 
 - [ ] **Step 1:** After prd has been green for a soak window, list engines per env and identify the stale PP engine (display_name `"Planificación de Producción"`, no longer referenced by `engine-pp-resource-name`):
 ```bash
