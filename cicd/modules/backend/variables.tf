@@ -33,8 +33,14 @@ variable "verify_token" {
   type        = string
 }
 
-variable "whatsapp_app_secret" {
-  description = "Meta App Secret usado para validar la firma X-Hub-Signature-256 de los webhooks entrantes. El webhook rechaza (403) todo POST si no está seteado (fail-closed)."
+variable "whatsapp_app_secret_aa" {
+  description = "Meta App Secret de la app AA, usado para validar la firma X-Hub-Signature-256 de los webhooks AA entrantes. AA y PP son apps de Meta distintas con secrets propios. El webhook rechaza (403) todo POST AA si no está seteado (fail-closed)."
+  type        = string
+  sensitive   = true
+}
+
+variable "whatsapp_app_secret_pp" {
+  description = "Meta App Secret de la app PP, usado para validar la firma X-Hub-Signature-256 de los webhooks PP entrantes. El webhook rechaza (403) todo POST PP si no está seteado (fail-closed)."
   type        = string
   sensitive   = true
 }
