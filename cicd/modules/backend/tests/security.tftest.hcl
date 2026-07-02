@@ -26,6 +26,7 @@ variables {
   estandar_aa_facebook_app                 = "aa-fb"
   estandar_pp_facebook_app                 = "pp-fb"
   verify_token                             = "dummy-verify-token"
+  whatsapp_app_secret                      = "dummy-app-secret"
   service_account_webhook_app              = "webhook-sa"
   service_account_display_name_webhook_app = "Webhook SA"
   estandar_aa_app_name                     = "aa-app"

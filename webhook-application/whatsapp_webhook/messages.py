@@ -93,6 +93,12 @@ async def process_incoming_webhook_payload(body: dict, app_name: str) -> bool:
 
     def _on_done(t: asyncio.Task) -> None:
         _background_tasks.discard(t)
+        # A cancelled task (e.g. Cloud Run evicting the worker mid-message)
+        # makes t.exception() itself raise CancelledError out of this
+        # callback, which asyncio then logs as a spurious "Exception in
+        # callback". Cancellation is not a processing failure — skip it.
+        if t.cancelled():
+            return
         exc = t.exception()
         if exc is not None:
             logging.error(

@@ -330,6 +330,8 @@ def test_main_happy_path_deploys_both_agents(monkeypatch):
         "BIGQUERY_DATASET": "bq",
     }.items():
         monkeypatch.setenv(k, v)
+    # The workflow exports GOOGLE_CLOUD_PROJECT matching --env; mirror that.
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "agro-extension-digital-prd")
     monkeypatch.setattr("sys.argv", ["deploy.py", "--env", "prd"])
     init = MagicMock()
     monkeypatch.setattr(deploy.vertexai, "init", init)
@@ -349,3 +351,30 @@ def test_main_happy_path_deploys_both_agents(monkeypatch):
     assert (
         "agent-aa-runtime@agro-extension-digital-prd.iam.gserviceaccount.com" in sas
     )
+
+
+def test_main_aborts_when_project_env_mismatches_target(monkeypatch):
+    """A manual run whose GOOGLE_CLOUD_PROJECT disagrees with --env must abort
+    before any deploy — the agent modules bake datastore/RAG paths from that
+    env var, so a mismatch would ship a cross-project engine."""
+    import deploy
+    for k, v in {
+        "DATASTORE_AA_ID": "a", "DATASTORE_PP_ID": "b", "DATASTORE_GUIDES_ID": "c",
+        "DATASTORE_FAQ_ID": "d", "DATASTORE_CHILEPRUNES_CL_ID": "e",
+        "BIGQUERY_DATASET": "bq",
+    }.items():
+        monkeypatch.setenv(k, v)
+    # Target prd, but the environment still points at npe.
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "agro-extension-digital-npe")
+    monkeypatch.setattr("sys.argv", ["deploy.py", "--env", "prd"])
+    init = MagicMock()
+    monkeypatch.setattr(deploy.vertexai, "init", init)
+    deploy_one = MagicMock()
+    monkeypatch.setattr(deploy, "deploy_one", deploy_one)
+
+    with pytest.raises(SystemExit) as exc:
+        deploy.main()
+
+    assert "does not match" in str(exc.value)
+    init.assert_not_called()
+    deploy_one.assert_not_called()

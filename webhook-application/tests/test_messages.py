@@ -212,6 +212,34 @@ async def test_background_task_exception_is_logged_via_done_callback(caplog):
 
 
 @pytest.mark.asyncio
+async def test_cancelled_background_task_does_not_raise_in_callback(caplog):
+    """Cancellation (e.g. Cloud Run evicting the worker) is not a processing
+    failure: the done-callback must skip it, not call t.exception() and let a
+    CancelledError escape into asyncio's 'Exception in callback' handler."""
+    started = asyncio.Event()
+
+    async def _hang(body, app_name):
+        started.set()
+        await asyncio.Event().wait()  # never completes until cancelled
+
+    with patch.object(messages, "_process_webhook_in_background", _hang), \
+         caplog.at_level("ERROR"):
+        await messages.process_incoming_webhook_payload({"entry": []}, AA)
+        await started.wait()
+        (task,) = tuple(messages._background_tasks)
+        task.cancel()
+        # Let cancellation propagate and the done-callback settle.
+        for _ in range(4):
+            await asyncio.sleep(0)
+
+    assert "Exception in callback" not in caplog.text
+    assert "CancelledError" not in caplog.text
+    assert "Background webhook processing failed" not in caplog.text
+    # The callback still discards the task from the retention set.
+    assert len(messages._background_tasks) == 0
+
+
+@pytest.mark.asyncio
 async def test_process_webhook_in_background_parses_and_dispatches():
     payload = {
         "object": "whatsapp_business_account",

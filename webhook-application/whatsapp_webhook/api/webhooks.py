@@ -31,7 +31,10 @@ async def _verify_webhook(app_name: str, params: QueryParams) -> PlainTextRespon
     if (
         mode == "subscribe"
         and token is not None
-        and hmac.compare_digest(token, verify_token)
+        # Compare on bytes: token is attacker-controlled and a non-ASCII value
+        # would make str-operand compare_digest raise TypeError (500) instead
+        # of failing verification cleanly.
+        and hmac.compare_digest(token.encode("utf-8"), verify_token.encode("utf-8"))
     ):
         if not challenge or not challenge.isdigit():
             logger.log_webhook_verification(app_name, mode or "None", False, log_extra)
@@ -65,7 +68,10 @@ def _verify_signature(raw_body: bytes, signature_header: str | None) -> bool:
     expected = "sha256=" + hmac.new(
         app_secret.encode("utf-8"), raw_body, hashlib.sha256
     ).hexdigest()
-    return hmac.compare_digest(expected, signature_header)
+    # Compare on bytes: hmac.compare_digest raises TypeError on str operands
+    # containing non-ASCII, and signature_header is attacker-controlled. On
+    # bytes it stays constant-time and simply returns False for a mismatch.
+    return hmac.compare_digest(expected.encode("utf-8"), signature_header.encode("utf-8"))
 
 
 async def _handle_webhook_post(app_name: str, handler_func, request: Request) -> JSONResponse:
