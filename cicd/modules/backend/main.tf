@@ -49,6 +49,12 @@ resource "google_cloud_run_v2_service" "cloud_run_name_webhook" {
         value = var.verify_token
       }
       env {
+        # Read by the webhook's fail-closed X-Hub-Signature-256 validation
+        # (api/webhooks.py). Must be set or every inbound POST is rejected 403.
+        name  = "WHATSAPP_APP_SECRET"
+        value = var.whatsapp_app_secret
+      }
+      env {
         name  = "ESTANDAR_AA_APP_NAME"
         value = var.estandar_aa_app_name
       }

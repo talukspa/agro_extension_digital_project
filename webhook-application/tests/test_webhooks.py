@@ -81,6 +81,24 @@ def test_signature_over_wrong_secret_returns_403(client):
     assert resp.status_code == 403
 
 
+def test_non_ascii_signature_header_returns_403_not_500(client):
+    """A non-ASCII signature header must fail closed (403), not crash (500).
+
+    hmac.compare_digest raises TypeError on str operands with non-ASCII chars;
+    the header is attacker-controlled, so validation compares on bytes.
+    """
+    body = b'{"entry": []}'
+    # On the wire headers are raw bytes; Starlette decodes them latin-1, so a
+    # byte > 0x7f yields a non-ASCII str (here '\xf1'). Send raw bytes to
+    # exercise that path — a plain str header would be rejected by the client.
+    resp = client.post(
+        "/estandar_aa_webhook",
+        content=body,
+        headers={"X-Hub-Signature-256": b"sha256=\xf1oo-not-ascii"},
+    )
+    assert resp.status_code == 403
+
+
 def test_app_secret_unset_fails_closed_403(client, monkeypatch):
     """No configured app secret must reject every POST (fail-closed)."""
     monkeypatch.setattr(config, "app_secret", None)

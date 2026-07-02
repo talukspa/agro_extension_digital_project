@@ -181,6 +181,21 @@ def main() -> None:
             "Did the 'Load runtime env vars from Secret Manager' step run?"
         )
     project = f"agro-extension-digital-{args.env}"
+    # The agent modules bake their datastore/RAG resource names from
+    # GOOGLE_CLOUD_PROJECT at import time (agent_*_app/agent.py:_datastore),
+    # while the deploy target is derived independently from --env. If the two
+    # disagree we'd ship an engine into `project` whose RAG paths point at a
+    # different project (cross-project leak / PermissionDenied at query time).
+    # Fail fast on a mismatch; otherwise pin the var to the target so a manual
+    # run with it unset can't KeyError on import either.
+    env_project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+    if env_project and env_project != project:
+        raise SystemExit(
+            f"GOOGLE_CLOUD_PROJECT ({env_project!r}) does not match the --env "
+            f"target project ({project!r}). Refusing to deploy an engine whose "
+            "datastore/RAG paths would point at a different project."
+        )
+    os.environ["GOOGLE_CLOUD_PROJECT"] = project
     location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
     bucket = f"gs://{project}-agent-engine-staging"
     vertexai.init(project=project, location=location, staging_bucket=bucket)

@@ -24,6 +24,16 @@ concurrency:
 jobs:
   deploy:
     runs-on: self-hosted
+    # Gate on the GitHub Environment matching the selected stack. Configure
+    # required reviewers on the `prd` environment (Settings → Environments) so
+    # a prod `run-all apply -auto-approve` — which DESTROYS the old agent Cloud
+    # Run service + SA + IAM (the rollback target) and overwrites the live
+    # Firestore ruleset — cannot fire without a human approval. Leave `dev`
+    # ungated for fast iteration. Mirrors deploy-agents.yml.
+    # NOTE: cicd/modules/backend/main.tf requires a manual `terraform state rm`
+    # of the retired resources BEFORE this apply; that step is the reviewer's
+    # responsibility and must not be run from CI.
+    environment: ${{ inputs.environment }}
     env:
       ENVIRONMENT: ${{ inputs.environment }}
     steps:
