@@ -1,0 +1,94 @@
+name: Deploy ADK agents to Agent Runtime
+
+# This workflow reads DATASTORE_*_ID and BIGQUERY_DATASET from Secret Manager.
+# Those secrets are created and populated by `cicd/modules/backend` Terraform
+# (sourced from cicd/stacks/<env>/env.yaml). No manual bootstrap is required.
+#
+# The deployer identity behind `secrets.GCP_SA_KEY` needs several grants to run
+# deploy.py (actAs on the runtime SAs, objectAdmin on the staging bucket,
+# aiplatform.user, secretVersionAdder on the engine-name secrets, secretAccessor
+# on the six runtime-config secrets). These are codified in Terraform: set
+# `cicd.deployer_sa_email` in each env's env.yaml and `cicd/modules/backend`
+# grants them on apply. That one key is the only required step — if it is left
+# unset the bindings are skipped and the grants must be managed out of band.
+#
+# Dispatching to `prd` runs under the `prd` GitHub Environment; configure it
+# with required reviewers in repo settings to gate production deploys.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [npe, prd]
+        required: true
+        default: npe
+  push:
+    branches: [main]
+    paths:
+      - 'agents/**'
+      - '.github/workflows/deploy-agents.yml'
+
+concurrency:
+  group: deploy-agents-${{ github.event.inputs.environment || 'npe' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    # Binds the run to a GitHub Environment (npe/prd). Add required reviewers to
+    # the `prd` environment in repo settings to gate production dispatches.
+    environment: ${{ github.event.inputs.environment || 'npe' }}
+    env:
+      ENVIRONMENT: ${{ github.event.inputs.environment || 'npe' }}
+      GOOGLE_CLOUD_LOCATION: us-central1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Auth + project
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          # Isolate this job's gcloud state in a per-job config dir instead of
+          # the shared ~/.config/gcloud. The runner is self-hosted
+          # (non-ephemeral) and shared with build-and-push.yml / deploy.yaml;
+          # activating the deployer SA into the global store would leak it
+          # between jobs. This private CLOUDSDK_CONFIG holds both the activated
+          # credential and the key file, and is rm -rf'd at the end. $RUNNER_TEMP
+          # (not the `runner.temp` expression, which isn't available in job env)
+          # is exported to $GITHUB_ENV so later steps and cleanup inherit it.
+          export CLOUDSDK_CONFIG="$RUNNER_TEMP/gcloud-deploy-agents"
+          echo "CLOUDSDK_CONFIG=$CLOUDSDK_CONFIG" >> "$GITHUB_ENV"
+          echo "GOOGLE_CLOUD_PROJECT=agro-extension-digital-${ENVIRONMENT}" >> "$GITHUB_ENV"
+          mkdir -p "$CLOUDSDK_CONFIG"
+          echo "$GCP_SA_KEY" > "$CLOUDSDK_CONFIG/account.json"
+          gcloud auth activate-service-account --key-file="$CLOUDSDK_CONFIG/account.json"
+          gcloud config set project agro-extension-digital-${ENVIRONMENT}
+
+      - name: Load runtime env vars from Secret Manager
+        run: |
+          for k in DATASTORE_AA_ID DATASTORE_PP_ID DATASTORE_GUIDES_ID \
+                   DATASTORE_FAQ_ID DATASTORE_CHILEPRUNES_CL_ID BIGQUERY_DATASET; do
+            secret_id="$(echo $k | tr A-Z_ a-z- )"
+            v=$(gcloud secrets versions access latest --secret="$secret_id")
+            echo "$k=$v" >> $GITHUB_ENV
+          done
+
+      - uses: astral-sh/setup-uv@v3
+
+      - name: Install deploy deps
+        working-directory: agents
+        run: uv sync
+
+      - name: Deploy engines (create or update)
+        working-directory: agents
+        run: uv run python deploy.py --env "${ENVIRONMENT}"
+
+      # Self-hosted runners are not ephemeral. Remove the per-job gcloud config
+      # dir, which holds both the activated credential and the key file — this
+      # deactivates the deployer SA and deletes the key without touching the
+      # shared gcloud store other workflows on this runner rely on. Runs even
+      # if the deploy fails.
+      - name: Remove gcloud credentials
+        if: always()
+        run: rm -rf "$CLOUDSDK_CONFIG"

@@ -22,7 +22,7 @@ locals {
   # Cargar configuración base desde archivos yaml
   common_vars = yamldecode(file(find_in_parent_folders("common.yaml")))
   env_vars    = yamldecode(file("../env.yaml"))
-  
+
   # Valores base desde env.yaml (específicos del ambiente)
   project_id  = local.env_vars.project.id
   region      = local.common_vars.gcp.default_region
@@ -34,26 +34,13 @@ inputs = {
   project_id        = local.project_id
   environment       = local.environment
   database_location = local.region
-  
+
   # Configuración específica de PRD (más restrictiva)
-  database_name               = "agro-extension-db"
-  delete_protection_enabled   = true   # En PRD protegemos contra eliminación
-  enable_daily_backup        = true    # Backup automático habilitado
-  backup_retention_days      = 90      # Retención extendida en PRD
-  
-  # Usuarios admin para PRD (agregar emails según necesidad)
-  firestore_admin_users = [
-    # "admin@ciruelacertificada.cl",
-    # "dba@ciruelacertificada.cl"
-  ]
-  
-  # Service accounts que necesitan acceso a Firestore
-  firestore_user_service_accounts = [
-    # Estos se obtienen de otros módulos de Terragrunt
-    # En una implementación real, usarías dependency para obtener los emails
-    # Por ahora los dejamos vacíos y se pueden agregar manualmente
-  ]
-  
+  database_name             = "agro-extension-db"
+  delete_protection_enabled = true # En PRD protegemos contra eliminación
+  enable_daily_backup       = true # Backup automático habilitado
+  backup_retention_days     = 90   # Retención extendida en PRD
+
   # Reglas de seguridad para PRD (más estrictas)
   firestore_security_rules = <<EOF
 rules_version = '2';

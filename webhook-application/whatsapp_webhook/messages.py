@@ -11,11 +11,15 @@ from .external_services.whatsapp_client import (
 from .models.messages import WhatsAppWebhookPayload
 from .transcription import transcribe_audio_file
 from .utils.app_config import config
-from .utils.logging import get_logger
+from .utils.logging import get_logger, mask_pii
 from .utils.model_utils import parse_webhook_payload
 
 if TYPE_CHECKING:
     from .models.messages import WhatsAppMessage
+
+# Retain references to background tasks so they aren't garbage-collected mid-run
+# (asyncio only keeps weak references to running tasks).
+_background_tasks: set[asyncio.Task] = set()
 
 
 async def send_message_to_agent(user: str, app_name: str, session_id: str, message: str) -> str:
@@ -59,7 +63,7 @@ async def _send_whatsapp_acknowledgment(
         await send_whatsapp_message(
             user_wa_id, message, f"{facebook_app_url}/messages", config.wsp_token
         )
-        logger.info(f"Acknowledgment sent successfully to {user_wa_id}")
+        logger.info(f"Acknowledgment sent successfully to {mask_pii(user_wa_id)}")
         return True
     except Exception as e:
         logger.error(f"Failed to send acknowledgment: {e}", exc_info=True)
@@ -84,7 +88,25 @@ async def _process_webhook_in_background(body: dict, app_name: str) -> None:
 async def process_incoming_webhook_payload(body: dict, app_name: str) -> bool:
     """Core logic to process incoming webhook events from WhatsApp."""
     logging.info(f"Received webhook for {app_name} - sending immediate ACK.")
-    asyncio.create_task(_process_webhook_in_background(body, app_name))
+    task = asyncio.create_task(_process_webhook_in_background(body, app_name))
+    _background_tasks.add(task)
+
+    def _on_done(t: asyncio.Task) -> None:
+        _background_tasks.discard(t)
+        # A cancelled task (e.g. Cloud Run evicting the worker mid-message)
+        # makes t.exception() itself raise CancelledError out of this
+        # callback, which asyncio then logs as a spurious "Exception in
+        # callback". Cancellation is not a processing failure — skip it.
+        if t.cancelled():
+            return
+        exc = t.exception()
+        if exc is not None:
+            logging.error(
+                f"Background webhook processing failed for {app_name}: {exc}",
+                exc_info=exc,
+            )
+
+    task.add_done_callback(_on_done)
     return True
 
 async def receive_message_aa(body: dict) -> bool:
@@ -163,5 +185,5 @@ async def handle_audio_message(
     except Exception as e:
         logging.error(f"Error processing audio: {e}", exc_info=True)
         await send_whatsapp_message(
-            phone, create_text_message("Error procesando tu audio."), f"{api_url}/messages", token
+            phone, create_text_message("Error procesando tu audio."), f"{facebook_app_url}/messages", config.wsp_token
         )

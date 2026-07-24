@@ -4,6 +4,7 @@ import React, { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { collection, getDocs, db } from "@/lib/firebase/utils";
 import { useAuth } from "@/lib/contexts/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
 import { USER_TYPE_DISPLAY_NAMES, USER_TYPES } from "@/lib/types/permissions";
@@ -753,7 +754,7 @@ function SurveyContent() {
                   onChange={async (e) => {
                     // Evitar cambios durante guardado
                     if (isSaving) {
-                      console.log('🚫 Cambio de estándar bloqueado - guardado en progreso');
+                      devLog.debug('🚫 Cambio de estándar bloqueado - guardado en progreso');
                       return;
                     }
 
@@ -763,10 +764,10 @@ function SurveyContent() {
                     // Guardar respuestas actuales antes de cambiar estándar
                     if (selected && Object.keys(selectedAnswers).length > 0) {
                       try {
-                        console.log('💾 Guardando respuestas antes de cambiar estándar...');
+                        devLog.debug('💾 Guardando respuestas antes de cambiar estándar...');
                         await saveCurrentState();
                       } catch (error) {
-                        console.warn('⚠️ Error al guardar antes del cambio:', error);
+                        devLog.error('⚠️ Error al guardar antes del cambio:', error);
                       }
                     }
                     
@@ -774,11 +775,11 @@ function SurveyContent() {
                     const selectedStandard = standards.find(std => std.id === targetValue);
                     
                     if (!selectedStandard) {
-                      console.error('❌ Standard not found for ID:', targetValue);
+                      devLog.error('❌ Standard not found for ID:', targetValue);
                       return;
                     }
-                    
-                    console.log('🔄 Cambiando a estándar:', selectedStandard.description);
+
+                    devLog.debug('🔄 Cambiando a estándar:', selectedStandard.description);
                     setSelected(selectedStandard);
                   }}
                   className={`w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent ${
@@ -899,15 +900,20 @@ function SurveyContent() {
 // Componente principal que envuelve SurveyContent en Suspense
 export default function SurveyPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Cargando encuesta...</p>
+    <ProtectedRoute
+      requiredUserTypes={[USER_TYPES.BUSINESS_USER, USER_TYPES.BUSINESS_OWNER, USER_TYPES.ADMIN]}
+      requireApproval={true}
+    >
+      <Suspense fallback={
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Cargando encuesta...</p>
+          </div>
         </div>
-      </div>
-    }>
-      <SurveyContent />
-    </Suspense>
+      }>
+        <SurveyContent />
+      </Suspense>
+    </ProtectedRoute>
   );
 }

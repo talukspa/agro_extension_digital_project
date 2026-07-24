@@ -10,9 +10,11 @@ resource "google_service_account" "frontend_app_sa" {
 
 # IAM roles para el service account del frontend
 resource "google_project_iam_member" "frontend_sa_roles" {
+  # Note: project-level roles/secretmanager.secretAccessor was removed — the
+  # frontend Cloud Run service reads no Secret Manager secrets at runtime (all
+  # its config arrives as plain env vars set by Terraform).
   for_each = toset([
     "roles/storage.objectViewer",
-    "roles/secretmanager.secretAccessor",
     "roles/logging.logWriter",
     "roles/monitoring.metricWriter",
     "roles/cloudtrace.agent"
@@ -35,10 +37,10 @@ resource "google_cloud_run_v2_service" "frontend_service" {
       "run.googleapis.com/minScale"          = tostring(var.min_scale)
       "run.googleapis.com/startup-cpu-boost" = tostring(var.startup_cpu_boost)
     }
-    
+
     containers {
       image = var.gar_image_location_frontend
-      
+
       # Variables de entorno para Firebase Auth
       env {
         name  = "NODE_ENV"
@@ -86,11 +88,9 @@ resource "google_cloud_run_v2_service" "frontend_service" {
       }
 
       # URLs de los servicios backend
-      env {
-        name  = "NEXT_PUBLIC_AGENT_AA_URL"
-        value = var.agent_aa_service_url
-      }
-
+      # NEXT_PUBLIC_AGENT_AA_URL removed: the AA agent is now a Vertex AI Agent
+      # Engine (no Cloud Run URL). The webhook is the only backend URL the
+      # frontend needs.
       env {
         name  = "NEXT_PUBLIC_WEBHOOK_URL"
         value = var.webhook_service_url
@@ -100,7 +100,7 @@ resource "google_cloud_run_v2_service" "frontend_service" {
         name  = "FIRESTORE_DATABASE_ID"
         value = var.firestore_database_id
       }
-      
+
       resources {
         limits = {
           cpu    = var.cpu_limit
@@ -108,10 +108,10 @@ resource "google_cloud_run_v2_service" "frontend_service" {
         }
         cpu_idle = true
       }
-      
+
       ports {
         container_port = 3000
-        name          = "http1"
+        name           = "http1"
       }
 
       # Health checks
@@ -121,9 +121,9 @@ resource "google_cloud_run_v2_service" "frontend_service" {
           port = 3000
         }
         initial_delay_seconds = 10
-        timeout_seconds      = 5
-        period_seconds       = 10
-        failure_threshold    = 3
+        timeout_seconds       = 5
+        period_seconds        = 10
+        failure_threshold     = 3
       }
 
       liveness_probe {
@@ -132,12 +132,12 @@ resource "google_cloud_run_v2_service" "frontend_service" {
           port = 3000
         }
         initial_delay_seconds = 30
-        timeout_seconds      = 5
-        period_seconds       = 30
-        failure_threshold    = 3
+        timeout_seconds       = 5
+        period_seconds        = 30
+        failure_threshold     = 3
       }
     }
-    
+
     scaling {
       min_instance_count = var.min_scale
       max_instance_count = var.max_scale
@@ -145,7 +145,7 @@ resource "google_cloud_run_v2_service" "frontend_service" {
   }
 
   ingress = "INGRESS_TRAFFIC_ALL"
-  
+
   labels = {
     environment = var.environment
     component   = "frontend"

@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import { getAllBusinesses, requestBusinessAccess, updateUserProfile } from '@/lib/firebase/firestore';
 import { USER_TYPES } from '@/lib/types/permissions';
 import { Business } from '@/lib/types/auth';
 
-export default function JoinBusinessPage() {
+function JoinBusinessContent() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState('');
   const [message, setMessage] = useState('');
@@ -251,5 +252,13 @@ export default function JoinBusinessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function JoinBusinessPage() {
+  return (
+    <ProtectedRoute requireApproval={false}>
+      <JoinBusinessContent />
+    </ProtectedRoute>
   );
 }

@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import { AppLayout } from '@/components/layouts/AppLayout';
 import { Button } from '@/components/ui/Button';
 import { createBusiness, updateUserProfile } from '@/lib/firebase/firestore';
 import { USER_TYPES } from '@/lib/types/permissions';
 
-export default function CreateBusinessPage() {
+function CreateBusinessContent() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -291,5 +292,13 @@ export default function CreateBusinessPage() {
         </form>
       </div>
     </AppLayout>
+  );
+}
+
+export default function CreateBusinessPage() {
+  return (
+    <ProtectedRoute requireApproval={false}>
+      <CreateBusinessContent />
+    </ProtectedRoute>
   );
 }

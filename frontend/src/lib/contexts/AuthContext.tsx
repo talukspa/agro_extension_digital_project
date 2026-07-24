@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
 import { 
@@ -20,6 +20,7 @@ import {
 } from '@/lib/firebase/firestore';
 import { User, Business, UserType, AuthContextType, AuditorProfile } from '@/lib/types/auth';
 import { USER_TYPES } from '@/lib/types/permissions';
+import { devLog } from '@/lib/utils/devLog';
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -32,6 +33,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [userType, setUserType] = useState<UserType | null>(null);
   const [activeBusiness, setActiveBusiness] = useState<Business | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Holds the display name captured during an email/password sign-up so the profile
+  // created by onAuthStateChanged uses it even if Firebase's updateProfile hasn't
+  // propagated to firebaseUser.displayName yet (they race).
+  const pendingDisplayNameRef = useRef<string | null>(null);
 
   // Initialize authentication state listener
   useEffect(() => {
@@ -48,12 +54,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const newUser: Partial<User> = {
               uid: firebaseUser.uid,
               email: firebaseUser.email || '',
-              displayName: firebaseUser.displayName || '',
+              displayName: firebaseUser.displayName || pendingDisplayNameRef.current || '',
               photoURL: firebaseUser.photoURL || undefined,
               status: 'pending',
               isActive: false
             };
             await createUserProfile(newUser);
+            pendingDisplayNameRef.current = null;
             userProfile = await getUserProfile(firebaseUser.uid);
           }
 
@@ -71,22 +78,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
               // Load associated business if user has one and is approved
               if (userProfile.businessProfileId && userProfile.status === 'approved') {
-                console.log('Loading business for user:', { 
-                  businessProfileId: userProfile.businessProfileId, 
-                  status: userProfile.status 
+                devLog.debug('Loading business for user:', {
+                  businessProfileId: userProfile.businessProfileId,
+                  status: userProfile.status
                 });
                 const business = await getBusinessById(userProfile.businessProfileId);
-                console.log('Loaded business:', business);
+                devLog.debug('Loaded business:', business);
                 setActiveBusiness(business);
               } else {
-                console.log('No business to load:', { 
-                  businessProfileId: userProfile.businessProfileId, 
-                  status: userProfile.status 
+                devLog.debug('No business to load:', {
+                  businessProfileId: userProfile.businessProfileId,
+                  status: userProfile.status
                 });
                 setActiveBusiness(null);
               }
             } catch (userTypeError) {
-              console.error('Error loading user type or business data:', userTypeError);
+              devLog.error('Error loading user type or business data:', userTypeError);
               setUserType(null);
               setActiveBusiness(null);
             }
@@ -98,7 +105,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setActiveBusiness(null);
         }
       } catch (error) {
-        console.error('Error during auth state change:', error);
+        devLog.error('Error during auth state change:', error);
         setUser(null);
         setUserType(null);
         setActiveBusiness(null);
@@ -121,12 +128,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const signUp = async (email: string, password: string): Promise<void> => {
+  const signUp = async (email: string, password: string, displayName?: string): Promise<void> => {
     setLoading(true);
+    // Capture the name before creating the account so the profile-creation path in
+    // onAuthStateChanged can use it (firebaseUser.displayName may not be set yet).
+    pendingDisplayNameRef.current = displayName?.trim() || null;
     try {
-      await firebaseSignUp(email, password);
+      await firebaseSignUp(email, password, displayName);
       // User state will be updated by the onAuthStateChanged listener
     } catch (error) {
+      pendingDisplayNameRef.current = null;
       setLoading(false);
       throw error;
     }
@@ -171,7 +182,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('No tienes acceso a esta empresa o tu cuenta no está aprobada');
       }
     } catch (error) {
-      console.error('Error switching business:', error);
+      devLog.error('Error switching business:', error);
       throw error;
     }
   };
@@ -201,7 +212,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       }
     } catch (error) {
-      console.error('Error refreshing user data:', error);
+      devLog.error('Error refreshing user data:', error);
     }
   };
 
@@ -232,7 +243,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       await refreshUserData();
     } catch (error) {
-      console.error('Error requesting business creation:', error);
+      devLog.error('Error requesting business creation:', error);
       throw error;
     }
   };
@@ -264,7 +275,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       await refreshUserData();
     } catch (error) {
-      console.error('Error requesting auditor registration:', error);
+      devLog.error('Error requesting auditor registration:', error);
       throw error;
     }
   };

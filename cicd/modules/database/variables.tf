@@ -30,31 +30,15 @@ variable "backup_retention_days" {
 }
 
 variable "firestore_security_rules" {
-  description = "Reglas de seguridad de Firestore en formato string"
+  description = <<-DESC
+    Firestore security rules (CEL source string). Each stack MUST pass its
+    per-environment RBAC ruleset. Defaults to empty so an omission falls back
+    to the explicit minimal fallback file in the module (a single greppable
+    place) rather than silently deploying a wide-open "any authenticated user"
+    default — that permissive default was the prod-authz footgun this replaces.
+  DESC
   type        = string
-  default     = <<EOF
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Permitir lectura y escritura solo a usuarios autenticados
-    match /{document=**} {
-      allow read, write: if request.auth != null;
-    }
-  }
-}
-EOF
-}
-
-variable "firestore_admin_users" {
-  description = "Lista de usuarios con permisos de administrador en Firestore"
-  type        = list(string)
-  default     = []
-}
-
-variable "firestore_user_service_accounts" {
-  description = "Lista de service accounts con permisos de usuario en Firestore"
-  type        = list(string)
-  default     = []
+  default     = ""
 }
 
 variable "enable_daily_backup" {
@@ -63,6 +47,10 @@ variable "enable_daily_backup" {
   default     = true
 }
 
+# Kept as a validated input contract: both database stacks pass `environment`
+# and the validation fails fast on anything but dev/prd. No resource references
+# it directly, so tflint flags it as unused — that's expected here.
+# tflint-ignore: terraform_unused_declarations
 variable "environment" {
   description = "Ambiente de deployment (dev, prd)"
   type        = string

@@ -2,8 +2,13 @@ name: Build and Push to Google Artifact Registry
 
 on:
   push:
-    branches: [main, feature/*]  # Trigger on pushes to main, feature branches, and release branches
-    tags: ["v*.*.*"]  # Trigger on version tags like v1.2.3
+    branches: [main, feature/*]  # Build on main and feature branches
+    tags: ["v*.*.*"]  # And on version tags like v1.2.3
+
+concurrency:
+  # One in-flight build per ref; a newer push supersedes an older one.
+  group: build-and-push-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -11,67 +16,88 @@ jobs:
 
     env:
       PROJECT_ID: agro-extension-digital-npe
-      GAR_REPO: us-central1-docker.pkg.dev/agro-extension-digital-npe/agents/agent-aa-app
-      GAR_REPO_WEBHOOK: us-central1-docker.pkg.dev/agro-extension-digital-npe/agents/agent-webhook-app
+      # Match the path Cloud Run actually pulls from (per backend Terraform's
+      # gar_image_location_webhook input). Prior value pointed at a separate
+      # `agents/agent-webhook-app` repo, so workflow builds never reached the
+      # live service.
+      GAR_REPO_WEBHOOK: us-central1-docker.pkg.dev/agro-extension-digital-npe/agro-extension-digital/webhook
       GAR_REPO_FRONTEND: us-central1-docker.pkg.dev/agro-extension-digital-npe/agents/agent-frontend-app
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Docker auth for GAR
+      - name: Authenticate to Google Cloud + configure Docker auth for GAR
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
-          gcloud auth configure-docker us-central1-docker.pkg.dev
+          # Isolate this job's gcloud credential state in a per-job config dir
+          # instead of relying on ambient runner gcloud state (self-hosted,
+          # non-ephemeral runner shared with deploy.yaml / deploy-agents.yml).
+          # Uses $RUNNER_TEMP (the `runner.temp` expression is not available in
+          # job env) and exports the path to $GITHUB_ENV so later steps and
+          # cleanup inherit it.
+          export CLOUDSDK_CONFIG="$RUNNER_TEMP/gcloud-build-and-push"
+          echo "CLOUDSDK_CONFIG=$CLOUDSDK_CONFIG" >> "$GITHUB_ENV"
+          mkdir -p "$CLOUDSDK_CONFIG"
+          echo "$GCP_SA_KEY" > "$CLOUDSDK_CONFIG/account.json"
+          gcloud auth activate-service-account --key-file="$CLOUDSDK_CONFIG/account.json"
+          gcloud config set project "$PROJECT_ID"
+          gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
       - name: Get tags
         id: vars
         run: |
           echo "GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
           echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-
-      - name: Build agents Docker image
-        working-directory: agents
-        run: |
-          docker build -t $GAR_REPO:latest \
-                       -t $GAR_REPO:${GIT_SHA} \
-                       $( [[ "$GITHUB_REF" == refs/tags/* ]] && echo "-t $GAR_REPO:${TAG_NAME}" ) .
-
-      - name: Push agents Docker images
-        working-directory: agents
-        run: |
-          docker push $GAR_REPO:latest
-          docker push $GAR_REPO:${GIT_SHA}
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            docker push $GAR_REPO:${TAG_NAME}
+          # Only main and version tags advance the `:latest` moving target that
+          # Cloud Run pulls. Feature branches build + push an immutable :<sha>
+          # for testing but must NOT clobber :latest for everyone.
+          if [[ "$GITHUB_REF" == "refs/heads/main" || "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "PUSH_LATEST=1" >> $GITHUB_ENV
+          else
+            echo "PUSH_LATEST=0" >> $GITHUB_ENV
           fi
-      - name: Build whatapps webhook Docker image
+
+      - name: Build whatsapp webhook Docker image
         working-directory: webhook-application
         run: |
-          docker build -t $GAR_REPO_WEBHOOK:latest \
-                       -t $GAR_REPO_WEBHOOK:${GIT_SHA} \
+          docker build -t $GAR_REPO_WEBHOOK:${GIT_SHA} \
+                       $( [[ "$PUSH_LATEST" == "1" ]] && echo "-t $GAR_REPO_WEBHOOK:latest" ) \
                        $( [[ "$GITHUB_REF" == refs/tags/* ]] && echo "-t $GAR_REPO_WEBHOOK:${TAG_NAME}" ) .
 
-      - name: Push whatapps webhook Docker images
+      - name: Push whatsapp webhook Docker images
         working-directory: webhook-application
         run: |
-          docker push $GAR_REPO_WEBHOOK:latest
           docker push $GAR_REPO_WEBHOOK:${GIT_SHA}
+          if [[ "$PUSH_LATEST" == "1" ]]; then
+            docker push $GAR_REPO_WEBHOOK:latest
+          fi
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             docker push $GAR_REPO_WEBHOOK:${TAG_NAME}
           fi
+
       - name: Build frontend Docker image
         working-directory: frontend
         run: |
-          docker build -t $GAR_REPO_FRONTEND:latest \
-                       -t $GAR_REPO_FRONTEND:${GIT_SHA} \
+          docker build -t $GAR_REPO_FRONTEND:${GIT_SHA} \
+                       $( [[ "$PUSH_LATEST" == "1" ]] && echo "-t $GAR_REPO_FRONTEND:latest" ) \
                        $( [[ "$GITHUB_REF" == refs/tags/* ]] && echo "-t $GAR_REPO_FRONTEND:${TAG_NAME}" ) .
 
       - name: Push frontend Docker images
         working-directory: frontend
         run: |
-          docker push $GAR_REPO_FRONTEND:latest
           docker push $GAR_REPO_FRONTEND:${GIT_SHA}
+          if [[ "$PUSH_LATEST" == "1" ]]; then
+            docker push $GAR_REPO_FRONTEND:latest
+          fi
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             docker push $GAR_REPO_FRONTEND:${TAG_NAME}
           fi
 
+      # Self-hosted runners are not ephemeral. Remove the per-job gcloud config
+      # dir (activated credential + key file) without touching the shared gcloud
+      # store other workflows on this runner rely on. Runs even on failure.
+      - name: Remove gcloud credentials
+        if: always()
+        run: rm -rf "$CLOUDSDK_CONFIG"
