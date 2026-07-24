@@ -50,16 +50,19 @@ async def _verify_webhook(app_name: str, params: QueryParams) -> PlainTextRespon
     raise HTTPException(status.HTTP_403_FORBIDDEN, "Webhook verification failed")
 
 
-def _verify_signature(raw_body: bytes, signature_header: str | None) -> bool:
+def _verify_signature(raw_body: bytes, signature_header: str | None, app_name: str) -> bool:
     """Validate Meta's X-Hub-Signature-256 header against the raw request body.
 
-    Fails closed: if no app secret is configured, every POST is rejected so a
-    misconfiguration can never silently disable signature validation.
+    AA and PP are separate Meta apps with distinct App Secrets, so the secret is
+    resolved per app_name. Fails closed: if no app secret is configured for this
+    app, every POST is rejected so a misconfiguration can never silently disable
+    signature validation.
     """
-    app_secret = config.app_secret
+    app_secret = config.app_secret_for(app_name)
     if not app_secret:
         logger.error(
-            "WHATSAPP_APP_SECRET is not configured; rejecting webhook POST "
+            f"No Meta App Secret configured for {app_name} "
+            "(WHATSAPP_APP_SECRET_AA / _PP); rejecting webhook POST "
             "(fail-closed signature validation)."
         )
         return False
@@ -84,7 +87,7 @@ async def _handle_webhook_post(app_name: str, handler_func, request: Request) ->
 
     raw_body = await request.body()
     signature = request.headers.get("X-Hub-Signature-256")
-    if not _verify_signature(raw_body, signature):
+    if not _verify_signature(raw_body, signature, app_name):
         logger.warning(f"{app_name} Webhook signature validation failed")
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid signature")
 
