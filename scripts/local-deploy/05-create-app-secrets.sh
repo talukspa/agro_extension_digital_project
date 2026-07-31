@@ -7,8 +7,12 @@
 # AA and PP are SEPARATE Meta apps with distinct App Secrets, so each webhook
 # endpoint verifies against its own. Get each value from:
 #   developers.facebook.com → the app → Settings → Basic → App Secret → Show
-#     AA app id: 692894087240362
-#     PP app id: 619189944620159
+#     AA Meta App ID: 1328420471593056
+#     PP Meta App ID: 1611224729556662
+#
+# These are the Meta *App* IDs — what you use to locate the App Secret in the
+# console. They are NOT the numbers in cicd/stacks/*/env.yaml (those are
+# WhatsApp phone-number IDs used to build the outbound graph.facebook.com URL).
 #
 # NOTE: this is the App Secret (HMAC key for inbound signature validation), NOT
 # wsp-token (the Bearer access token used for outbound sends) and NOT
@@ -44,8 +48,8 @@ put_secret() {
   fi
 }
 
-put_secret whatsapp-app-secret-aa "AA (692894087240362)"
-put_secret whatsapp-app-secret-pp "PP (619189944620159)"
+put_secret whatsapp-app-secret-aa "AA (Meta App 1328420471593056)"
+put_secret whatsapp-app-secret-pp "PP (Meta App 1611224729556662)"
 
 echo
 c_blu "Verifying (length only — values are not printed):"
