@@ -86,7 +86,21 @@ confirm_prd() {
 # Make sure gcloud is pointed at the project we think it is, for this shell only.
 # Uses CLOUDSDK_CORE_PROJECT rather than `gcloud config set project` so we never
 # mutate the user's ambient gcloud state.
+#
+# USER_PROJECT_OVERRIDE + GOOGLE_BILLING_PROJECT: the CI workflows authenticate
+# with a service-account key, whose credential carries its own project. Locally
+# we use USER Application Default Credentials, and some APIs the stack touches —
+# firebaserules.googleapis.com in the database unit above all — reject a user
+# credential that carries no quota/billing project, attributing the call to
+# Google's shared default project (32555940559) where the API is disabled:
+#   Error 403 ... requires a quota project, which is not set by default
+# The hashicorp/google provider only sends the X-Goog-User-Project header (which
+# carries the billing project) when user_project_override is true. The provider
+# blocks here don't set it, but the provider also reads these two env vars, so
+# we set them centrally rather than editing every module. Harmless with SA creds.
 use_project() {
   export CLOUDSDK_CORE_PROJECT="$PROJECT_ID"
   export GOOGLE_CLOUD_PROJECT="$PROJECT_ID"
+  export USER_PROJECT_OVERRIDE="true"
+  export GOOGLE_BILLING_PROJECT="$PROJECT_ID"
 }

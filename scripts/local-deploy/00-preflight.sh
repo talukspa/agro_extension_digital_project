@@ -69,6 +69,17 @@ fi
 adc="${HOME}/.config/gcloud/application_default_credentials.json"
 if [[ -f "$adc" ]]; then
   note "ADC present (needed by agents/deploy.py)"
+  # The database unit's firebaserules calls fail under user ADC unless a quota
+  # project is set (20-infra.sh also forces it via GOOGLE_BILLING_PROJECT, but a
+  # set quota project is the durable fix and avoids a confusing first run).
+  qp="$(python3 -c "import json,sys;print(json.load(open('$adc')).get('quota_project_id',''))" 2>/dev/null || true)"
+  if [[ "$qp" == "$PROJECT_ID" ]]; then
+    note "ADC quota project = ${qp}"
+  elif [[ -n "$qp" ]]; then
+    warn "ADC quota project is ${qp}, not ${PROJECT_ID} — run: gcloud auth application-default set-quota-project ${PROJECT_ID}"
+  else
+    warn "ADC has no quota project — run: gcloud auth application-default set-quota-project ${PROJECT_ID}"
+  fi
 else
   bad "no ADC — run: gcloud auth application-default login"
 fi
