@@ -117,6 +117,17 @@ variable "webhook_memory" {
   default     = "1Gi"
 }
 
+variable "agent_session_timeout" {
+  # Los Agent Engines corren con min_instances=0, así que la primera sesión tras
+  # un período idle paga cold start (~44s medido). El default del SDK (15s en
+  # agent_client.py) time-outea el primer mensaje. 120s da margen. Para bajar la
+  # latencia del primer mensaje en prod, considerar min_instances>=1 en el engine
+  # (deploy.py) en vez de subir solo el timeout.
+  description = "Timeout (segundos) para crear la sesión del agente; expuesto como env AGENT_SESSION_TIMEOUT."
+  type        = string
+  default     = "120"
+}
+
 variable "min_scale" {
   description = "Cantidad mínima de instancias para los servicios de Cloud Run (run.googleapis.com/minScale)"
   type        = number

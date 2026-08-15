@@ -42,6 +42,13 @@ resource "google_cloud_run_v2_service" "cloud_run_name_webhook" {
         name  = "GOOGLE_CLOUD_LOCATION"
         value = var.region
       }
+      # Session-create timeout (seconds). The Agent Engines run min_instances=0,
+      # so the first session after idle pays a cold start (~44s observed); the
+      # SDK default of 15s in agent_client.py times out on the first message.
+      env {
+        name  = "AGENT_SESSION_TIMEOUT"
+        value = var.agent_session_timeout
+      }
       env {
         name  = "WHATSAPP_HTTP_TIMEOUT"
         value = var.whatsapp_http_timeout
