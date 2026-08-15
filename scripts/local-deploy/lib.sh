@@ -22,7 +22,6 @@ set -euo pipefail
 REGION="us-central1"
 IMAGE_PROJECT="agro-extension-digital-npe"
 WEBHOOK_IMAGE="${REGION}-docker.pkg.dev/${IMAGE_PROJECT}/agro-extension-digital/webhook"
-FRONTEND_IMAGE="${REGION}-docker.pkg.dev/${IMAGE_PROJECT}/agents/agent-frontend-app"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Secrets that must ALREADY exist before `terragrunt plan` runs. The stack reads

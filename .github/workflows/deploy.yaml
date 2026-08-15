@@ -2,8 +2,8 @@ name: Deploy with Terragrunt
 
 # Despliega la infraestructura con Terragrunt en el entorno seleccionado
 # (dev o prd). Cada `cicd/stacks/<env>` contiene unidades hijas (backend,
-# database, frontend, secrets) y no hay un terragrunt.hcl a nivel de unidad en
-# el directorio del entorno, por eso se usa `run-all`.
+# database, secrets) y no hay un terragrunt.hcl a nivel de unidad en el
+# directorio del entorno, por eso se usa `run-all`.
 
 on:
   workflow_dispatch:

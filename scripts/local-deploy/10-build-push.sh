@@ -1,24 +1,22 @@
 #!/usr/bin/env bash
 # Local equivalent of .github/workflows/build-and-push.yml.
 #
-#   ./scripts/local-deploy/10-build-push.sh dev [--latest] [--frontend]
+#   ./scripts/local-deploy/10-build-push.sh dev [--latest]
 #
-# Builds and pushes the webhook image (and optionally the frontend) tagged with
-# the current short SHA. Pass --latest to ALSO move the :latest tag, which is
-# what Cloud Run pulls — mirrors the workflow's PUSH_LATEST gate, which only
-# fires on main and version tags. Omit it when you just want an immutable
-# :<sha> to test.
+# Builds and pushes the webhook image tagged with the current short SHA. Pass
+# --latest to ALSO move the :latest tag, which is what Cloud Run pulls — mirrors
+# the workflow's PUSH_LATEST gate, which only fires on main and version tags.
+# Omit it when you just want an immutable :<sha> to test.
 #
 # Images always go to the NPE registry for BOTH environments — see lib.sh.
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 resolve_env "${1:-}"; shift || true
 
-push_latest=0; do_frontend=0
+push_latest=0
 for arg in "$@"; do
   case "$arg" in
     --latest)   push_latest=1 ;;
-    --frontend) do_frontend=1 ;;
     *) die "Unknown flag: $arg" ;;
   esac
 done
@@ -52,7 +50,6 @@ build_push() {
 }
 
 build_push "${REPO_ROOT}/webhook-application" "$WEBHOOK_IMAGE" "whatsapp webhook"
-(( do_frontend )) && build_push "${REPO_ROOT}/frontend" "$FRONTEND_IMAGE" "frontend"
 
 echo
 c_grn "Done. Image digest actually served:"

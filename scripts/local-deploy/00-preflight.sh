@@ -21,8 +21,8 @@ for t in gcloud terragrunt terraform uv docker; do
   note "$t $("$t" --version 2>&1 | head -1)"
 done
 
-# The frontend module needs >= 1.5; nothing here needs more. (`terraform test`
-# needs 1.6+, but that only runs in CI — it is not part of a deploy.)
+# The modules declare required_version >= 1.5 at most. (`terraform test` needs
+# 1.6+, but that only runs in CI — it is not part of a deploy.)
 if command -v terraform >/dev/null 2>&1; then
   tf_ver="$(terraform version -json 2>/dev/null | sed -n 's/.*"terraform_version": *"\([^"]*\)".*/\1/p')"
   tf_major="${tf_ver%%.*}"; tf_minor="$(echo "$tf_ver" | cut -d. -f2)"

@@ -1,10 +1,10 @@
 name: CI
 
-# Quality gate for pull requests: runs the Python, frontend, Terraform, and
-# workflow-lint suites. No cloud credentials and no deploys — everything here is
-# offline/local (pytest, vitest, terraform test/plan -backend=false, scanners),
-# so these run on GitHub-hosted ubuntu-latest (the deploy/build workflows keep
-# using the self-hosted runners that have GCP access).
+# Quality gate for pull requests: runs the Python, Terraform, and workflow-lint
+# suites. No cloud credentials and no deploys — everything here is offline/local
+# (pytest, terraform test/plan -backend=false, scanners), so these run on
+# GitHub-hosted ubuntu-latest (the deploy/build workflows keep using the
+# self-hosted runners that have GCP access).
 
 on:
   pull_request:
@@ -36,32 +36,12 @@ jobs:
           uv run --with pytest-cov --extra test pytest tests/
           --cov=whatsapp_webhook --cov-report=term-missing --cov-fail-under=80
 
-  frontend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Install deps
-        run: npm ci
-      - name: Typecheck
-        run: npx tsc --noEmit
-      # `next lint` is intentionally not run here: the repo has no ESLint config,
-      # so `next lint` prompts for interactive setup and fails in CI. Typecheck +
-      # unit tests are the meaningful gates; add an ESLint config to re-enable.
-      - name: Unit tests + coverage
-        run: npm run test:coverage
-
   terraform:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        module: [backend, database, frontend]
+        module: [backend, database]
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3

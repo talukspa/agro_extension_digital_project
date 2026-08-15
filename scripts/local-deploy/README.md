@@ -8,7 +8,7 @@ assumptions made explicit.
 |---|---|---|
 | `00-preflight.sh <env>` | — | Read-only. Verifies tools, auth, ADC, arch, secrets. Changes nothing. |
 | `05-create-app-secrets.sh <env>` | — | One-time. Creates `whatsapp-app-secret-{aa,pp}`. |
-| `10-build-push.sh <env> [--latest] [--frontend]` | `build-and-push.yml` | Builds `linux/amd64` images, pushes to the NPE registry. |
+| `10-build-push.sh <env> [--latest]` | `build-and-push.yml` | Builds the `linux/amd64` webhook image, pushes to the NPE registry. |
 | `20-infra.sh <env> plan\|apply` | `deploy.yaml` | `terragrunt run --all`. |
 | `30-agents.sh <env>` | `deploy-agents.yml` | Deploys the two Agent Engines, seeds the engine-name secrets. |
 | `40-redeploy-webhook.sh <env> [sha]` | — | Pins Cloud Run to an image tag; prints the rollback command. |
