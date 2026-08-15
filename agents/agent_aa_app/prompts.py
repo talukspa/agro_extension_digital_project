@@ -1,23 +1,34 @@
+from pathlib import Path
+
+_PROMPTS_DIR = Path(__file__).parent / "prompts"
+
+
+def _read(relpath: str) -> str:
+    # Resolve prompt files relative to this module, not the CWD, so imports
+    # work regardless of where the process was launched from.
+    with open(_PROMPTS_DIR / relpath) as f:
+        return f.read()
+
+
 def agent_aa_instruction():
-    with open("agent_aa_app/prompts/agent_aa/instruction.md") as f:
-        return f.read()
-    
+    return _read("agent_aa/instruction.md")
+
+
 def agent_aa_bq_instruction():
-    with open("agent_aa_app/prompts/agent_aa_bq/instruction.md") as f:
-        return f.read()
-    
+    return _read("agent_aa_bq/instruction.md")
+
+
 def agent_aa_bq_description():
-    with open("agent_aa_app/prompts/agent_aa_bq/description.md") as f:
-        return f.read()
-    
+    return _read("agent_aa_bq/description.md")
+
+
 def agent_aa_rag_instruction():
-    with open("agent_aa_app/prompts/agent_aa_rag/instruction.md") as f:
-        return f.read()
-    
+    return _read("agent_aa_rag/instruction.md")
+
+
 def agent_aa_rag_description():
-    with open("agent_aa_app/prompts/agent_aa_rag/description.md") as f:
-        return f.read()
-    
+    return _read("agent_aa_rag/description.md")
+
+
 def text2sql_instruction():
-    with open("agent_aa_app/prompts/text2sql/instruction.md") as f:
-        return f.read()
+    return _read("text2sql/instruction.md")

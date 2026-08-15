@@ -6,7 +6,12 @@ const nextConfig: NextConfig = {
   
   // Configuración de imágenes para dominio público
   images: {
-    domains: ['agro-extension-digital-npe.firebaseapp.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'agro-extension-digital-npe.firebaseapp.com',
+      },
+    ],
   },
   
   // Variables de entorno que serán expuestas al cliente

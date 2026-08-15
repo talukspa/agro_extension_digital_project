@@ -3,91 +3,8 @@ variable "project_id" {
   type        = string
 }
 
-variable "cloud_run_name_agent_aa" {
-  description = "Nombre del servicio de Cloud Run"
-  type        = string
-}
-
-variable "cloud_run_name_agent_pp" {
-  description = "Nombre del servicio de Cloud Run"
-  type        = string
-}
-
-variable "service_account_id_agent_aa" {
-  description = "ID de la cuenta de servicio del agente"
-  type        = string
-}
-
-variable "service_account_id_agent_pp" {
-  description = "ID de la cuenta de servicio del agente"
-  type        = string
-}
-
-variable "service_account_display_name_agent_aa" {
-  description = "Nombre para mostrar de la cuenta de servicio del agente"
-  type        = string
-}
-
-variable "service_account_display_name_agent_pp" {
-  description = "Nombre para mostrar de la cuenta de servicio del agente"
-  type        = string
-}
-
 variable "region" {
   description = "Ubicación de los servicios"
-  type        = string
-}
-
-variable "gar_image_location_agent_aa" {
-  description = "Ubicación de la imagen del servicio de Cloud Run"
-  type        = string
-}
-
-variable "google_genai_use_vertexai" {
-  description = "Flag to indicate if Vertex AI should be used"
-  type        = string
-  default     = "TRUE"
-}
-
-variable "google_cloud_project" {
-  description = "Google Cloud project ID"
-  type        = string
-}
-
-variable "google_cloud_location" {
-  description = "Google Cloud location"
-  type        = string
-  default     = "us-central1"
-}
-
-variable "service_name" {
-  description = "Name of the service"
-  type        = string
-  default     = "adecuacion_agroindustrial"
-}
-
-variable "datastore_aa_id" {
-  description = "Datastore ID for AA"
-  type        = string
-}
-
-variable "datastore_pp_id" {
-  description = "Datastore ID for PP"
-  type        = string
-}
-
-variable "datastore_guides_id" {
-  description = "Datastore ID for guides"
-  type        = string
-}
-
-variable "datastore_faq_id" {
-  description = "Datastore ID for FAQ"
-  type        = string
-}
-
-variable "datastore_chileprunes_cl_id" {
-  description = "Datastore ID for Chileprunes CL"
   type        = string
 }
 
@@ -116,6 +33,18 @@ variable "verify_token" {
   type        = string
 }
 
+variable "whatsapp_app_secret_aa" {
+  description = "Meta App Secret de la app AA, usado para validar la firma X-Hub-Signature-256 de los webhooks AA entrantes. AA y PP son apps de Meta distintas con secrets propios. El webhook rechaza (403) todo POST AA si no está seteado (fail-closed)."
+  type        = string
+  sensitive   = true
+}
+
+variable "whatsapp_app_secret_pp" {
+  description = "Meta App Secret de la app PP, usado para validar la firma X-Hub-Signature-256 de los webhooks PP entrantes. El webhook rechaza (403) todo POST PP si no está seteado (fail-closed)."
+  type        = string
+  sensitive   = true
+}
+
 variable "service_account_webhook_app" {
   description = "Cuenta de servicio para el webhook"
   type        = string
@@ -127,18 +56,25 @@ variable "service_account_display_name_webhook_app" {
 }
 
 variable "estandar_aa_app_name" {
-  description = "URL del servicio de Facebook para AA"
+  description = "Nombre del app AA (entrega target agent al webhook)"
   type        = string
 }
 
 variable "estandar_pp_app_name" {
-  description = "URL del servicio de Facebook para AA"
+  description = "Nombre del app PP (entrega target agent al webhook)"
   type        = string
 }
 
-variable "wsp_token" {
-  description = "Token de WhatsApp"
+variable "wsp_token_aa" {
+  description = "Access token (Bearer) de la app AA para envíos OUTBOUND por WhatsApp Cloud API. AA y PP son apps/WABAs distintas con números y tokens propios: el token de una da 401 contra el número de la otra, por eso el envío se resuelve por app. Si no está seteado, el envío de esa app se omite."
   type        = string
+  sensitive   = true
+}
+
+variable "wsp_token_pp" {
+  description = "Access token (Bearer) de la app PP para envíos OUTBOUND por WhatsApp Cloud API. Ver wsp_token_aa."
+  type        = string
+  sensitive   = true
 }
 
 variable "whatsapp_base_url" {
@@ -153,17 +89,6 @@ variable "log_level" {
   default     = "INFO"
 }
 
-variable "bigquery_dataset" {
-  description = "BigQuery dataset name for the agents"
-  type        = string
-}
-
-variable "agent_http_timeout" {
-  description = "Timeout en segundos para llamadas HTTP del webhook al Agent"
-  type        = string
-  default     = "30"
-}
-
 variable "whatsapp_http_timeout" {
   description = "Timeout en segundos para llamadas HTTP del webhook a WhatsApp Graph API"
   type        = string
@@ -175,6 +100,23 @@ variable "startup_cpu_boost" {
   type        = bool
   default     = true
 }
+
+variable "webhook_cpu" {
+  description = "Límite de CPU del contenedor del webhook."
+  type        = string
+  default     = "1"
+}
+
+variable "webhook_memory" {
+  # El default histórico de Cloud Run (512Mi) NO alcanza: tras la migración a
+  # Agent Runtime el webhook importa el SDK de Vertex AI (google-cloud-aiplatform),
+  # cuyo footprint en el arranque supera 512Mi (~536Mi observado), y Cloud Run
+  # mata la instancia en el startup probe. 1Gi da headroom cómodo.
+  description = "Límite de memoria del contenedor del webhook."
+  type        = string
+  default     = "1Gi"
+}
+
 variable "min_scale" {
   description = "Cantidad mínima de instancias para los servicios de Cloud Run (run.googleapis.com/minScale)"
   type        = number
@@ -185,4 +127,53 @@ variable "max_scale" {
   description = "Cantidad máxima de instancias para los servicios de Cloud Run (debe ser >= min_scale)"
   type        = number
   default     = 10
+}
+
+# --------------------------------------------------------------------
+# Agent Runtime config — surfaced to deploy.py via Secret Manager.
+# Per-env values come from cicd/stacks/<env>/env.yaml -> terragrunt.hcl.
+# --------------------------------------------------------------------
+variable "bigquery_dataset" {
+  description = "BigQuery dataset name; surfaced via Secret Manager secret 'bigquery-dataset'."
+  type        = string
+}
+
+variable "datastore_aa_id" {
+  description = "Full Vertex AI Search datastore resource path for AA. Surfaced via 'datastore-aa-id' secret."
+  type        = string
+}
+
+variable "datastore_pp_id" {
+  description = "Full Vertex AI Search datastore resource path for PP. Surfaced via 'datastore-pp-id' secret."
+  type        = string
+}
+
+variable "datastore_guides_id" {
+  description = "Datastore path for guides. Surfaced via 'datastore-guides-id' secret."
+  type        = string
+}
+
+variable "datastore_faq_id" {
+  description = "Datastore path for FAQ. Surfaced via 'datastore-faq-id' secret."
+  type        = string
+}
+
+variable "datastore_chileprunes_cl_id" {
+  description = "Datastore path for chileprunes-cl. Surfaced via 'datastore-chileprunes-cl-id' secret."
+  type        = string
+}
+
+variable "deployer_sa_email" {
+  description = <<-EOT
+    Email of the CI/CD deployer service account (the identity behind
+    secrets.GCP_SA_KEY in deploy-agents.yml). When non-empty, Terraform grants
+    it everything deploy.py needs: iam.serviceAccountUser (actAs) on the two
+    runtime SAs, storage.objectAdmin on the staging bucket, project
+    aiplatform.user, secretmanager.secretVersionAdder on the engine-name
+    secrets, and secretmanager.secretAccessor on the runtime-config secrets.
+    Leave empty to skip these bindings (e.g. if the deployer already holds
+    broader project grants out of band).
+  EOT
+  type        = string
+  default     = ""
 }

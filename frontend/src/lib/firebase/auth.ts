@@ -5,6 +5,7 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
   onAuthStateChanged,
+  updateProfile,
   User,
   UserCredential
 } from 'firebase/auth';
@@ -15,9 +16,22 @@ export interface AuthError {
   message: string;
 }
 
-export const signUp = async (email: string, password: string): Promise<UserCredential> => {
+export const signUp = async (
+  email: string,
+  password: string,
+  displayName?: string
+): Promise<UserCredential> => {
   try {
-    return await createUserWithEmailAndPassword(auth, email, password);
+    const credential = await createUserWithEmailAndPassword(auth, email, password);
+
+    // Firebase email/password signups have no displayName by default. Set it on the
+    // Firebase Auth user so downstream code (AuthContext profile creation) can read it.
+    const trimmedName = displayName?.trim();
+    if (trimmedName) {
+      await updateProfile(credential.user, { displayName: trimmedName });
+    }
+
+    return credential;
   } catch (error) {
     const firebaseError = error as { code: string; message: string };
     throw {

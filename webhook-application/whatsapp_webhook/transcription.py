@@ -1,27 +1,35 @@
 """Transcripción de audio usando Google Cloud Speech."""
-import logging
+import asyncio
 from typing import Optional
 from google.cloud import speech
 
-logger = logging.getLogger(__name__)
+from .utils.logging import get_logger
+
+logger = get_logger("transcription")
+
 
 async def transcribe_audio_file(audio_content: bytes) -> Optional[str]:
     """Transcribe audio OGG_OPUS de WhatsApp."""
     try:
         client = speech.SpeechClient()
-        config = speech.RecognitionConfig(
+        recognition_config = speech.RecognitionConfig(
             encoding=speech.RecognitionConfig.AudioEncoding.OGG_OPUS,
             sample_rate_hertz=16000,
             language_code="es-CL"
         )
         audio = speech.RecognitionAudio(content=audio_content)
-        response = client.recognize(config=config, audio=audio)
-        
+        # client.recognize is a blocking gRPC call — run it off the event loop.
+        response = await asyncio.to_thread(
+            client.recognize, config=recognition_config, audio=audio
+        )
+
         if response.results:
             transcript = response.results[0].alternatives[0].transcript
-            logger.info(f"Successfully transcribed audio: {transcript[:50]}...")
+            # Transcript content is user PII — only expose it at DEBUG.
+            logger.info("Audio transcribed successfully")
+            logger.debug("Transcript content", extra={"transcript": transcript[:50]})
             return transcript.strip()
-        
+
         logger.warning("Audio transcription returned no results.")
         return None
     except Exception as e:

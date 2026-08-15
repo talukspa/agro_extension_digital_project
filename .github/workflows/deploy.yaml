@@ -1,6 +1,9 @@
 name: Deploy with Terragrunt
 
-description: "Despliega la infraestructura usando Terragrunt en el entorno seleccionado (dev o prd)"
+# Despliega la infraestructura con Terragrunt en el entorno seleccionado
+# (dev o prd). Cada `cicd/stacks/<env>` contiene unidades hijas (backend,
+# database, frontend, secrets) y no hay un terragrunt.hcl a nivel de unidad en
+# el directorio del entorno, por eso se usa `run-all`.
 
 on:
   workflow_dispatch:
@@ -14,9 +17,25 @@ on:
           - dev
           - prd
 
+concurrency:
+  group: deploy-terragrunt-${{ inputs.environment }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: self-hosted
+    # Gate on the GitHub Environment matching the selected stack. Configure
+    # required reviewers on the `prd` environment (Settings → Environments) so
+    # a prod `run-all apply -auto-approve` — which DESTROYS the old agent Cloud
+    # Run service + SA + IAM (the rollback target) and overwrites the live
+    # Firestore ruleset — cannot fire without a human approval. Leave `dev`
+    # ungated for fast iteration. Mirrors deploy-agents.yml.
+    # NOTE: cicd/modules/backend/main.tf requires a manual `terraform state rm`
+    # of the retired resources BEFORE this apply; that step is the reviewer's
+    # responsibility and must not be run from CI.
+    environment: ${{ inputs.environment }}
+    env:
+      ENVIRONMENT: ${{ inputs.environment }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,34 +43,47 @@ jobs:
       - name: Set GCP Project
         id: set_project
         run: |
-          if [[ "${{ github.event.inputs.environment }}" == "dev" ]]; then
+          if [[ "${ENVIRONMENT}" == "dev" ]]; then
             echo "PROJECT_ID=agro-extension-digital-npe" >> $GITHUB_ENV
-          elif [[ "${{ github.event.inputs.environment }}" == "prd" ]]; then
+          elif [[ "${ENVIRONMENT}" == "prd" ]]; then
             echo "PROJECT_ID=agro-extension-digital-prd" >> $GITHUB_ENV
           else
-            echo "Entorno no soportado: ${{ github.event.inputs.environment }}"
+            echo "Entorno no soportado: ${ENVIRONMENT}"
             exit 1
           fi
 
       - name: Authenticate to Google Cloud
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
-          echo "$GCP_SA_KEY" > /tmp/account.json
-          gcloud auth activate-service-account --key-file=/tmp/account.json
-          gcloud config set project $PROJECT_ID
+          # Isolate this job's gcloud state in a per-job config dir instead of
+          # the shared ~/.config/gcloud (self-hosted, non-ephemeral runner shared
+          # with build-and-push.yml / deploy-agents.yml). Uses $RUNNER_TEMP (the
+          # `runner.temp` expression is not available in job env) and exports the
+          # path to $GITHUB_ENV so later steps and cleanup inherit it.
+          export CLOUDSDK_CONFIG="$RUNNER_TEMP/gcloud-deploy-terragrunt"
+          echo "CLOUDSDK_CONFIG=$CLOUDSDK_CONFIG" >> "$GITHUB_ENV"
+          mkdir -p "$CLOUDSDK_CONFIG"
+          echo "$GCP_SA_KEY" > "$CLOUDSDK_CONFIG/account.json"
+          gcloud auth activate-service-account --key-file="$CLOUDSDK_CONFIG/account.json"
+          gcloud config set project "$PROJECT_ID"
 
-      # - name: Set up Terraform
-      #   uses: hashicorp/setup-terraform@v3
-      #   with:
-      #     terraform_version: 1.7.5
-
-      # - name: Set up Terragrunt
-      #   run: |
-      #     wget -O terragrunt https://github.com/gruntwork-io/terragrunt/releases/download/v0.59.1/terragrunt_linux_amd64
-      #     chmod +x terragrunt
-      #     sudo mv terragrunt /usr/local/bin/
-
-      - name: Deploy with Terragrunt
-        working-directory: cicd/${{ github.event.inputs.environment }}
+      - name: Terragrunt plan
+        working-directory: cicd/stacks/${{ inputs.environment }}
         run: |
-          terragrunt init
-          terragrunt apply -auto-approve
+          terragrunt run-all init --terragrunt-non-interactive
+          terragrunt run-all plan --terragrunt-non-interactive
+
+      - name: Terragrunt apply
+        working-directory: cicd/stacks/${{ inputs.environment }}
+        run: |
+          terragrunt run-all apply --terragrunt-non-interactive -auto-approve
+
+      # Self-hosted runners are not ephemeral. Remove the per-job gcloud config
+      # dir, which holds both the activated credential and the key file — this
+      # deactivates the deployer SA and deletes the key without touching the
+      # shared gcloud store other workflows on this runner rely on. Runs even if
+      # the deploy fails.
+      - name: Remove gcloud credentials
+        if: always()
+        run: rm -rf "$CLOUDSDK_CONFIG"

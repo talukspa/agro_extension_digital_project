@@ -41,6 +41,19 @@ def configure_app_logging() -> logging.Logger:
     return app_logger
 
 
+def mask_pii(value: Optional[str]) -> str:
+    """Mask a phone number / wa_id for safe logging.
+
+    Keeps the first 2 and last 2 chars, masks the middle. Short values are
+    fully masked. Mirrors StructuredLogger._sanitize_user_id.
+    """
+    if not value:
+        return "****"
+    if len(value) <= 4:
+        return "****"
+    return value[:2] + "*" * (len(value) - 4) + value[-2:]
+
+
 class LogContext(Enum):
     """Contextos de logging para diferentes módulos."""
     WEBHOOK = "webhook"

@@ -21,6 +21,7 @@ import {
 } from '@/lib/firebase/firestore';
 import { User, Business, AuditorProfile, BusinessUserRequest } from '@/lib/types/auth';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { devLog } from '@/lib/utils/devLog';
 
 function AdminDashboard() {
   const { user, userType, loading, signOut } = useAuth();
@@ -67,7 +68,7 @@ function AdminDashboard() {
               business: businessProfile
             };
           } catch (error) {
-            console.error('Error loading request details:', error);
+            devLog.error('Error loading request details:', error);
             return request;
           }
         })
@@ -75,7 +76,7 @@ function AdminDashboard() {
       
       setPendingBusinessUsers(enrichedBusinessUserRequests);
     } catch (error) {
-      console.error('Error loading pending data:', error);
+      devLog.error('Error loading pending data:', error);
     } finally {
       setDataLoading(false);
     }
@@ -86,7 +87,7 @@ function AdminDashboard() {
       await approveUser(userId, user!.uid);
       await loadPendingData();
     } catch (error) {
-      console.error('Error approving user:', error);
+      devLog.error('Error approving user:', error);
     }
   };
 
@@ -95,7 +96,7 @@ function AdminDashboard() {
       await rejectUser(userId, user!.uid, reason);
       await loadPendingData();
     } catch (error) {
-      console.error('Error rejecting user:', error);
+      devLog.error('Error rejecting user:', error);
     }
   };
 
@@ -104,7 +105,7 @@ function AdminDashboard() {
       await approveBusiness(businessId, user!.uid);
       await loadPendingData();
     } catch (error) {
-      console.error('Error approving business:', error);
+      devLog.error('Error approving business:', error);
     }
   };
 
@@ -113,7 +114,7 @@ function AdminDashboard() {
       await rejectBusiness(businessId, user!.uid, reason);
       await loadPendingData();
     } catch (error) {
-      console.error('Error rejecting business:', error);
+      devLog.error('Error rejecting business:', error);
     }
   };
 
@@ -122,7 +123,7 @@ function AdminDashboard() {
       await approveAuditor(auditorId, user!.uid);
       await loadPendingData();
     } catch (error) {
-      console.error('Error approving auditor:', error);
+      devLog.error('Error approving auditor:', error);
     }
   };
 
@@ -131,7 +132,7 @@ function AdminDashboard() {
       await rejectAuditor(auditorId, user!.uid, reason);
       await loadPendingData();
     } catch (error) {
-      console.error('Error rejecting auditor:', error);
+      devLog.error('Error rejecting auditor:', error);
     }
   };
 
@@ -140,7 +141,7 @@ function AdminDashboard() {
       await approveBusinessUser(requestId, user!.uid);
       await loadPendingData();
     } catch (error) {
-      console.error('Error approving business user:', error);
+      devLog.error('Error approving business user:', error);
     }
   };
 
@@ -149,7 +150,7 @@ function AdminDashboard() {
       await rejectBusinessUser(requestId, user!.uid, reason);
       await loadPendingData();
     } catch (error) {
-      console.error('Error rejecting business user:', error);
+      devLog.error('Error rejecting business user:', error);
     }
   };
 
@@ -158,7 +159,7 @@ function AdminDashboard() {
       await signOut();
       router.push('/');
     } catch (error) {
-      console.error('Error signing out:', error);
+      devLog.error('Error signing out:', error);
     }
   };
 

@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 from typing import AsyncGenerator
+from typing import Callable, Optional
 from typing import Union
 
 from google.genai import types
@@ -21,12 +23,36 @@ from langchain_core.messages import HumanMessage
 from langchain_core.messages import SystemMessage
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph as CompiledGraph
-from pydantic import ConfigDict
+from pydantic import ConfigDict, PrivateAttr
 from typing_extensions import override
 
 from google.adk.events.event import Event
 from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
+
+
+def _content_to_text(content: object) -> str:
+  """Coerce a LangChain message ``content`` to a plain string.
+
+  ``content`` is usually a ``str`` but can be a list of content blocks
+  (dicts with a ``text`` key, or plain strings) for multimodal / tool-call
+  messages. Concatenate the textual parts and drop non-text blocks.
+  """
+  if content is None:
+    return ''
+  if isinstance(content, str):
+    return content
+  if isinstance(content, list):
+    parts = []
+    for block in content:
+      if isinstance(block, str):
+        parts.append(block)
+      elif isinstance(block, dict):
+        text = block.get('text')
+        if text:
+          parts.append(text)
+    return ''.join(parts)
+  return str(content)
 
 
 def _get_last_human_messages(events: list[Event]) -> list[HumanMessage]:
@@ -43,21 +69,38 @@ def _get_last_human_messages(events: list[Event]) -> list[HumanMessage]:
     if messages and event.author != 'user':
       break
     if event.author == 'user' and event.content and event.content.parts:
-      messages.append(HumanMessage(content=event.content.parts[0].text))
+      messages.append(
+          HumanMessage(content=event.content.parts[0].text or '')
+      )
   return list(reversed(messages))
 
 
 class LangGraphAgent(BaseAgent):
-  """Currently a concept implementation, supports single and multi-turn."""
+  """Currently a concept implementation, supports single and multi-turn.
+
+  Set `graph_factory=...` instead of `graph=...` when the graph holds
+  non-picklable state (e.g. langgraph.prebuilt.create_react_agent returns
+  a CompiledStateGraph with module references). The factory runs once on
+  the first invocation — server-side in the engine — so vertexai
+  agent_engines.create() can deepcopy this agent without touching the
+  compiled graph.
+  """
 
   model_config = ConfigDict(
       arbitrary_types_allowed=True,
   )
   """The pydantic model config."""
 
-  graph: CompiledGraph
+  graph: Optional[CompiledGraph] = None
+  graph_factory: Optional[Callable[[], CompiledGraph]] = None
 
   instruction: str = ''
+
+  # Guards the lazy graph_factory init from concurrent first invocations.
+  # Without this, two requests on a fresh engine instance can both pass the
+  # `self.graph is None` check, both call the factory, and the loser ends up
+  # operating on an orphaned graph (lost InMemorySaver state for that turn).
+  _graph_lock: asyncio.Lock = PrivateAttr(default_factory=asyncio.Lock)
 
   @override
   async def _run_async_impl(
@@ -65,11 +108,22 @@ class LangGraphAgent(BaseAgent):
       ctx: InvocationContext,
   ) -> AsyncGenerator[Event, None]:
 
+    if self.graph is None:
+      async with self._graph_lock:
+        if self.graph is None:
+          if self.graph_factory is None:
+            raise ValueError(
+                f'LangGraphAgent {self.name!r}: neither `graph` nor `graph_factory` set'
+            )
+          self.graph = self.graph_factory()
+
     # Needed for langgraph checkpointer (for subsequent invocations; multi-turn)
     config: RunnableConfig = {'configurable': {'thread_id': ctx.session.id}}
 
     # Add instruction as SystemMessage if graph state is empty
-    current_graph_state = self.graph.get_state(config)
+    # Use the async graph API — this coroutine runs on the event loop and the
+    # sync get_state/invoke would block it (and any concurrent invocations).
+    current_graph_state = await self.graph.aget_state(config)
     graph_messages = (
         current_graph_state.values.get('messages', [])
         if current_graph_state.values
@@ -84,8 +138,10 @@ class LangGraphAgent(BaseAgent):
     messages += self._get_messages(ctx.session.events)
 
     # Use the Runnable
-    final_state = self.graph.invoke({'messages': messages}, config)
-    result = final_state['messages'][-1].content
+    final_state = await self.graph.ainvoke({'messages': messages}, config)
+    # LangChain message .content may be a str or a list of content blocks
+    # (e.g. multimodal / tool-call parts). Coerce to a plain string.
+    result = _content_to_text(final_state['messages'][-1].content)
 
     result_event = Event(
         invocation_id=ctx.invocation_id,
@@ -135,7 +191,7 @@ class LangGraphAgent(BaseAgent):
       if not event.content or not event.content.parts:
         continue
       if event.author == 'user':
-        messages.append(HumanMessage(content=event.content.parts[0].text))
+        messages.append(HumanMessage(content=event.content.parts[0].text or ''))
       elif event.author == self.name:
-        messages.append(AIMessage(content=event.content.parts[0].text))
+        messages.append(AIMessage(content=event.content.parts[0].text or ''))
     return messages

@@ -8,13 +8,13 @@ terraform {
 # Recurso principal de Firestore Database
 resource "google_firestore_database" "agro_extension_db" {
   project                           = var.project_id
-  name                             = var.database_name
-  location_id                      = var.database_location
-  type                             = "FIRESTORE_NATIVE"
-  concurrency_mode                 = "OPTIMISTIC"
-  app_engine_integration_mode      = "DISABLED"
+  name                              = var.database_name
+  location_id                       = var.database_location
+  type                              = "FIRESTORE_NATIVE"
+  concurrency_mode                  = "OPTIMISTIC"
+  app_engine_integration_mode       = "DISABLED"
   point_in_time_recovery_enablement = "POINT_IN_TIME_RECOVERY_ENABLED"
-  delete_protection_state          = var.delete_protection_enabled ? "DELETE_PROTECTION_ENABLED" : "DELETE_PROTECTION_DISABLED"
+  delete_protection_state           = var.delete_protection_enabled ? "DELETE_PROTECTION_ENABLED" : "DELETE_PROTECTION_DISABLED"
 
   lifecycle {
     prevent_destroy = true
@@ -22,11 +22,22 @@ resource "google_firestore_database" "agro_extension_db" {
 }
 
 # Firestore Security Rules
+#
+# AUTHZ-CRITICAL: the deployed ruleset is the per-environment RBAC ruleset
+# passed via var.firestore_security_rules (the CEL rules text defined inline in
+# each stack's terragrunt.hcl). The minimal file is only a fallback for when the
+# variable is empty (it grants any authenticated user full read/write and must
+# NOT be what reaches prd). Previously this resource hard-coded the minimal file,
+# so prod ran effectively wide-open regardless of the per-env rules.
+#
+# OPERATOR NOTE: `terraform apply` on the database stack changes the LIVE
+# Firestore security rules. Validate the resulting ruleset in dev first
+# (e.g. Firestore Rules Playground / emulator) before applying to prd.
 resource "google_firebaserules_ruleset" "agro_extension_ruleset" {
   project = var.project_id
   source {
     files {
-      content = file("${path.module}/firestore-security-rules-minimal.rules")
+      content = var.firestore_security_rules != "" ? var.firestore_security_rules : file("${path.module}/firestore-security-rules-minimal.rules")
       name    = "firestore.rules"
     }
   }
@@ -173,10 +184,12 @@ resource "google_firestore_index" "auditors_active_index" {
 }
 
 # Respaldo automático de la base de datos
+# Gated by var.enable_daily_backup (dev sets it false to avoid backup costs).
 resource "google_firestore_backup_schedule" "agro_extension_backup" {
+  count     = var.enable_daily_backup ? 1 : 0
   project   = var.project_id
   database  = google_firestore_database.agro_extension_db.name
-  retention = "${var.backup_retention_days * 24 * 3600}s"  # Convert days to seconds
+  retention = "${var.backup_retention_days * 24 * 3600}s" # Convert days to seconds
 
   daily_recurrence {}
 

@@ -20,6 +20,25 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Authentication & Route Protection
+
+This app has **no server-side auth middleware** and no API routes. Authentication is
+handled entirely on the client via Firebase Auth (tokens live in IndexedDB, not cookies).
+
+Route protection is enforced in two layers:
+
+- **Client-side:** the `ProtectedRoute` component (`src/components/ProtectedRoute.tsx`)
+  guards every protected page. It redirects unauthenticated users to `/login`, unapproved
+  users to `/pending-approval`, and users lacking the required role to `/unauthorized`.
+- **Server-side (source of truth):** Firestore and Firebase Storage security rules
+  (defined outside this repo). Client-side guards are UX only and must never be trusted
+  for authorization.
+
+There is intentionally **no `src/middleware.ts`**. A previous cookie-based (`auth-token`)
+middleware gate was removed because Firebase never sets that cookie, so the gate either
+redirect-looped or protected nothing. Do not reintroduce it without a real server-side
+token verification (e.g. Firebase Admin in an API route or edge function).
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import { USER_TYPES, USER_TYPE_DISPLAY_NAMES, USER_TYPE_DESCRIPTIONS } from '@/lib/types/permissions';
 import { Button } from '@/components/ui/Button';
 
-export default function UserTypeSelectionPage() {
+function UserTypeSelectionContent() {
   const [selectedType, setSelectedType] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -191,5 +192,13 @@ export default function UserTypeSelectionPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function UserTypeSelectionPage() {
+  return (
+    <ProtectedRoute requireApproval={false}>
+      <UserTypeSelectionContent />
+    </ProtectedRoute>
   );
 }

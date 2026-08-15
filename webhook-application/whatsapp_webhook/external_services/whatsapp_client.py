@@ -5,6 +5,10 @@ import httpx
 import logging
 from typing import Any, Dict, Optional
 from ..utils.app_config import config
+from ..utils.logging import get_logger, mask_pii
+
+logger = get_logger("whatsapp_api")
+
 
 async def send_whatsapp_message(
     to: str,
@@ -15,16 +19,18 @@ async def send_whatsapp_message(
     """Sends a message via the WhatsApp API."""
     if not to.startswith("+"):
         to = f"+{to}"
-    
+
     payload = {"messaging_product": "whatsapp", "to": to, **message}
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    
-    logging.info(f"Sending WhatsApp message to {to}")
+
+    logger.info(f"Sending WhatsApp message to {mask_pii(to)}")
     async with httpx.AsyncClient(timeout=config.whatsapp_http_timeout) as client:
         response = await client.post(whatsapp_api_url, json=payload, headers=headers)
         response.raise_for_status()
         result = response.json()
-        logging.info(f"WhatsApp message sent successfully: {result}")
+        # Full API response can echo message content / recipient — DEBUG only.
+        logger.info("WhatsApp message sent successfully")
+        logger.debug("WhatsApp API response", extra={"response": result})
         return result
 
 

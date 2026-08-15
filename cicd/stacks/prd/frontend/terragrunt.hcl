@@ -22,12 +22,12 @@ locals {
   # Cargar configuración base desde archivos yaml
   common_vars = yamldecode(file(find_in_parent_folders("common.yaml")))
   env_vars    = yamldecode(file("../env.yaml"))
-  
+
   # Valores base desde env.yaml (específicos del ambiente PRD)
   project_id  = local.env_vars.project.id
   region      = local.common_vars.gcp.default_region
   environment = local.env_vars.environment.name
-  
+
   # URLs base para frontend
   gar_base_url = "${local.common_vars.containers.registry}/${local.common_vars.containers.project}/${local.common_vars.containers.repository}"
 }
@@ -37,23 +37,33 @@ inputs = {
   project_id  = local.project_id
   environment = local.environment
   location    = local.region
-  
+
   # Frontend configuración
-  cloud_run_name_frontend = "frontend-app-${local.environment}"
-  gar_image_location_frontend = "${local.gar_base_url}/agent-frontend-app:latest"
-  
+  cloud_run_name_frontend               = "frontend-app-${local.environment}"
+  service_account_id_frontend           = "frontend-sa-${local.environment}"
+  service_account_display_name_frontend = "Frontend Service Account PRD"
+  gar_image_location_frontend           = "${local.gar_base_url}/agent-frontend-app:latest"
+
+  # URL del webhook (Cloud Run `agent-webhook-prd`). El backend module no expone
+  # outputs, así que se fija aquí.
+  # OPERADOR: reemplazar por la URL real de Cloud Run del webhook de PRD
+  # (`gcloud run services describe agent-webhook-prd --region=us-central1
+  #   --project=${local.project_id} --format='value(status.url)'`).
+  webhook_service_url = "https://agent-webhook-prd-uc.a.run.app"
+
   # Variables de entorno de Firebase (usando Google Secrets Manager)
-  firebase_api_key = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-api-key", "--project=${local.project_id}")
-  firebase_auth_domain = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-auth-domain", "--project=${local.project_id}")
-  firebase_project_id = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-project-id", "--project=${local.project_id}")
-  firebase_storage_bucket = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-storage-bucket", "--project=${local.project_id}")
+  # Nota: NEXT_PUBLIC_FIREBASE_PROJECT_ID lo deriva el módulo de var.project_id,
+  # por eso no se pasa un firebase_project_id (variable inexistente en el módulo).
+  firebase_api_key             = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-api-key", "--project=${local.project_id}")
+  firebase_auth_domain         = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-auth-domain", "--project=${local.project_id}")
+  firebase_storage_bucket      = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-storage-bucket", "--project=${local.project_id}")
   firebase_messaging_sender_id = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-messaging-sender-id", "--project=${local.project_id}")
-  firebase_app_id = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-app-id", "--project=${local.project_id}")
-  firebase_measurement_id = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-measurement-id", "--project=${local.project_id}", "--quiet", "||", "echo", "''")
-  
+  firebase_app_id              = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-app-id", "--project=${local.project_id}")
+  firebase_measurement_id      = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=firebase-measurement-id", "--project=${local.project_id}", "--quiet", "||", "echo", "''")
+
   # Configuración de recursos específica del entorno
-  min_scale = local.env_vars.environment.min_scale
-  max_scale = local.env_vars.environment.max_scale
-  cpu_limit = local.env_vars.resources.cpu
+  min_scale    = local.env_vars.environment.min_scale
+  max_scale    = local.env_vars.environment.max_scale
+  cpu_limit    = local.env_vars.resources.cpu
   memory_limit = local.env_vars.resources.memory
 }

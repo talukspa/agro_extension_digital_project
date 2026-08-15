@@ -348,14 +348,7 @@ export const useSurveyAutoSave = ({
       devLog.debug('🚫 Blocked setSelectedAnswers - survey is completed and readonly');
       return;
     }
-    
-    // Advertir si la encuesta está completada, pero permitir cambios 
-    // (porque podríamos estar cambiando de estándar)
-    if (isCompleted) {
-      devLog.debug('⚠️ Survey is completed - but allowing changes (might be different standard)');
-      devLog.warn('Nota: Esta encuesta estaba completada, verificar si es el estándar correcto');
-    }
-    
+
     // Log del estado actual antes del cambio
     devLog.debug('🔍 Hook state ANTES de setSelectedAnswers:', {
       isLoading,
@@ -365,10 +358,6 @@ export const useSurveyAutoSave = ({
       saveStatus: saveStatus.status,
       enableAutoSave
     });
-    
-    // Manejar tanto funciones como objetos
-    const newAnswers = typeof answers === 'function' ? answers : answers;
-    devLog.debug('🔄 Setting new answers:', newAnswers);
     
     setSelectedAnswersState(answers);
     

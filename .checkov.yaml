@@ -1,0 +1,56 @@
+# Checkov configuration for the infrastructure-as-code in cicd/.
+#
+# CI usage (from repo root):
+#   checkov --config-file .checkov.yaml
+# or explicitly:
+#   checkov -d cicd --config-file .checkov.yaml
+#
+# Scope: only the cicd/ Terraform is scanned. Terragrunt caches and provider
+# plugin dirs are excluded so we lint source, not vendored/generated copies.
+directory:
+  - cicd
+
+# Skip vendored / generated trees (terragrunt working copies, provider plugins).
+skip-path:
+  - .*/\.terragrunt-cache/.*
+  - .*/\.terraform/.*
+
+compact: true
+quiet: true
+download-external-modules: false
+
+# ---------------------------------------------------------------------------
+# Intentionally-accepted checks (documented skip-list).
+#
+# CKV_SECRET_6 — "Base64 High Entropy String"
+#   False positives only. It fires on:
+#     * dummy fixture tokens in the *.tftest.hcl unit tests (verify_token,
+#       wsp_token, firebase_api_key = "dummy-*"), which are not real secrets;
+#     * the Firebase Web API key in stacks/dev/frontend/terragrunt.hcl. Firebase
+#       Web API keys are public identifiers shipped in client-side JS by design
+#       (access is gated by Firebase Auth + Security Rules, not by key secrecy).
+#   Real secrets in this repo are delivered via Secret Manager, never inlined.
+#
+# CKV_GCP_62 — "Bucket should log access"  (accepted, resource-scoped)
+# CKV_GCP_78 — "Ensure Cloud storage has versioning enabled"  (accepted)
+#   These fire only on google_storage_bucket.agent_engine_staging, a transient
+#   staging bucket holding ephemeral, write-once Agent Engine deploy archives
+#   that a 30-day lifecycle rule deletes. Access logging and object versioning
+#   add cost/retention with no security value for non-durable artifacts. The
+#   justification is duplicated as inline `checkov:skip=` comments on the
+#   resource in cicd/modules/backend/main.tf so it travels with the code; they
+#   are listed here too to keep the accepted-risk register in one place.
+#
+# NOTE — public webhook `allUsers` run.invoker binding
+#   google_cloud_run_v2_service_iam_binding.noauth_webhook grants
+#   roles/run.invoker to allUsers. This is REQUIRED: Meta/WhatsApp delivers
+#   inbound webhook callbacks unauthenticated, so the endpoint must be publicly
+#   invocable. It is defended in application code by the GET verify_token
+#   handshake and per-request X-Hub-Signature-256 HMAC validation. This checkov
+#   version (3.3.x) does not flag it; if a future check ID starts flagging the
+#   public Cloud Run invoker, add that ID here with this same justification.
+# ---------------------------------------------------------------------------
+skip-check:
+  - CKV_SECRET_6
+  - CKV_GCP_62
+  - CKV_GCP_78

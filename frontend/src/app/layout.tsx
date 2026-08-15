@@ -26,6 +26,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
+      <head>
+        {/* Blocking script: apply the persisted/system theme before hydration to
+            avoid a light flash (FOUC) for users who prefer dark mode. Mirrors the
+            logic in ThemeContext (localStorage key "theme": light | dark | system). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');var isDark=t==='dark'||((t==='system'||!t)&&window.matchMedia('(prefers-color-scheme: dark)').matches);var el=document.documentElement;if(isDark){el.classList.add('dark');}else{el.classList.remove('dark');}}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} bg-background text-foreground transition-colors duration-300`}>
         <ThemeProvider>
           <AuthProvider>

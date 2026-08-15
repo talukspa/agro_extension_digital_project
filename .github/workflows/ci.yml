@@ -1,0 +1,116 @@
+name: CI
+
+# Quality gate for pull requests: runs the Python, frontend, Terraform, and
+# workflow-lint suites. No cloud credentials and no deploys — everything here is
+# offline/local (pytest, vitest, terraform test/plan -backend=false, scanners),
+# so these run on GitHub-hosted ubuntu-latest (the deploy/build workflows keep
+# using the self-hosted runners that have GCP access).
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+
+      - name: agents — pytest + coverage (fail under 80%)
+        working-directory: agents
+        run: >-
+          uv run --with pytest-cov pytest tests/
+          --cov=agent_aa_app --cov=agent_pp_app --cov=deploy
+          --cov-report=term-missing --cov-fail-under=80
+
+      - name: webhook — pytest + coverage (fail under 80%)
+        working-directory: webhook-application
+        run: >-
+          uv run --with pytest-cov --extra test pytest tests/
+          --cov=whatsapp_webhook --cov-report=term-missing --cov-fail-under=80
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install deps
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      # `next lint` is intentionally not run here: the repo has no ESLint config,
+      # so `next lint` prompts for interactive setup and fails in CI. Typecheck +
+      # unit tests are the meaningful gates; add an ESLint config to re-enable.
+      - name: Unit tests + coverage
+        run: npm run test:coverage
+
+  terraform:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [backend, database, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: fmt
+        run: terraform -chdir=cicd/modules/${{ matrix.module }} fmt -check -recursive
+
+      - name: init + validate + test
+        run: |
+          cd cicd/modules/${{ matrix.module }}
+          terraform init -backend=false
+          terraform validate
+          terraform test
+
+  policy-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: checkov
+        run: |
+          pip install --quiet checkov==3.3.6
+          checkov --config-file .checkov.yaml
+
+  tflint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: terraform-linters/setup-tflint@v4
+      - name: tflint
+        run: |
+          tflint --init --chdir=cicd
+          tflint --chdir=cicd --recursive
+
+  actionlint:
+    runs-on: ubuntu-latest
+    env:
+      # actionlint shells out to shellcheck (present on ubuntu-latest). Limit it
+      # to error-severity so its own workflow checks (e.g. invalid context use)
+      # gate CI, without failing on SC2086/SC2046 style noise in the existing
+      # run: scripts. Tighten later by quoting those and dropping this.
+      SHELLCHECK_OPTS: --severity=error
+    steps:
+      - uses: actions/checkout@v4
+      - name: actionlint
+        run: |
+          bash <(curl -s https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          ./actionlint -color
