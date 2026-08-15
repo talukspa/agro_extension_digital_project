@@ -29,10 +29,11 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # them with run_cmd at plan time, so a missing one is a hard plan failure, not a
 # runtime problem. Terraform creates the other secrets (datastore-*, engine-*).
 PREEXISTING_SECRETS=(
-  wsp-token
   webhook-verify-token
   whatsapp-app-secret-aa
   whatsapp-app-secret-pp
+  wsp-token-aa
+  wsp-token-pp
 )
 
 c_red()  { printf '\033[0;31m%s\033[0m\n' "$*"; }

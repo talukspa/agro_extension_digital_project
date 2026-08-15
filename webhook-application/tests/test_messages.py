@@ -34,7 +34,9 @@ def _audio_msg(audio_id="AUDIO123"):
 @pytest.fixture(autouse=True)
 def _wsp(monkeypatch):
     # Ensure the WhatsApp config used by the audio/ack paths is populated.
-    monkeypatch.setattr(config, "wsp_token", "test-wsp-token")
+    # AA and PP have distinct outbound tokens.
+    monkeypatch.setattr(config, "aa_wsp_token", "test-wsp-token-aa")
+    monkeypatch.setattr(config, "pp_wsp_token", "test-wsp-token-pp")
 
 
 # --------------------------------------------------------------------------- #
@@ -176,6 +178,33 @@ async def test_ack_masks_wa_id_in_logs(caplog):
 async def test_ack_unknown_app_returns_false():
     ok = await messages._send_whatsapp_acknowledgment(WA_ID, "hola", "agent_unknown")
     assert ok is False
+
+
+@pytest.mark.asyncio
+async def test_ack_uses_per_app_token():
+    """AA and PP are separate WABAs: each app's outbound send must use its own
+    access token (a shared token 401s against the other app's number)."""
+    PP = config.pp_app_name
+    with patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
+        await messages._send_whatsapp_acknowledgment(WA_ID, "hola", AA)
+        await messages._send_whatsapp_acknowledgment(WA_ID, "hola", PP)
+    aa_call, pp_call = send.await_args_list
+    # send_whatsapp_message(to, message, url, token) — token is arg 3.
+    assert aa_call.args[3] == "test-wsp-token-aa"
+    assert aa_call.args[2].startswith(config.aa_facebook_app_url)
+    assert pp_call.args[3] == "test-wsp-token-pp"
+    assert pp_call.args[2].startswith(config.pp_facebook_app_url)
+
+
+@pytest.mark.asyncio
+async def test_ack_missing_app_token_returns_false_without_sending(monkeypatch):
+    """When the app's token is unset the send is skipped (fail-closed), not
+    attempted with a wrong/empty token."""
+    monkeypatch.setattr(config, "aa_wsp_token", None)
+    with patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
+        ok = await messages._send_whatsapp_acknowledgment(WA_ID, "hola", AA)
+    assert ok is False
+    send.assert_not_awaited()
 
 
 # --------------------------------------------------------------------------- #

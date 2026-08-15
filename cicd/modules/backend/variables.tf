@@ -65,9 +65,16 @@ variable "estandar_pp_app_name" {
   type        = string
 }
 
-variable "wsp_token" {
-  description = "Token de WhatsApp"
+variable "wsp_token_aa" {
+  description = "Access token (Bearer) de la app AA para envíos OUTBOUND por WhatsApp Cloud API. AA y PP son apps/WABAs distintas con números y tokens propios: el token de una da 401 contra el número de la otra, por eso el envío se resuelve por app. Si no está seteado, el envío de esa app se omite."
   type        = string
+  sensitive   = true
+}
+
+variable "wsp_token_pp" {
+  description = "Access token (Bearer) de la app PP para envíos OUTBOUND por WhatsApp Cloud API. Ver wsp_token_aa."
+  type        = string
+  sensitive   = true
 }
 
 variable "whatsapp_base_url" {

@@ -21,7 +21,9 @@ google.auth.default = lambda *args, **kwargs: (
     os.environ["GOOGLE_CLOUD_PROJECT"],
 )
 os.environ.setdefault("VERIFY_TOKEN", "test-verify-token")
-os.environ.setdefault("WSP_TOKEN", "test-wsp-token")
+# Per-app outbound access tokens (AA and PP are separate WABAs/tokens).
+os.environ.setdefault("WSP_TOKEN_AA", "test-wsp-token-aa")
+os.environ.setdefault("WSP_TOKEN_PP", "test-wsp-token-pp")
 os.environ.setdefault("WHATSAPP_BASE_URL", "https://graph.facebook.com/v22.0")
 os.environ.setdefault("ESTANDAR_AA_FACEBOOK_APP", "test-aa-fb-app")
 os.environ.setdefault("ESTANDAR_AA_APP_NAME", "agent_aa")
