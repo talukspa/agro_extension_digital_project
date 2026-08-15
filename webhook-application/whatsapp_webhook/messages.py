@@ -54,14 +54,17 @@ async def _send_whatsapp_acknowledgment(
         logger.error(f"Unknown app name: {app_name}")
         return False
 
-    if not facebook_app_url or not config.wsp_token:
+    # AA and PP send from different numbers with different access tokens; resolve
+    # the token for THIS app (see config.token_for).
+    wsp_token = config.token_for(app_name)
+    if not facebook_app_url or not wsp_token:
         logger.error("WhatsApp API URL or token is not configured.")
         return False
 
     try:
         message = create_text_message(message_text)
         await send_whatsapp_message(
-            user_wa_id, message, f"{facebook_app_url}/messages", config.wsp_token
+            user_wa_id, message, f"{facebook_app_url}/messages", wsp_token
         )
         logger.info(f"Acknowledgment sent successfully to {mask_pii(user_wa_id)}")
         return True
@@ -157,33 +160,35 @@ async def handle_audio_message(
         logging.error(f"Unknown app name: {app_name}")
         return
 
-    if not facebook_app_url or not config.wsp_token:
+    # Per-app token: AA and PP use different numbers/tokens (see config.token_for).
+    wsp_token = config.token_for(app_name)
+    if not facebook_app_url or not wsp_token:
         logging.error(
             f"Incomplete WhatsApp config for audio in {app_name}"
         )
         return
 
     try:
-        audio_content = await download_whatsapp_media(audio_id, config.whatsapp_base_url, config.wsp_token)
+        audio_content = await download_whatsapp_media(audio_id, config.whatsapp_base_url, wsp_token)
         if not audio_content:
             await send_whatsapp_message(
-                phone, create_text_message("No pude descargar tu audio."), f"{facebook_app_url}/messages", config.wsp_token
+                phone, create_text_message("No pude descargar tu audio."), f"{facebook_app_url}/messages", wsp_token
             )
             return
 
         transcript = await transcribe_audio_file(audio_content)
         if not transcript:
             await send_whatsapp_message(
-                phone, create_text_message("No pude entender tu audio."), f"{facebook_app_url}/messages", config.wsp_token
+                phone, create_text_message("No pude entender tu audio."), f"{facebook_app_url}/messages", wsp_token
             )
             return
 
         response = await send_message_to_agent(phone, app_name, phone, transcript)
         await send_whatsapp_message(
-            phone, create_text_message(response), f"{facebook_app_url}/messages", config.wsp_token
+            phone, create_text_message(response), f"{facebook_app_url}/messages", wsp_token
         )
     except Exception as e:
         logging.error(f"Error processing audio: {e}", exc_info=True)
         await send_whatsapp_message(
-            phone, create_text_message("Error procesando tu audio."), f"{facebook_app_url}/messages", config.wsp_token
+            phone, create_text_message("Error procesando tu audio."), f"{facebook_app_url}/messages", wsp_token
         )

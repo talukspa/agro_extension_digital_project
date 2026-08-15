@@ -79,9 +79,17 @@ resource "google_cloud_run_v2_service" "cloud_run_name_webhook" {
         value = var.estandar_pp_app_name
       }
 
+      # Per-app outbound access tokens. AA and PP are separate Meta apps / WABAs
+      # with distinct numbers and tokens; a shared token 401s against the other
+      # app's number, so the webhook resolves the token per app_name
+      # (config.token_for). If unset, that app's outbound send is skipped.
       env {
-        name  = "WSP_TOKEN"
-        value = var.wsp_token
+        name  = "WSP_TOKEN_AA"
+        value = var.wsp_token_aa
+      }
+      env {
+        name  = "WSP_TOKEN_PP"
+        value = var.wsp_token_pp
       }
 
       env {
