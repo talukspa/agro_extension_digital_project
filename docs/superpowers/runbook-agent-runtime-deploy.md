@@ -2,21 +2,43 @@
 
 What to do per env to deploy or redeploy the Vertex AI Agent Runtime engines and the rewritten webhook.
 
+> **Deploys now run locally, not on the runner.** The self-hosted runner is not
+> picking up jobs, so every workflow below (`deploy.yaml`, `deploy-agents.yml`,
+> `build-and-push.yml`) queues indefinitely. Use `scripts/local-deploy/`, which
+> mirrors each workflow and encodes the ordering and naming rules this document
+> describes prose-only. See `scripts/local-deploy/README.md`.
+>
+> The GitHub-dispatch instructions below are kept for when the runner returns.
+
+## Naming (three names for one environment)
+
+Getting this wrong deploys to the wrong project. `scripts/local-deploy/lib.sh`
+resolves it centrally; anything run by hand must apply it manually.
+
+| stack dir | `environment.name` | GCP project | `deploy.py --env` | Cloud Run service | image project |
+|---|---|---|---|---|---|
+| `dev` | `dev` | `agro-extension-digital-npe` | `npe` | `agent-webhook-dev` | npe |
+| `prd` | `prd` | `agro-extension-digital-prd` | `prd` | `agent-webhook-prd` | **npe** |
+
+Container images live in the **NPE** project for *both* environments
+(`cicd/stacks/common.yaml` → `containers.project`) — that is the path the backend
+Terraform points Cloud Run at in prd too.
+
 ## Prerequisites (once per environment)
 
-- `gcloud` authenticated with an account that has Owner or equivalent IAM in the target project.
-- `terraform` 1.15+, `terragrunt` 1.0+, `uv` 0.9+, `docker` (with linux/amd64 buildx support).
-- The repo secret `GCP_SA_KEY` populated with the service-account key the GitHub Actions runner uses to run `deploy-agents.yml`. That SA must have:
-  - `roles/aiplatform.admin` (engine create/update/delete)
-  - `roles/secretmanager.secretAccessor` on the six runtime-config secrets (see Phase 1 step 2 — Terraform creates them; the IAM grant for `GCP_SA_KEY`'s SA must be done out-of-band the first time)
-  - `roles/storage.admin` on the staging bucket
-  - `roles/iam.serviceAccountUser` on `agent-aa-runtime@…` and `agent-pp-runtime@…`
-- Self-hosted runner online (or convert the workflow to GitHub-hosted with Workload Identity Federation — see review F11).
+- `gcloud` authenticated with an account that has Owner or equivalent IAM in the target project — plus `gcloud auth application-default login`, which is separate and is what `deploy.py` actually uses.
+- `terraform` 1.5+ (that is all `required_version` asks for; 1.6+ only matters for `terraform test`, which is CI-only), `terragrunt` 0.78+, `uv` 0.9+, `docker` with `linux/amd64` buildx support.
+- **Four secrets must already exist in the project before the first `terragrunt plan`**, because the stack reads them with `run_cmd` while *evaluating* config: `wsp-token`, `webhook-verify-token`, `whatsapp-app-secret-aa`, `whatsapp-app-secret-pp`. Create the last two with `scripts/local-deploy/05-create-app-secrets.sh <env>`. AA and PP are separate Meta apps with distinct App Secrets.
+- Run `scripts/local-deploy/00-preflight.sh <env>` — it checks all of the above and changes nothing.
+
+For GitHub-dispatched runs (when the runner is back), the repo secret `GCP_SA_KEY` must additionally hold a service-account key with `roles/aiplatform.admin`, `roles/secretmanager.secretAccessor` on the six runtime-config secrets, `roles/storage.admin` on the staging bucket, and `roles/iam.serviceAccountUser` on `agent-aa-runtime@…` / `agent-pp-runtime@…`. Note `cicd.deployer_sa_email` is commented out in both `env.yaml` files, so Terraform currently grants that SA nothing — the bindings are inert and the IAM must be granted out-of-band.
 
 ## Phase 1 — Infra
 
+Local: `scripts/local-deploy/20-infra.sh <env> plan`, then `… apply`. By hand:
+
 ```bash
-cd cicd/stacks/<env>/backend     # <env> = dev or prd
+cd cicd/stacks/<env>/backend     # <env> = dev or prd (stack dir, not project)
 terragrunt plan -out=phase1.tfplan
 # Review the plan. Expected for a fresh prd: ~25 adds (runtime SAs, GCS staging
 # bucket, 6 runtime-config secrets + versions, engine resource-name secret
@@ -59,12 +81,11 @@ gh workflow run deploy-agents.yml -f environment=<env>
 gh run watch
 ```
 
-Or invoke locally if the runner is offline:
+Locally (the current default): `scripts/local-deploy/30-agents.sh <env>`. By hand — note `<agent-env>` is `npe` or `prd`, **not** the `dev`/`prd` stack name, and there is no `agro-extension-digital-dev` project:
 
 ```bash
-gcloud config set project agro-extension-digital-<env>
 cd agents
-export GOOGLE_CLOUD_PROJECT=agro-extension-digital-<env>
+export GOOGLE_CLOUD_PROJECT=agro-extension-digital-<agent-env>   # npe | prd
 export GOOGLE_CLOUD_LOCATION=us-central1
 export GOOGLE_GENAI_USE_VERTEXAI=TRUE
 # Pull runtime config from the secrets we just created:
@@ -73,8 +94,10 @@ for k in DATASTORE_AA_ID DATASTORE_PP_ID DATASTORE_GUIDES_ID \
   secret_id="$(echo $k | tr A-Z_ a-z- )"
   export $k="$(gcloud secrets versions access latest --secret=$secret_id)"
 done
-uv run python deploy.py --env <env>
+uv run python deploy.py --env <agent-env>          # npe | prd
 ```
+
+`deploy.py` refuses to run if `GOOGLE_CLOUD_PROJECT` disagrees with `--env`, so a stale exported project cannot point one environment's datastore/RAG paths at another environment's engine.
 
 Expected output: `agent_aa: projects/.../reasoningEngines/<id>` and `agent_pp: projects/.../reasoningEngines/<id>`. Both resource names are written back to `engine-{aa,pp}-resource-name` secrets.
 
@@ -89,25 +112,33 @@ git push origin feature/agent-runtime-migration
 gh run watch
 ```
 
-Local fallback:
+Locally (the current default):
+
+```bash
+./scripts/local-deploy/10-build-push.sh       <env> --latest
+./scripts/local-deploy/40-redeploy-webhook.sh <env>
+```
+
+By hand — the image project is **always npe**, for prd too. Pushing to a prd registry produces an image nothing pulls:
 
 ```bash
 cd webhook-application
 SHA=$(git rev-parse --short HEAD)
-IMG=us-central1-docker.pkg.dev/agro-extension-digital-<env>/agro-extension-digital/webhook
+IMG=us-central1-docker.pkg.dev/agro-extension-digital-npe/agro-extension-digital/webhook
 gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
-docker build --platform=linux/amd64 -t $IMG:$SHA -t $IMG:latest .
-docker push $IMG:$SHA
-docker push $IMG:latest
+# --platform linux/amd64 is mandatory: Cloud Run is amd64-only, and a native
+# build on Apple Silicon pushes fine then fails to start with exec-format error.
+docker buildx build --platform linux/amd64 --push -t $IMG:$SHA -t $IMG:latest .
 ```
 
-Then redeploy the Cloud Run service to pick up the new image:
+Then redeploy the Cloud Run service — pushing `:latest` alone does nothing, because Cloud Run pinned a digest at deploy time:
 
 ```bash
+# service name uses the STACK name (dev|prd); project uses npe|prd
 gcloud run services update agent-webhook-<env> \
-  --image=us-central1-docker.pkg.dev/agro-extension-digital-<env>/agro-extension-digital/webhook:$SHA \
+  --image=$IMG:$SHA \
   --region=us-central1 \
-  --project=agro-extension-digital-<env>
+  --project=agro-extension-digital-<agent-env>
 ```
 
 The env vars are already correct (Phase 1 added `GOOGLE_CLOUD_PROJECT` / `GOOGLE_CLOUD_LOCATION`).

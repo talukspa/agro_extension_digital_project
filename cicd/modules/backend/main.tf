@@ -23,6 +23,16 @@ resource "google_cloud_run_v2_service" "cloud_run_name_webhook" {
     containers {
       image = var.gar_image_location_webhook
 
+      # The webhook imports the Vertex AI Agent Runtime SDK, whose startup
+      # footprint exceeds the Cloud Run default of 512Mi (the instance was being
+      # OOM-killed on the startup probe). See var.webhook_memory.
+      resources {
+        limits = {
+          cpu    = var.webhook_cpu
+          memory = var.webhook_memory
+        }
+      }
+
       # Required by the Vertex AI Agent Runtime client in agent_client.py.
       env {
         name  = "GOOGLE_CLOUD_PROJECT"

@@ -182,3 +182,5 @@ cython_debug/
 .vscode
 .pnpm-store
 .gemini/
+# Terraform provider plugins / working dirs (can be >100MB)
+.terraform/

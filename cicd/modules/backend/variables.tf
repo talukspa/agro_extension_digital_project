@@ -94,6 +94,22 @@ variable "startup_cpu_boost" {
   default     = true
 }
 
+variable "webhook_cpu" {
+  description = "Límite de CPU del contenedor del webhook."
+  type        = string
+  default     = "1"
+}
+
+variable "webhook_memory" {
+  # El default histórico de Cloud Run (512Mi) NO alcanza: tras la migración a
+  # Agent Runtime el webhook importa el SDK de Vertex AI (google-cloud-aiplatform),
+  # cuyo footprint en el arranque supera 512Mi (~536Mi observado), y Cloud Run
+  # mata la instancia en el startup probe. 1Gi da headroom cómodo.
+  description = "Límite de memoria del contenedor del webhook."
+  type        = string
+  default     = "1Gi"
+}
+
 variable "min_scale" {
   description = "Cantidad mínima de instancias para los servicios de Cloud Run (run.googleapis.com/minScale)"
   type        = number
