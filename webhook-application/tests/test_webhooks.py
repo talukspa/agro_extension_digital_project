@@ -15,9 +15,9 @@ from fastapi.testclient import TestClient
 from whatsapp_webhook.app import create_app
 from whatsapp_webhook.utils.app_config import config
 
-# AA and PP are separate Meta apps with distinct App Secrets.
-AA_APP_SECRET = "meta-app-secret-aa"
-PP_APP_SECRET = "meta-app-secret-pp"
+# The AA and PP numbers live under the SAME Meta app, so both endpoints
+# validate X-Hub-Signature-256 against one shared App Secret.
+APP_SECRET = "meta-app-secret"
 VERIFY_TOKEN = "test-verify-token"  # matches conftest seed
 
 
@@ -28,13 +28,12 @@ def client():
 
 @pytest.fixture(autouse=True)
 def _secret(monkeypatch):
-    """Configure known per-app secrets + verify token on the config singleton."""
-    monkeypatch.setattr(config, "aa_app_secret", AA_APP_SECRET)
-    monkeypatch.setattr(config, "pp_app_secret", PP_APP_SECRET)
+    """Configure the known shared App Secret + verify token on the config singleton."""
+    monkeypatch.setattr(config, "app_secret", APP_SECRET)
     monkeypatch.setattr(config, "verify_token", VERIFY_TOKEN)
 
 
-def _sign(body: bytes, secret: str = AA_APP_SECRET) -> str:
+def _sign(body: bytes, secret: str = APP_SECRET) -> str:
     return "sha256=" + hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
 
 
@@ -103,8 +102,8 @@ def test_non_ascii_signature_header_returns_403_not_500(client):
 
 
 def test_app_secret_unset_fails_closed_403(client, monkeypatch):
-    """No configured app secret for that app must reject every POST (fail-closed)."""
-    monkeypatch.setattr(config, "aa_app_secret", None)
+    """No configured app secret must reject every POST (fail-closed)."""
+    monkeypatch.setattr(config, "app_secret", None)
     body = b'{"entry": []}'
     # Even a 'correct-looking' header cannot pass without a configured secret.
     resp = client.post(
@@ -115,16 +114,22 @@ def test_app_secret_unset_fails_closed_403(client, monkeypatch):
     assert resp.status_code == 403
 
 
-def test_aa_signature_rejected_on_pp_endpoint(client):
-    """AA and PP are separate Meta apps: a body signed with AA's secret must be
-    rejected by the PP endpoint (each verifies against its own App Secret)."""
+@pytest.mark.parametrize("endpoint", ["/estandar_aa_webhook", "/estandar_pp_webhook"])
+def test_shared_secret_accepted_on_both_endpoints(client, endpoint):
+    """Both numbers belong to the same Meta app, so one App Secret validates both.
+
+    Splitting this into per-app secrets is what 403'd every AA message in prd:
+    the AA endpoint was verifying against a secret Meta never signs with.
+    """
     body = b'{"entry": []}'
-    resp = client.post(
-        "/estandar_pp_webhook",
-        content=body,
-        headers={"X-Hub-Signature-256": _sign(body, AA_APP_SECRET)},
-    )
-    assert resp.status_code == 403
+    with patch("whatsapp_webhook.api.webhooks.receive_message_aa", AsyncMock(return_value=True)), \
+         patch("whatsapp_webhook.api.webhooks.receive_message_pp", AsyncMock(return_value=True)):
+        resp = client.post(
+            endpoint,
+            content=body,
+            headers={"X-Hub-Signature-256": _sign(body)},
+        )
+    assert resp.status_code == 200
 
 
 def test_valid_signature_but_invalid_json_returns_400(client):
@@ -158,7 +163,7 @@ def test_pp_endpoint_uses_pp_handler(client):
         resp = client.post(
             "/estandar_pp_webhook",
             content=body,
-            headers={"X-Hub-Signature-256": _sign(body, PP_APP_SECRET)},
+            headers={"X-Hub-Signature-256": _sign(body)},
         )
     assert resp.status_code == 200
     handler.assert_awaited_once()

@@ -40,6 +40,54 @@ async def test_create_agent_session_returns_existing_on_already_exists():
 
 
 @pytest.mark.asyncio
+async def test_create_agent_session_returns_existing_on_invalid_argument_already_exists():
+    """Agent Runtime reports a duplicate session as 400 INVALID_ARGUMENT, not 409.
+
+    The engine wraps the session-service error as "Reasoning Engine Execution
+    failed" and only the nested message says "already exists", so catching
+    gax.AlreadyExists alone lets the duplicate escape and kills every message
+    from a returning user (session_id == wa_id is deterministic).
+    """
+    from whatsapp_webhook.external_services import agent_client
+
+    engine = MagicMock()
+    engine.async_create_session = AsyncMock(
+        side_effect=gax.InvalidArgument(
+            "400 Reasoning Engine Execution failed. Exception: 400 "
+            "INVALID_ARGUMENT. {'error': {'code': 400, 'message': \"Session "
+            "with user-provided ID 'projects/1/locations/us-central1/"
+            "reasoningEngines/2/sessions/56999' already exists.\", 'status': "
+            "'INVALID_ARGUMENT'}}"
+        )
+    )
+    engine.async_get_session = AsyncMock(return_value={"id": "+56999", "events": []})
+    with patch.object(agent_client, "get_engine", return_value=engine):
+        out = await agent_client.create_agent_session(
+            user_id="+56999", app_name="agent_aa", session_id="+56999",
+        )
+    assert out["id"] == "+56999"
+    engine.async_get_session.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_create_agent_session_propagates_unrelated_invalid_argument():
+    """A 400 that is NOT a duplicate session must still surface, not be swallowed."""
+    from whatsapp_webhook.external_services import agent_client
+
+    engine = MagicMock()
+    engine.async_create_session = AsyncMock(
+        side_effect=gax.InvalidArgument("400 user_id must not be empty")
+    )
+    engine.async_get_session = AsyncMock()
+    with patch.object(agent_client, "get_engine", return_value=engine):
+        with pytest.raises(gax.InvalidArgument):
+            await agent_client.create_agent_session(
+                user_id="", app_name="agent_aa", session_id="+56999",
+            )
+    engine.async_get_session.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_create_agent_session_returns_new_when_absent():
     from whatsapp_webhook.external_services import agent_client
 

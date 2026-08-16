@@ -61,7 +61,7 @@ if [[ "$action" == "plan" ]]; then
   c_ylw "Before applying, confirm in the plan above:"
   echo "  • Destroy count is exactly 5 on the first migration apply (old agent Cloud Run"
   echo "    service + its SA + 2 role bindings + webhook_invokes_agent_aa). Anything else → STOP."
-  echo "  • The webhook Cloud Run service gains WHATSAPP_APP_SECRET_AA / _PP env entries."
+  echo "  • The webhook Cloud Run service gains a WHATSAPP_APP_SECRET env entry."
   echo "  • cicd/modules/backend/main.tf documents a manual 'terraform state rm' of the"
   echo "    retired resources that must happen BEFORE this apply. Confirm it is done."
   exit 0

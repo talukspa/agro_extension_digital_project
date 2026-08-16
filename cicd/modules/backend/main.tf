@@ -66,16 +66,12 @@ resource "google_cloud_run_v2_service" "cloud_run_name_webhook" {
         value = var.verify_token
       }
       env {
-        # Per-app Meta App Secrets for the webhook's fail-closed
-        # X-Hub-Signature-256 validation (api/webhooks.py). AA and PP are
-        # separate Meta apps; each endpoint verifies against its own secret.
-        # Must be set or that app's inbound POSTs are rejected 403.
-        name  = "WHATSAPP_APP_SECRET_AA"
-        value = var.whatsapp_app_secret_aa
-      }
-      env {
-        name  = "WHATSAPP_APP_SECRET_PP"
-        value = var.whatsapp_app_secret_pp
+        # Meta App Secret for the webhook's fail-closed X-Hub-Signature-256
+        # validation (api/webhooks.py). The AA and PP numbers belong to the same
+        # Meta app, so both endpoints verify against this one secret. Must be set
+        # or every inbound POST is rejected 403.
+        name  = "WHATSAPP_APP_SECRET"
+        value = var.whatsapp_app_secret
       }
       env {
         name  = "ESTANDAR_AA_APP_NAME"

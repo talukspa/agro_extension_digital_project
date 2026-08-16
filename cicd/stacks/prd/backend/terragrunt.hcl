@@ -76,19 +76,18 @@ inputs = {
 
   # Secrets y tokens (proyecto PRD)
   # NOTA: estos secrets deben existir en Secret Manager del proyecto antes del
-  # primer apply (se leen con run_cmd al evaluar la config). AA y PP son apps de
-  # Meta distintas (WABAs distintas) con App Secret propio (inbound) Y access
-  # token propio (outbound):
-  #   - whatsapp-app-secret-aa / -pp : firma X-Hub-Signature-256 (inbound).
-  #     Sin ellos el webhook rechaza los POST de esa app con 403 (fail-closed).
-  #   - wsp-token-aa / -pp : Bearer token para enviar (outbound). El token de
-  #     una app da 401 contra el número de la otra, por eso es per-app.
-  verify_token           = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=webhook-verify-token", "--project=${local.project_id}")
-  whatsapp_app_secret_aa = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=whatsapp-app-secret-aa", "--project=${local.project_id}")
-  whatsapp_app_secret_pp = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=whatsapp-app-secret-pp", "--project=${local.project_id}")
-  wsp_token_aa           = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=wsp-token-aa", "--project=${local.project_id}")
-  wsp_token_pp           = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=wsp-token-pp", "--project=${local.project_id}")
-  whatsapp_base_url      = local.common_vars.urls.whatsapp_base
+  # primer apply (se leen con run_cmd al evaluar la config):
+  #   - whatsapp-app-secret : firma X-Hub-Signature-256 (inbound). Los números
+  #     AA y PP cuelgan de la MISMA app de Meta, así que ambos endpoints validan
+  #     con este único secret. Sin él el webhook rechaza todo POST con 403
+  #     (fail-closed).
+  #   - wsp-token-aa / -pp : Bearer token para enviar (outbound). Estos SÍ son
+  #     per-número: el token de uno da 401 contra el número del otro.
+  verify_token        = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=webhook-verify-token", "--project=${local.project_id}")
+  whatsapp_app_secret = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=whatsapp-app-secret", "--project=${local.project_id}")
+  wsp_token_aa        = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=wsp-token-aa", "--project=${local.project_id}")
+  wsp_token_pp        = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=wsp-token-pp", "--project=${local.project_id}")
+  whatsapp_base_url   = local.common_vars.urls.whatsapp_base
 
   # Configuración específica del entorno desde env.yaml
   log_level         = local.env_vars.environment.log_level
