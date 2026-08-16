@@ -45,3 +45,27 @@ def test_does_not_touch_bare_brackets():
 
 def test_plain_text_unchanged():
     assert norm("Hola 👋 ¿en qué ayudo?") == "Hola 👋 ¿en qué ayudo?"
+
+
+# --- F4: a pipe in ordinary prose is not a table ----------------------------
+
+def test_pipe_in_prose_is_left_alone():
+    """Regression: _detable used to fire on any ' | ' and silently delete it,
+    quietly rewriting what the agent said."""
+    for prose in [
+        "Usa riego por goteo | el surco no sirve",
+        "La relacion es 3 | 4 en ese caso",
+        "Opciones: A | B | C",
+    ]:
+        assert norm(prose) == prose
+
+
+def test_real_table_is_still_flattened():
+    # Has a |---|---| separator row, so it IS a table.
+    assert norm("| a | b |\n| - | - |\n| 1 | 2 |") == "a b\n1 2"
+
+
+def test_table_without_separator_row_is_not_mangled():
+    # No separator row -> not a markdown table -> leave the text intact.
+    src = "resultado | valor"
+    assert norm(src) == src

@@ -51,7 +51,22 @@ def _client() -> bigquery.Client:
 
 
 def _is_select(sql: str) -> bool:
-    head = sql.lstrip().lstrip("(").lstrip().upper()
+    """True only for a SINGLE read-only statement.
+
+    The multi-statement check is not decoration: BigQuery executes scripts, so
+    `SELECT 1; DROP TABLE t` would pass a first-token-only guard and run the
+    DROP. Read-only IAM (roles/bigquery.dataViewer) is the real backstop, but a
+    guard whose error says "Only SELECT/WITH queries are allowed" should not
+    claim more than it enforces.
+
+    A semicolon inside a string literal is refused too. That is a deliberate
+    false negative: erring toward refusal costs the model one rewrite, while
+    erring the other way costs a executed statement we never intended to allow.
+    """
+    stripped = sql.strip().rstrip(";").strip()
+    if ";" in stripped:
+        return False
+    head = stripped.lstrip("(").lstrip().upper()
     return head.startswith("SELECT") or head.startswith("WITH")
 
 

@@ -47,6 +47,20 @@ RUNTIME_ENV_KEYS = [
     "DATASTORE_FAQ_ID", "DATASTORE_CHILEPRUNES_CL_ID", "BIGQUERY_DATASET",
 ]
 
+# Optional per-engine tuning knobs. Unlike RUNTIME_ENV_KEYS these are NOT
+# required: each is forwarded to the engine only when it is set in the deploy
+# environment, so leaving one unset keeps the code default.
+#
+# WITHOUT this passthrough these vars are read by code that only ever runs
+# INSIDE the engine (core/bq_tools.py, core/llm_global.py), where nothing sets
+# them — so every "env-overridable per engine" knob silently pinned to its
+# default and no operator override could ever take effect.
+OPTIONAL_ENV_KEYS = [
+    "GEMINI_LOCATION",   # core/llm_global.py
+    "BQ_MAX_BYTES",      # core/bq_tools.py — scan cap
+    "BQ_MAX_ROWS",       # core/bq_tools.py — row ceiling
+]
+
 # Telemetry env vars required post-ADK 1.18 to actually export traces.
 # See https://github.com/google/adk-python/issues/3498.
 #
@@ -78,7 +92,8 @@ def env_vars_for(agent_key: str) -> dict[str, str]:
     # llm_global.py read via os.environ at runtime. (An earlier change shipped
     # GOOGLE_CLOUD_PROJECT explicitly; that broke real deploys, so it's gone.)
     base = {k: os.environ[k] for k in RUNTIME_ENV_KEYS}
-    return base | STATIC_ENV | TELEMETRY_ENV
+    optional = {k: os.environ[k] for k in OPTIONAL_ENV_KEYS if os.environ.get(k)}
+    return base | optional | STATIC_ENV | TELEMETRY_ENV
 
 
 def read_secret(project: str, secret_id: str) -> Optional[str]:

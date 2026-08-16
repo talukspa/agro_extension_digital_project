@@ -102,3 +102,31 @@ def test_run_query_truncates_rows():
     assert out["ok"] is True
     assert len(out["rows"]) == 100
     assert out["truncated"] is True
+
+
+# --- F3: single-statement enforcement --------------------------------------
+
+@pytest.mark.parametrize("sql", [
+    "SELECT 1; DROP TABLE estandar_aa",
+    "SELECT 1;DELETE FROM estandar_aa",
+    "WITH t AS (SELECT 1) SELECT * FROM t; TRUNCATE TABLE x",
+])
+def test_multi_statement_scripts_are_refused(sql):
+    """BigQuery executes scripts — a first-token guard would run the DDL."""
+    from core import bq_tools
+    for fn in (bq_tools.check_query, bq_tools.run_query):
+        out = fn(sql)
+        assert out["ok"] is False
+        assert "SELECT" in out["error"]
+
+
+@pytest.mark.parametrize("sql", [
+    "SELECT 1",
+    "SELECT 1;",
+    "  select codigo from estandar_aa  ",
+    "(SELECT 1)",
+    "WITH t AS (SELECT 1) SELECT * FROM t",
+])
+def test_single_statement_selects_still_pass(sql):
+    from core import bq_tools
+    assert bq_tools._is_select(sql) is True

@@ -378,3 +378,38 @@ def test_main_aborts_when_project_env_mismatches_target(monkeypatch):
     assert "does not match" in str(exc.value)
     init.assert_not_called()
     deploy_one.assert_not_called()
+
+
+# --- F1: optional tuning knobs must actually reach the engine ---------------
+
+def test_optional_env_keys_are_forwarded_when_set(monkeypatch):
+    import deploy
+    for k in deploy.RUNTIME_ENV_KEYS:
+        monkeypatch.setenv(k, "x")
+    monkeypatch.setenv("BQ_MAX_BYTES", "2048")
+    monkeypatch.setenv("GEMINI_LOCATION", "us-central1")
+    env = deploy.env_vars_for("agent_aa")
+    assert env["BQ_MAX_BYTES"] == "2048"
+    assert env["GEMINI_LOCATION"] == "us-central1"
+
+
+def test_optional_env_keys_are_omitted_when_unset(monkeypatch):
+    """Unset knob must not ship an empty string that int() would choke on."""
+    import deploy
+    for k in deploy.RUNTIME_ENV_KEYS:
+        monkeypatch.setenv(k, "x")
+    for k in deploy.OPTIONAL_ENV_KEYS:
+        monkeypatch.delenv(k, raising=False)
+    env = deploy.env_vars_for("agent_aa")
+    assert not any(k in env for k in deploy.OPTIONAL_ENV_KEYS)
+
+
+def test_every_optional_knob_is_read_by_some_core_module():
+    """Guard against a knob being documented but never wired (the F1 defect)."""
+    import pathlib
+    import deploy
+    src = "\n".join(
+        p.read_text() for p in pathlib.Path("core").rglob("*.py")
+    )
+    for key in deploy.OPTIONAL_ENV_KEYS:
+        assert key in src, f"{key} is shipped but no core/ module reads it"

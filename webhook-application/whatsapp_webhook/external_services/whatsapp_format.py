@@ -23,11 +23,23 @@ _BLANKS = re.compile(r"\n{3,}")
 
 
 def _detable(text: str) -> str:
+    """Flatten markdown tables, leaving ordinary prose alone.
+
+    A markdown table is only a table if it carries a |---|---| separator row.
+    Requiring one is what keeps a pipe used as ordinary punctuation intact:
+    the old rule also fired on any line containing " | ", which silently
+    deleted the pipe from sentences like
+    "Usa riego por goteo | el surco no sirve" -> "Usa riego por goteo el surco
+    no sirve", quietly changing what the agent said.
+    """
+    lines = text.split("\n")
+    if not any(_TABLE_SEP.match(ln) for ln in lines):
+        return text
     out = []
-    for line in text.split("\n"):
+    for line in lines:
         if _TABLE_SEP.match(line):
             continue  # drop the |---|---| separator row entirely
-        if line.strip().startswith("|") or " | " in line:
+        if line.strip().startswith("|"):
             cells = [c.strip() for c in line.strip().strip("|").split("|")]
             out.append(" ".join(c for c in cells if c))
         else:
