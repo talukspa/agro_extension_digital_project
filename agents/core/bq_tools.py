@@ -43,6 +43,21 @@ def _max_rows() -> int:
     return int(os.environ.get("BQ_MAX_ROWS", str(_DEFAULT_MAX_ROWS)))
 
 
+def _job_config(**kwargs) -> bigquery.QueryJobConfig:
+    """Query config with the dataset pre-resolved.
+
+    `list_tables` hands the model bare table ids ("estandar_aa"), so the model
+    writes `SELECT ... FROM estandar_aa` — which BigQuery rejects with
+    'Table "estandar_aa" must be qualified with a dataset'. Setting
+    default_dataset makes the names the tool advertises actually usable, rather
+    than expecting the model to guess a qualifier it was never told.
+    Fully-qualified names in the SQL keep working.
+    """
+    return bigquery.QueryJobConfig(
+        default_dataset=f"{_project()}.{_dataset()}", **kwargs
+    )
+
+
 def _client() -> bigquery.Client:
     # Created per call (not cached): the AdkApp is deepcopy'd at engine-create
     # time and a cached client holds unpicklable module refs (same reason as
@@ -111,7 +126,7 @@ def check_query(sql: str) -> dict:
         return {"ok": False, "error": "Only SELECT/WITH queries are allowed.",
                 "bytes_processed": 0}
     try:
-        cfg = bigquery.QueryJobConfig(dry_run=True, use_query_cache=False)
+        cfg = _job_config(dry_run=True, use_query_cache=False)
         job = _client().query(sql, job_config=cfg, timeout=CHECK_TIMEOUT)
         return {"ok": True, "error": None,
                 "bytes_processed": job.total_bytes_processed}
@@ -131,7 +146,7 @@ def run_query(sql: str, max_rows: int = 100) -> dict:
     try:
         dry = client.query(
             sql,
-            job_config=bigquery.QueryJobConfig(dry_run=True, use_query_cache=False),
+            job_config=_job_config(dry_run=True, use_query_cache=False),
             timeout=CHECK_TIMEOUT,
         )
         if dry.total_bytes_processed and dry.total_bytes_processed > cap:
@@ -143,7 +158,7 @@ def run_query(sql: str, max_rows: int = 100) -> dict:
                 ),
                 "rows": [], "truncated": False,
             }
-        cfg = bigquery.QueryJobConfig(maximum_bytes_billed=cap)
+        cfg = _job_config(maximum_bytes_billed=cap)
         job = client.query(sql, job_config=cfg, timeout=RUN_TIMEOUT)
         rows, truncated = [], False
         for i, row in enumerate(job.result(timeout=RUN_TIMEOUT)):

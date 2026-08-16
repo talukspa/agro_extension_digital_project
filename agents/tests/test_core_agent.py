@@ -60,3 +60,21 @@ def test_datastore_builds_full_resource_name():
         "projects/test-project/locations/global/collections/"
         "default_collection/dataStores/0001-example_123"
     )
+
+
+# --- G1: _datastore must be idempotent -------------------------------------
+
+def test_datastore_passes_through_an_already_qualified_name():
+    """cicd/stacks/*/env.yaml holds bare ids, agents/.env holds full paths.
+    Wrapping a full path again yields .../dataStores/projects/.../dataStores/<id>,
+    which Vertex rejects with the SAME 'Invalid Vertex AI datastore resource
+    name' error a bare id produces."""
+    from core.agent import _datastore
+    full = ("projects/agro-extension-digital-npe/locations/global/collections/"
+            "default_collection/dataStores/0001-guias_1745450505033")
+    assert _datastore(full) == full
+
+
+def test_datastore_is_idempotent():
+    from core.agent import _datastore
+    assert _datastore(_datastore("0001-example_123")) == _datastore("0001-example_123")

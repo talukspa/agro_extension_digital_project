@@ -130,3 +130,22 @@ def test_multi_statement_scripts_are_refused(sql):
 def test_single_statement_selects_still_pass(sql):
     from core import bq_tools
     assert bq_tools._is_select(sql) is True
+
+
+# --- G2: bare table names from list_tables must be queryable ---------------
+
+def test_query_jobs_set_a_default_dataset():
+    """list_tables() hands the model bare ids, so SQL like
+    'SELECT * FROM estandar_aa' must resolve — BigQuery otherwise errors with
+    'Table "estandar_aa" must be qualified with a dataset'."""
+    from core import bq_tools
+    cfg = bq_tools._job_config()
+    assert cfg.default_dataset is not None
+    assert cfg.default_dataset.dataset_id == "test_dataset"
+
+
+def test_job_config_still_forwards_its_kwargs():
+    from core import bq_tools
+    cfg = bq_tools._job_config(dry_run=True, use_query_cache=False)
+    assert cfg.dry_run is True and cfg.use_query_cache is False
+    assert cfg.default_dataset is not None

@@ -19,16 +19,27 @@ def _prefix(name: str) -> str:
     return "agent_" + name.split("_", 1)[0]
 
 
-def _datastore(short_id: str) -> str:
-    # VertexAiSearchTool needs the FULL datastore resource name, NOT the bare id.
-    # Passing the bare id makes every RAG query fail server-side with
-    # "Invalid Vertex AI datastore resource name" (root-caused via Cloud Logging
-    # in the #43 npe live test; all datastores live in the `global` location).
-    # GOOGLE_CLOUD_PROJECT is injected by Agent Engine at runtime.
+def _datastore(value: str) -> str:
+    """Return a FULL Vertex AI Search datastore resource name, idempotently.
+
+    VertexAiSearchTool rejects a bare id with "Invalid Vertex AI datastore
+    resource name" (root-caused via Cloud Logging in the #43 npe live test; all
+    datastores live in the `global` location).
+
+    It rejects a DOUBLE-prefixed name with the exact same message, and both
+    formats are in use: cicd/stacks/*/env.yaml holds bare ids (what CI ships to
+    the engine) while agents/.env holds already-qualified names (what a local
+    run sees). Wrapping unconditionally turned every local run into
+    .../dataStores/projects/.../dataStores/<id> and broke all RAG.
+
+    Accept either. GOOGLE_CLOUD_PROJECT is injected by Agent Engine at runtime.
+    """
+    if value.startswith("projects/"):
+        return value
     project = os.environ["GOOGLE_CLOUD_PROJECT"]
     return (
         f"projects/{project}/locations/global/collections/"
-        f"default_collection/dataStores/{short_id}"
+        f"default_collection/dataStores/{value}"
     )
 
 
