@@ -724,7 +724,7 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
     return AdkApp(agent=root)
 ```
 
-> If the test in Step 4 reports `t.func` does not exist, ADK wrapped the plain functions in a `FunctionTool` with a different attribute. Inspect one with `vars(bq.tools[0])` and adjust the assertion in `test_bq_subagent_uses_four_function_tools` to the real attribute (commonly `.func` or `.fn`). The implementation does not change — only the test's introspection.
+> **Resolved during execution (2026-08-15).** Neither `.func` nor `.fn` exists: ADK 1.35 leaves plain functions in `LlmAgent.tools` **untouched** — `type(bq.tools[0]).__name__ == "function"`, `vars()` is empty — because the `FunctionTool` wrapping happens later, in `canonical_tools()`. The test uses a `_tool_name(t)` helper that falls back `.func` → `.fn` → the object itself, so it reads correctly today and survives a future ADK patch that wraps eagerly. The implementation is unchanged, as anticipated.
 
 - [ ] **Step 4: Run the tests — should pass**
 
@@ -1375,6 +1375,6 @@ These are deliberately deferred (Rodrigo R2/R3) and each gets its own plan when 
 
 **Introspection risks — one verified, one still open:**
 - **Resolved (B1):** `AdkApp` exposes no public `.agent`. Confirmed against the installed `vertexai.agent_engines`: `hasattr(AdkApp, "agent") is False`. All shape assertions go through `app._tmpl_attrs["agent"]`, matching the accessor the pre-existing `test_agent_engine_app.py` already used and documented.
-- **Still open** (flagged inline at Task 4 step 3): the FunctionTool attribute exposing the wrapped function may be `.func` or `.fn` depending on the installed ADK 1.35.x patch — the test adapts, the implementation doesn't.
+- **Resolved during execution** (was flagged inline at Task 4 step 3): the guess was `.func` vs `.fn`; the reality is *neither*. ADK 1.35 keeps plain functions in `LlmAgent.tools` and defers `FunctionTool` wrapping to `canonical_tools()`. The test now resolves the name through a shape-tolerant `_tool_name()` helper.
 
 **2026-08-15 pre-execution pass:** B1–B7 (see the update block near the top) are corrected inline. Every code block was checked against the merged `main` and `google-adk` 1.35.0 / `vertexai` as installed. The unverifiable-until-deployed items are unchanged and still gated by Task 11: that `extra_packages` actually ships `core/`, and that `core/prompts/*.md` rides along with it.
