@@ -17,6 +17,7 @@ from vertexai import agent_engines
 
 from ..utils.app_config import config
 from ..utils.logging import get_logger
+from .whatsapp_format import normalize_whatsapp_markdown
 
 _logger = get_logger("agent_client")
 
@@ -209,7 +210,7 @@ async def send_to_agent(
             "response": "Error: el agente excedió el tiempo de respuesta.",
             "raw_response": raw_events,
         }
-    response_text = "".join(out).strip()
+    response_text = normalize_whatsapp_markdown("".join(out))
     if not response_text:
         _logger.warning(
             "agent_query.empty_response",
