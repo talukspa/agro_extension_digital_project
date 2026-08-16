@@ -796,7 +796,16 @@ Expected: all listed paths removed.
 - [ ] **Step 4: Confirm no remaining imports of deleted modules**
 
 Run: `grep -rn "langgraph\|SQLDatabase\|text2sql_tools\|from agent_aa_app.agent\|from agent_pp_app.agent\|agent_aa_app.tools\|agent_pp_app.tools\|\.llm_global\|agent_aa_app.prompts\|agent_pp_app.prompts" agents --include="*.py" | grep -v "/.venv/"`
-Expected: zero results. Any hit is a missed reference — fix before continuing.
+Expected: **only these four known-pending hits**, each owned by a later task. Anything else is a missed reference — fix before continuing.
+
+| Hit | Fixed in |
+|---|---|
+| `deploy.py` → `langgraph==1.2.4` in `REQUIREMENTS` | Task 6 |
+| `tests/conftest.py` → `SQLDatabase` stub | Task 8 Step 1 |
+| `tests/test_llm_global.py` → `agent_{aa,pp}_app.llm_global` | Task 8 Step 2b |
+| `tests/test_agent_engine_app.py` → `from agent_*_app.agent import root_agent` | Task 8 Step 2 |
+
+(The original plan said "zero results", which its own task ordering makes impossible — these four are deleted-module references that survive until Tasks 6 and 8.) A hit on `core/agent.py:from core.llm_global import GlobalGemini` is the new correct import, not a leftover.
 
 - [ ] **Step 5: Commit**
 
