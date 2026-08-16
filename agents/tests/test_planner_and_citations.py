@@ -95,3 +95,25 @@ def test_planner_knobs_round_trip_through_env_vars_for(monkeypatch):
     env = deploy.env_vars_for("agent_aa")
     assert env["AGENT_PLANNER"] == "builtin"
     assert env["AGENT_THINK_BUDGET"] == "1024"
+
+
+# --- model selection --------------------------------------------------------
+
+def test_models_are_wired_per_role():
+    """Pin the per-role model choice so a swap is a deliberate, reviewed edit.
+
+    root/BQ on gemini-3.7-flash is never costlier than the 3.5-flash it
+    replaced; RAG deliberately stays on 3.1-flash-lite because 3.5-flash-lite
+    is dearer on both axes."""
+    from core import agent as core_agent
+    assert core_agent.ROOT_MODEL == core_agent.BQ_MODEL == "gemini-3.7-flash"
+    assert core_agent.RAG_MODEL == "gemini-3.1-flash-lite"
+
+
+def test_build_app_uses_those_models():
+    from core import agent as core_agent
+    root = _root(_build())
+    assert root.model.model == core_agent.ROOT_MODEL
+    by = {t.agent.name: t.agent for t in root.tools}
+    assert by["aa_agent_bq"].model.model == core_agent.BQ_MODEL
+    assert by["aa_agent_rag"].model.model == core_agent.RAG_MODEL
