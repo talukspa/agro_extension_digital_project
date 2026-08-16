@@ -20,11 +20,7 @@ from vertexai import agent_engines
 REQUIREMENTS = [
     "google-cloud-aiplatform[adk,agent_engines]==1.157.0",
     "google-adk==1.35.0",
-    "langchain-community==0.4.2",
-    "langchain-google-vertexai==3.2.4",
-    "langgraph==1.2.4",
-    "sqlalchemy-bigquery==1.17.0",
-    "google-cloud-bigquery-storage==2.39.0",
+    "google-cloud-bigquery==3.33.0",
     "google-cloud-discoveryengine==0.13.12",
 ]
 
@@ -139,7 +135,11 @@ def deploy_one(key: str, cfg: dict, project: str, sa: str) -> None:
     kwargs = dict(
         agent_engine=mod.app,
         requirements=REQUIREMENTS,
-        extra_packages=[cfg["module_path"]],
+        # "core" must ship alongside the per-agent shim: without it every
+        # engine import fails AT RUNTIME on the deployed engine, while local
+        # tests still pass because core/ is on the local path. Task 11's
+        # deployed smoke test is the only thing that catches this.
+        extra_packages=[cfg["module_path"], "core"],
         display_name=cfg["display_name"],
         env_vars=env_vars_for(key),
         service_account=sa,
