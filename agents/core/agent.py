@@ -12,6 +12,11 @@ from vertexai.agent_engines import AdkApp
 
 from core import bq_tools, prompts
 from core.llm_global import GlobalGemini
+from core.retry_plugin import OkContractRetryPlugin
+
+# Consecutive tool failures before the plugin stops feeding back reflection
+# guidance. Env-overridable per engine, same pattern as BQ_MAX_BYTES.
+TOOL_MAX_RETRIES = int(os.environ.get("TOOL_MAX_RETRIES", "3"))
 
 
 def _prefix(name: str) -> str:
@@ -81,4 +86,9 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
             agent_tool.AgentTool(agent=bq),
         ],
     )
-    return AdkApp(agent=root)
+    # The plugin only sees our BigQuery failures because OkContractRetryPlugin
+    # teaches it the {ok, error} contract — see core/retry_plugin.py.
+    return AdkApp(
+        agent=root,
+        plugins=[OkContractRetryPlugin(max_retries=TOOL_MAX_RETRIES)],
+    )

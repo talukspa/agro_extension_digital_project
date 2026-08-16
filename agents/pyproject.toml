@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "google-adk>=1.35.0,<2.0.0",
+    "google-adk>=2.7.0,<3.0.0",
     "google-cloud-aiplatform[adk,agent_engines]>=1.135.0",
     "google-cloud-secret-manager>=2.20.0",
     "google-cloud-discoveryengine>=0.13.0",

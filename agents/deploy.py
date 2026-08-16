@@ -19,7 +19,10 @@ from vertexai import agent_engines
 # the lockfile is regenerated.
 REQUIREMENTS = [
     "google-cloud-aiplatform[adk,agent_engines]==1.157.0",
-    "google-adk==1.35.0",
+    "google-adk==2.7.0",
+    # ADK 2.x moved google-cloud-bigquery behind extras ([gcp]/[bigquery-analytics]),
+    # so it is no longer pulled in transitively — it MUST stay listed explicitly
+    # here and in pyproject.toml or core/bq_tools.py fails to import on the engine.
     "google-cloud-bigquery==3.33.0",
     "google-cloud-discoveryengine==0.13.12",
 ]
