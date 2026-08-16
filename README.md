@@ -55,16 +55,6 @@ Este es un monorepo moderno que implementa una arquitectura de microservicios pa
   - 🚀 Despliegue automatizado en Google Cloud Run
   - 🔒 Gestión segura de secretos
 
-### **`notebooks/`** 🔬
-**Laboratorio de Ciencia de Datos**
-- **Tecnologías:** Jupyter Notebooks, Python
-- **Propósito:** Exploración de datos, análisis y prototipado
-- **Áreas de investigación:**
-  - BigQuery analytics
-  - Text-to-SQL processing
-  - Agent behavior analysis
-  - Webhook data analysis
-
 ### **`actions-runner/`** 🏃‍♂️
 **Self-Hosted GitHub Actions Runner**
 - **Propósito:** Ejecutar CI/CD pipelines en infraestructura propia

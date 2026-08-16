@@ -1,7 +1,0 @@
-sqlalchemy
-llama_index
-sqlalchemy-bigquery
-langchain_google_vertexai
-llama-index-llms-google-genai
-google-cloud-bigquery-storage
-llama-index-embeddings-langchain
