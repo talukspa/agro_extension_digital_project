@@ -63,6 +63,10 @@ OPTIONAL_ENV_KEYS = [
     "BQ_MAX_BYTES",      # core/bq_tools.py — scan cap
     "BQ_MAX_ROWS",       # core/bq_tools.py — row ceiling
     "TOOL_MAX_RETRIES",  # core/agent.py — reflect-and-retry cap
+    # Without these two the planner can never be switched on for a deployed
+    # engine, which would make the whole ship-dark-then-A/B design unusable.
+    "AGENT_PLANNER",       # core/agent.py — "off" | "builtin"
+    "AGENT_THINK_BUDGET",  # core/agent.py — thinking token budget
 ]
 
 # Telemetry env vars required post-ADK 1.18 to actually export traces.

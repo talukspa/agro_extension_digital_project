@@ -74,3 +74,24 @@ def test_root_prompt_tells_the_supervisor_to_preserve_markers():
 def test_root_still_carries_the_plain_text_rule():
     # Citations must not have displaced the whatsapp_plain fragment.
     assert "NO uses" in prompts.root_instruction("agent_aa")
+
+
+# --- F1: the planner must be switchable on a DEPLOYED engine ----------------
+
+def test_planner_knobs_are_shipped_to_the_engine():
+    """Ship-dark-then-A/B is meaningless if AGENT_PLANNER never reaches the
+    engine. deploy.py must forward both planner knobs."""
+    import deploy
+    assert "AGENT_PLANNER" in deploy.OPTIONAL_ENV_KEYS
+    assert "AGENT_THINK_BUDGET" in deploy.OPTIONAL_ENV_KEYS
+
+
+def test_planner_knobs_round_trip_through_env_vars_for(monkeypatch):
+    import deploy
+    for k in deploy.RUNTIME_ENV_KEYS:
+        monkeypatch.setenv(k, "x")
+    monkeypatch.setenv("AGENT_PLANNER", "builtin")
+    monkeypatch.setenv("AGENT_THINK_BUDGET", "1024")
+    env = deploy.env_vars_for("agent_aa")
+    assert env["AGENT_PLANNER"] == "builtin"
+    assert env["AGENT_THINK_BUDGET"] == "1024"
