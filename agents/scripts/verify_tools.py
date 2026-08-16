@@ -17,6 +17,18 @@ Two modes:
       the actual dataset — list_tables/get_schema/check_query/run_query for real.
       Requires GOOGLE_CLOUD_PROJECT + BIGQUERY_DATASET and BigQuery read access.
 
+  python scripts/verify_tools.py --runner
+      THE REAL GATE. Everything above, plus it actually drives both agents with
+      real questions through InMemoryRunner and asserts the MODEL reaches for
+      the tools — routing, prompts and tool declarations exercised together.
+      Costs live Gemini + BigQuery + Vertex AI Search calls; run it against npe.
+
+      Note it probes the BQ sub-agent DIRECTLY as well as through the root.
+      AgentTool runs a sub-agent in its own invocation, so its function calls
+      never appear in the root runner's event stream — checking only the root
+      reports "no tools called" even when the reply plainly contains live
+      BigQuery data. That false negative is exactly what this layout avoids.
+
 Exit code is 0 only if every check passes, so it is usable as a CI or
 pre-deploy gate.
 
@@ -188,13 +200,105 @@ def verify_tools_are_callable(live: bool) -> None:
                   (out.get("error") or "")[:60])
 
 
+PROBES = [
+    ("BQ", "¿Cuántas acciones tiene el estándar? Consulta la base de datos.",
+     {"list_tables", "get_schema", "check_query", "run_query"}),
+    ("RAG", "¿Qué dice la guía sobre el manejo del agua?",
+     set()),  # tool names are datastore-specific; we only require a sub-agent call
+]
+
+
+async def _drive(root, question: str) -> tuple[set[str], str]:
+    """Run one question through the real agent; return (tools called, reply)."""
+    from google.adk.runners import InMemoryRunner
+    from google.genai import types
+
+    runner = InMemoryRunner(agent=root, app_name="verify")
+    session = await runner.session_service.create_session(
+        app_name="verify", user_id="verify-user"
+    )
+    called: set[str] = set()
+    reply: list[str] = []
+    async for event in runner.run_async(
+        user_id="verify-user",
+        session_id=session.id,
+        new_message=types.Content(role="user", parts=[types.Part(text=question)]),
+    ):
+        for part in (event.content.parts if event.content else []) or []:
+            if getattr(part, "function_call", None):
+                called.add(part.function_call.name)
+            if getattr(part, "text", None) and event.author == root.name:
+                reply.append(part.text)
+    return called, "".join(reply).strip()
+
+
+def verify_agents_actually_call_tools() -> None:
+    """THE REAL GATE: does the model actually invoke the tools we wired?
+
+    Static wiring proves the tools exist. This proves the agent reaches for
+    them on a real question — the only check that exercises routing, the
+    prompts, and the tool declarations together.
+    """
+    import asyncio
+
+    print("\n[4] driving the real agents (live Gemini + BigQuery + Vertex Search)")
+    for module_name, expected_root in SHIMS.items():
+        root = root_of(module_name)
+        print(f"\n  {module_name}")
+
+        # (a) Root level: does the supervisor route to the right sub-agent?
+        for label, question, _ in PROBES:
+            try:
+                called, reply = asyncio.run(_drive(root, question))
+            except Exception as e:  # noqa: BLE001 — report, don't abort the sweep
+                check(f"{label} probe ran", False, f"{type(e).__name__}: {str(e)[:90]}")
+                continue
+            sub_called = {c for c in called if c.endswith(("_rag", "_bq"))}
+            check(f"{label} probe delegated to a sub-agent",
+                  bool(sub_called), ", ".join(sorted(sub_called)) or "none")
+            check(f"{label} probe produced an answer", bool(reply),
+                  (reply[:70] + "...") if reply else "empty")
+
+        # (b) Sub-agent level: does the BQ agent actually reach for its tools?
+        #
+        # This must drive the sub-agent DIRECTLY. AgentTool runs it in its own
+        # invocation, so its function calls never surface in the root runner's
+        # event stream — probing only the root shows "no tools called" even
+        # when the answer plainly contains live BigQuery data.
+        bq_agent = next(
+            (t.agent for t in root.tools if t.agent.name.endswith("_bq")), None
+        )
+        if bq_agent is None:
+            check("BQ sub-agent found", False)
+            continue
+        try:
+            called, reply = asyncio.run(
+                _drive(bq_agent, "¿Cuántas filas tiene la tabla principal? "
+                                 "Usa las herramientas para averiguarlo.")
+            )
+        except Exception as e:  # noqa: BLE001
+            check("BQ sub-agent probe ran", False, f"{type(e).__name__}: {str(e)[:90]}")
+            continue
+        hit = {"list_tables", "get_schema", "check_query", "run_query"} & called
+        check("BQ sub-agent invoked its BigQuery tools", bool(hit),
+              ", ".join(sorted(hit)) or "none called")
+        check("BQ sub-agent started with list_tables", "list_tables" in called,
+              "workflow step 1" if "list_tables" in called else "skipped discovery")
+        check("BQ sub-agent produced an answer", bool(reply),
+              (reply[:70] + "...") if reply else "empty")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--live", action="store_true",
                     help="hit real BigQuery with your ADC instead of mocks")
+    ap.add_argument("--runner", action="store_true",
+                    help="THE REAL GATE: drive both agents with real questions "
+                         "and assert the model actually calls the tools "
+                         "(costs live Gemini/BigQuery/Search calls)")
     args = ap.parse_args()
 
-    if args.live:
+    if args.live or args.runner:
         require_live_env()
     else:
         seed_offline_env()
@@ -204,7 +308,9 @@ def main() -> int:
           f"project={os.environ.get('GOOGLE_CLOUD_PROJECT')}")
 
     verify_graph()
-    verify_tools_are_callable(args.live)
+    verify_tools_are_callable(args.live or args.runner)
+    if args.runner:
+        verify_agents_actually_call_tools()
 
     print()
     if _failures:
