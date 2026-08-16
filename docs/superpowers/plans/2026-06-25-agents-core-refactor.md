@@ -60,7 +60,17 @@ PR #43 is merged; this plan is unblocked. A pre-execution pass ran every code bl
 | B6 | `agents/utils/` no longer exists — #43's `90e5586` already removed it. The `git rm -r utils` step errored. | File Map, Task 5 |
 | B7 | Test-count drift: Task 4 writes 4 tests, Task 8 said 3. | Task 8 |
 
+Three more surfaced **during** execution and are also fixed inline:
+
+| # | Defect | Where it was fixed |
+|---|---|---|
+| B8 | **The plan's `llm_global.py` code block is a stale pre-`f93e872` copy.** It was labelled "the AA copy verbatim — it is the canonical one", but the real file adds a module-level `_CLIENT_CACHE` keyed by `(project, location)`. Pasting the plan's version verbatim silently regressed the hot path to **building a fresh `genai.Client` (new gRPC channel) on every model call**. Caught by `test_llm_global.py`, which asserts `Client.call_count == 1`. | Task 1 |
+| B9 | `agent_{aa,pp}_app/__init__.py` contain `from . import agent` — the module Task 5 deletes. The plan's File Map never lists them under created/modified/deleted, so both packages raised `ImportError` on import after Task 5. | Task 5 |
+| B10 | Task 8 Step 4's smoke command seeds no env vars, so `build_app` dies on `KeyError: 'DATASTORE_AA_ID'`. Agent Engine injects these at runtime; a local run must seed them the way `conftest.py` does. | Task 8 |
+
 Nothing architectural changed: the four-tool design, the `core/` factoring, and the PR-A/B/C sequencing all stand as reviewed.
+
+**Lesson for PR-B/PR-C:** B8 is the dangerous class — a plan that inlines "verbatim" source can silently rot behind the code it copied. Always `git show` the real file before pasting a plan's code block.
 
 ### Update (2026-07-01) — validated by the #43 live `npe` deploy
 
@@ -144,7 +154,7 @@ Use Write to create `agents/core/__init__.py` with content `""`.
 
 - [ ] **Step 2: Create `agents/core/llm_global.py`**
 
-Use Write (this is the AA copy verbatim — it is the canonical one; the PP copy was a comment-only stub):
+**Do not paste the block below blind — `git show HEAD:agents/agent_aa_app/llm_global.py` first and copy what is actually there (B8).** The version originally inlined here predated `f93e872` and omitted the `_CLIENT_CACHE`, which would have regressed the hot path to one new gRPC channel per model call. The corrected block follows; the PP copy was a comment-only stub.
 ```python
 """Gemini variant that routes model calls to location="global".
 
@@ -165,19 +175,30 @@ from google.adk.models import Gemini
 
 GEMINI_LOCATION = os.environ.get("GEMINI_LOCATION", "global")
 
+# Module-level client cache, keyed by (project, location). Deliberately NOT
+# stored on the Gemini instance: the AdkApp (and this model) get deepcopy'd
+# at engine-create time, and a genai.Client holds an unpicklable gRPC channel
+# / module reference. Keeping the cache off the instance preserves the
+# picklability that the previous plain @property guaranteed, while still
+# reusing one client (+channel) per (project, location) across all calls on
+# the hot path. First population happens lazily server-side, after deepcopy.
+_CLIENT_CACHE: dict[tuple[str, str], genai.Client] = {}
+
 
 class GlobalGemini(Gemini):
     @property
     def api_client(self) -> genai.Client:
-        # NOTE: plain @property (not @cached_property): the AdkApp gets
-        # deepcopy'd at engine-create time, and a cached genai.Client holds
-        # a module reference that fails to pickle. ADK's own Gemini caches
-        # the client; we trade a per-call client init for picklability.
-        return genai.Client(
-            vertexai=True,
-            project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
-            location=GEMINI_LOCATION,
-        )
+        project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+        key = (project, GEMINI_LOCATION)
+        client = _CLIENT_CACHE.get(key)
+        if client is None:
+            client = genai.Client(
+                vertexai=True,
+                project=project,
+                location=GEMINI_LOCATION,
+            )
+            _CLIENT_CACHE[key] = client
+        return client
 ```
 
 > **Do NOT delete `llm_global.py` in any later PR on the assumption that a `Gemini.location` field replaces it.** It exists for two reasons: global-location routing AND picklability of `api_client`. A `location` field would not fix the deepcopy/pickle issue (Rodrigo V2).
@@ -793,6 +814,20 @@ Expected: all listed paths removed.
 >
 > The original plan also had `git rm -r utils` here for a top-level orphan. **Skip it — `agents/utils/` no longer exists**; #43's `90e5586` already removed it (B6).
 
+- [ ] **Step 3b: Blank both package `__init__.py` files (B9)**
+
+`agent_aa_app/__init__.py` and `agent_pp_app/__init__.py` each contain `from . import agent` — the module Step 3 just deleted, so both packages now raise `ImportError` on import. The original plan never listed these files anywhere. Replace each with a docstring-only marker:
+
+```python
+"""Thin entry-point package — the AdkApp lives in agent_engine_app.
+
+Deliberately empty: the old `from . import agent` eagerly built the whole agent
+graph at package import. That module is gone (all logic moved to core/), and
+importing the shim must not have side effects beyond building the app it
+exports.
+"""
+```
+
 - [ ] **Step 4: Confirm no remaining imports of deleted modules**
 
 Run: `grep -rn "langgraph\|SQLDatabase\|text2sql_tools\|from agent_aa_app.agent\|from agent_pp_app.agent\|agent_aa_app.tools\|agent_pp_app.tools\|\.llm_global\|agent_aa_app.prompts\|agent_pp_app.prompts" agents --include="*.py" | grep -v "/.venv/"`
@@ -983,10 +1018,25 @@ Expected: every test passes — `test_bq_tools.py` (8), `test_core_agent.py` (**
 Run:
 ```bash
 cd agents && uv run python -c "
+import os
+# Agent Engine injects these at runtime; a local run must seed them the way
+# tests/conftest.py does, or build_app dies on KeyError (B10).
+for k, v in {
+    'GOOGLE_CLOUD_PROJECT':'test-project','BIGQUERY_DATASET':'test_dataset',
+    'DATASTORE_AA_ID':'test-ds-aa','DATASTORE_PP_ID':'test-ds-pp',
+    'DATASTORE_GUIDES_ID':'test-ds-guides','DATASTORE_FAQ_ID':'test-ds-faq',
+    'DATASTORE_CHILEPRUNES_CL_ID':'test-ds-cp'}.items():
+    os.environ.setdefault(k, v)
+import google.auth
+from google.auth.credentials import AnonymousCredentials
+google.auth.default = lambda *a, **k: (AnonymousCredentials(), os.environ['GOOGLE_CLOUD_PROJECT'])
+
 import importlib
 for shim in ('agent_aa_app.agent_engine_app', 'agent_pp_app.agent_engine_app'):
     root = importlib.import_module(shim).app._tmpl_attrs['agent']
-    print(shim, '->', root.name, 'tools:', [t.agent.name for t in root.tools])
+    bq = next(t.agent for t in root.tools if t.agent.name.endswith('_bq'))
+    print(shim, '->', root.name, [t.agent.name for t in root.tools],
+          sorted(f.__name__ for f in bq.tools))
 "
 ```
 Expected: both shims import cleanly and print their root name + two sub-agents. This proves the `core` import graph is intact locally (it does **not** prove `extra_packages` is correct — Task 11 does that).

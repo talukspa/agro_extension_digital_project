@@ -6,7 +6,7 @@ deepcopy never touches the unpicklable gRPC channel.
 """
 from unittest.mock import MagicMock, patch
 
-import agent_aa_app.llm_global as lg
+import core.llm_global as lg
 
 
 def test_api_client_builds_once_and_caches_per_key(monkeypatch):
@@ -47,13 +47,5 @@ def test_api_client_keys_cache_by_project(monkeypatch):
     )
 
 
-def test_pp_llm_global_shares_same_semantics(monkeypatch):
-    import agent_pp_app.llm_global as pp
-
-    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "proj-pp")
-    pp._CLIENT_CACHE.clear()
-    with patch.object(pp.genai, "Client") as Client:
-        Client.return_value = MagicMock()
-        model = pp.GlobalGemini(model="gemini-3.5-flash")
-        assert model.api_client is model.api_client
-    assert Client.call_count == 1
+# The AA-vs-PP parity test is retired: after this PR there is exactly one
+# GlobalGemini, in core/, so asserting the two copies agree is meaningless.

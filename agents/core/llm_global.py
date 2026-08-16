@@ -17,16 +17,27 @@ from google.adk.models import Gemini
 
 GEMINI_LOCATION = os.environ.get("GEMINI_LOCATION", "global")
 
+# Module-level client cache, keyed by (project, location). Deliberately NOT
+# stored on the Gemini instance: the AdkApp (and this model) get deepcopy'd
+# at engine-create time, and a genai.Client holds an unpicklable gRPC channel
+# / module reference. Keeping the cache off the instance preserves the
+# picklability that the previous plain @property guaranteed, while still
+# reusing one client (+channel) per (project, location) across all calls on
+# the hot path. First population happens lazily server-side, after deepcopy.
+_CLIENT_CACHE: dict[tuple[str, str], genai.Client] = {}
+
 
 class GlobalGemini(Gemini):
     @property
     def api_client(self) -> genai.Client:
-        # NOTE: plain @property (not @cached_property): the AdkApp gets
-        # deepcopy'd at engine-create time, and a cached genai.Client holds
-        # a module reference that fails to pickle. ADK's own Gemini caches
-        # the client; we trade a per-call client init for picklability.
-        return genai.Client(
-            vertexai=True,
-            project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
-            location=GEMINI_LOCATION,
-        )
+        project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+        key = (project, GEMINI_LOCATION)
+        client = _CLIENT_CACHE.get(key)
+        if client is None:
+            client = genai.Client(
+                vertexai=True,
+                project=project,
+                location=GEMINI_LOCATION,
+            )
+            _CLIENT_CACHE[key] = client
+        return client
