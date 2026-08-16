@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
-# One-time (per environment): create the FOUR per-app WhatsApp secrets the
-# webhook needs. AA and PP are SEPARATE Meta apps (separate WABAs), so each
-# value is per-app.
+# One-time (per environment): create the THREE WhatsApp secrets the webhook
+# needs.
 #
 #   ./scripts/local-deploy/05-create-app-secrets.sh dev
 #
-#   whatsapp-app-secret-aa / -pp : Meta App Secret. HMAC key that validates the
+#   whatsapp-app-secret : Meta App Secret. HMAC key that validates the
 #     X-Hub-Signature-256 header on INBOUND POSTs (fail-closed). From:
 #       developers.facebook.com → the app → Settings → Basic → App Secret → Show
-#         AA Meta App ID: 1328420471593056
-#         PP Meta App ID: 1611224729556662
+#     The AA and PP numbers hang off the SAME Meta app, so ONE secret validates
+#     both endpoints. Splitting it per-app is what 403'd every AA message in prd
+#     (Meta only ever signs with the one app's secret).
 #
 #   wsp-token-aa / -pp : WhatsApp Cloud API access token. Bearer token for
-#     OUTBOUND sends. The token of one app returns 401 against the other app's
-#     number, so it is per-app. Use a permanent System User token (Meta Business
+#     OUTBOUND sends. These ARE per-number: the token of one returns 401 against
+#     the other's number. Use a permanent System User token (Meta Business
 #     Suite → System users → generate token, scope whatsapp_business_messaging);
 #     plain user tokens expire.
 #
 # Three different kinds of value — App Secret (inbound HMAC) ≠ access token
 # (outbound Bearer) ≠ webhook-verify-token (the GET handshake string). Not
-# interchangeable. The Meta App ID above is NOT the phone-number ID in env.yaml.
+# interchangeable. The Meta App ID is NOT the phone-number ID in env.yaml.
 #
 # Values are read with `read -s` so they are never echoed and never land in
 # shell history.
@@ -51,9 +51,8 @@ put_secret() {
   fi
 }
 
-c_blu "Meta App Secrets (inbound signature validation):"
-put_secret whatsapp-app-secret-aa "AA App Secret (Meta App 1328420471593056)"
-put_secret whatsapp-app-secret-pp "PP App Secret (Meta App 1611224729556662)"
+c_blu "Meta App Secret (inbound signature validation — shared by AA and PP):"
+put_secret whatsapp-app-secret "App Secret (Settings → Basic → App Secret)"
 
 echo
 c_blu "Access tokens (outbound sends — use permanent System User tokens):"
@@ -62,7 +61,7 @@ put_secret wsp-token-pp "PP access token"
 
 echo
 c_blu "Verifying (length only — values are not printed):"
-for s in whatsapp-app-secret-aa whatsapp-app-secret-pp wsp-token-aa wsp-token-pp; do
+for s in whatsapp-app-secret wsp-token-aa wsp-token-pp; do
   if n=$(gcloud secrets versions access latest --secret="$s" --project="$PROJECT_ID" 2>/dev/null | wc -c | tr -d ' '); then
     c_grn "  ${s}: ${n} bytes"
   else

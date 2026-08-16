@@ -29,8 +29,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # runtime problem. Terraform creates the other secrets (datastore-*, engine-*).
 PREEXISTING_SECRETS=(
   webhook-verify-token
-  whatsapp-app-secret-aa
-  whatsapp-app-secret-pp
+  whatsapp-app-secret
   wsp-token-aa
   wsp-token-pp
 )

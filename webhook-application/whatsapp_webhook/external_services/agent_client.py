@@ -120,6 +120,11 @@ async def get_engine(app_name: str):
     return cached
 
 
+def _is_session_already_exists(exc: Exception) -> bool:
+    """True when a 400 from Agent Runtime means "this session already exists"."""
+    return "already exists" in str(exc).lower()
+
+
 async def create_agent_session(
     user_id: str, app_name: str, session_id: str
 ) -> dict[str, Any]:
@@ -130,7 +135,15 @@ async def create_agent_session(
             engine.async_create_session(user_id=user_id, session_id=session_id),
             timeout=SESSION_TIMEOUT_SECONDS,
         )
-    except gax.AlreadyExists:
+    except (gax.AlreadyExists, gax.InvalidArgument) as exc:
+        # Agent Runtime does NOT surface a duplicate session as 409/AlreadyExists.
+        # The engine wraps the session-service failure as a 400 INVALID_ARGUMENT
+        # ("Reasoning Engine Execution failed"), with "already exists" only in
+        # the nested message — so string-match to tell a duplicate apart from a
+        # genuinely bad request, which must keep propagating. Catching
+        # InvalidArgument wholesale here would silently swallow real 400s.
+        if isinstance(exc, gax.InvalidArgument) and not _is_session_already_exists(exc):
+            raise
         _logger.info(
             "agent_session.exists",
             extra={
