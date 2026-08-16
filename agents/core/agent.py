@@ -14,9 +14,14 @@ from core import bq_tools, prompts
 from core.llm_global import GlobalGemini
 from core.retry_plugin import OkContractRetryPlugin
 
-# Consecutive tool failures before the plugin stops feeding back reflection
-# guidance. Env-overridable per engine, same pattern as BQ_MAX_BYTES.
-TOOL_MAX_RETRIES = int(os.environ.get("TOOL_MAX_RETRIES", "3"))
+def _tool_max_retries() -> int:
+    """Consecutive tool failures before the plugin stops reflecting.
+
+    Read per call, never bound at import — same reason as the caps in
+    core/bq_tools.py: an import-time binding is untestable via monkeypatch and
+    silently ignores the per-engine override.
+    """
+    return int(os.environ.get("TOOL_MAX_RETRIES", "3"))
 
 
 def _prefix(name: str) -> str:
@@ -88,7 +93,19 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
     )
     # The plugin only sees our BigQuery failures because OkContractRetryPlugin
     # teaches it the {ok, error} contract — see core/retry_plugin.py.
+    #
+    # throw_exception_if_retry_exceeded=False is REQUIRED, not cosmetic: it
+    # defaults to True, so once max_retries consecutive failures are reached the
+    # plugin RAISES out of the tool path. core/bq_tools.py is built on "never
+    # raise into the model"; letting the last attempt raise inverts that
+    # contract exactly when the model is already struggling, turning a
+    # recoverable "I couldn't find that" into an engine-level exception.
     return AdkApp(
         agent=root,
-        plugins=[OkContractRetryPlugin(max_retries=TOOL_MAX_RETRIES)],
+        plugins=[
+            OkContractRetryPlugin(
+                max_retries=_tool_max_retries(),
+                throw_exception_if_retry_exceeded=False,
+            )
+        ],
     )

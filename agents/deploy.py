@@ -62,6 +62,7 @@ OPTIONAL_ENV_KEYS = [
     "GEMINI_LOCATION",   # core/llm_global.py
     "BQ_MAX_BYTES",      # core/bq_tools.py — scan cap
     "BQ_MAX_ROWS",       # core/bq_tools.py — row ceiling
+    "TOOL_MAX_RETRIES",  # core/agent.py — reflect-and-retry cap
 ]
 
 # Telemetry env vars required post-ADK 1.18 to actually export traces.
