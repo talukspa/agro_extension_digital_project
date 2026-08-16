@@ -53,16 +53,17 @@ async def _verify_webhook(app_name: str, params: QueryParams) -> PlainTextRespon
 def _verify_signature(raw_body: bytes, signature_header: str | None, app_name: str) -> bool:
     """Validate Meta's X-Hub-Signature-256 header against the raw request body.
 
-    The AA and PP numbers belong to the same Meta app, so both endpoints verify
-    against the one shared App Secret. Fails closed: if no app secret is
-    configured, every POST is rejected so a misconfiguration can never silently
-    disable signature validation.
+    AA and PP are separate Meta apps with distinct App Secrets, so the secret is
+    resolved per app_name. Fails closed: if no app secret is configured for this
+    app, every POST is rejected so a misconfiguration can never silently disable
+    signature validation.
     """
-    app_secret = config.app_secret
+    app_secret = config.app_secret_for(app_name)
     if not app_secret:
         logger.error(
-            f"No Meta App Secret configured (WHATSAPP_APP_SECRET); rejecting "
-            f"{app_name} webhook POST (fail-closed signature validation)."
+            f"No Meta App Secret configured for {app_name} "
+            "(WHATSAPP_APP_SECRET_AA / _PP); rejecting webhook POST "
+            "(fail-closed signature validation)."
         )
         return False
     if not signature_header or not signature_header.startswith("sha256="):
