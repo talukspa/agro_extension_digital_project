@@ -27,7 +27,7 @@ jobs:
         working-directory: agents
         run: >-
           uv run --with pytest-cov pytest tests/
-          --cov=agent_aa_app --cov=agent_pp_app --cov=deploy
+          --cov=core --cov=agent_aa_app --cov=agent_pp_app --cov=deploy
           --cov-report=term-missing --cov-fail-under=80
 
       - name: webhook — pytest + coverage (fail under 80%)

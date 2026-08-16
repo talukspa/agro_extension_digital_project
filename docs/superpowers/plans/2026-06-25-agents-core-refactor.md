@@ -1,6 +1,6 @@
 # Agents `core/` Refactor + WhatsApp Sanitizer Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Collapse the duplicated `agent_aa_app` / `agent_pp_app` code into one shared `core/` package, replace the LangGraph BigQuery sub-agent with four native ADK function tools, and move WhatsApp formatting out of the prompts into a deterministic post-processing sanitizer in the webhook — all on **ADK 1.35** (no version bump).
 
@@ -129,12 +129,12 @@ Since this plan was written, **#43 replaced `find_existing()`**: `deploy.py` now
 
 **Files:** none (git only).
 
-- [ ] **Step 1: Confirm PR #43 is merged and `main` is current**
+- [x] **Step 1: Confirm PR #43 is merged and `main` is current**
 
 Run: `git checkout main && git pull && git log -1 --oneline`
 Expected: the tip includes the PR #43 merge. If PR #43 is not merged yet, **stop** — this plan cannot start.
 
-- [ ] **Step 2: Create the branch**
+- [x] **Step 2: Create the branch**
 
 Run: `git checkout -b feature/agents-core-refactor`
 Expected: switched to a new branch.
@@ -148,11 +148,11 @@ Expected: switched to a new branch.
 **Files:**
 - Create: `agents/core/__init__.py`, `agents/core/llm_global.py`
 
-- [ ] **Step 1: Create the package marker**
+- [x] **Step 1: Create the package marker**
 
 Use Write to create `agents/core/__init__.py` with content `""`.
 
-- [ ] **Step 2: Create `agents/core/llm_global.py`**
+- [x] **Step 2: Create `agents/core/llm_global.py`**
 
 **Do not paste the block below blind — `git show HEAD:agents/agent_aa_app/llm_global.py` first and copy what is actually there (B8).** The version originally inlined here predated `f93e872` and omitted the `_CLIENT_CACHE`, which would have regressed the hot path to one new gRPC channel per model call. The corrected block follows; the PP copy was a comment-only stub.
 ```python
@@ -203,7 +203,7 @@ class GlobalGemini(Gemini):
 
 > **Do NOT delete `llm_global.py` in any later PR on the assumption that a `Gemini.location` field replaces it.** It exists for two reasons: global-location routing AND picklability of `api_client`. A `location` field would not fix the deepcopy/pickle issue (Rodrigo V2).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add agents/core/__init__.py agents/core/llm_global.py
@@ -219,7 +219,7 @@ The four tools replace the entire LangGraph/LangChain SQL stack. Each returns a 
 
 > **Caps are read per call, not at import** (B4). Binding them at module level made them untestable via `monkeypatch.setenv` (the module is already imported by the time a test sets the var) and silently ignored any env change. `BQ_MAX_ROWS` acts as a **ceiling** on whatever `max_rows` the model asks for.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Use Write to create `agents/tests/test_bq_tools.py`:
 ```python
@@ -329,12 +329,12 @@ def test_run_query_truncates_rows():
     assert out["truncated"] is True
 ```
 
-- [ ] **Step 2: Run — should fail with `ModuleNotFoundError: No module named 'core.bq_tools'`**
+- [x] **Step 2: Run — should fail with `ModuleNotFoundError: No module named 'core.bq_tools'`**
 
 Run: `cd agents && uv run --group dev pytest tests/test_bq_tools.py -v`
 Expected: collection/import error (module missing).
 
-- [ ] **Step 3: Implement `agents/core/bq_tools.py`**
+- [x] **Step 3: Implement `agents/core/bq_tools.py`**
 
 Use Write:
 ```python
@@ -481,12 +481,12 @@ def run_query(sql: str, max_rows: int = 100) -> dict:
         return {"ok": False, "error": str(e), "rows": [], "truncated": False}
 ```
 
-- [ ] **Step 4: Run the tests — should pass**
+- [x] **Step 4: Run the tests — should pass**
 
 Run: `cd agents && uv run --group dev pytest tests/test_bq_tools.py -v`
 Expected: 8 tests PASS. (Deps for `google-cloud-bigquery` land in Task 7; if the import fails here, jump to Task 7 step 1–3, then return.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add agents/core/bq_tools.py agents/tests/test_bq_tools.py
@@ -498,7 +498,7 @@ git commit -m "feat(agents): add core/bq_tools — 4 native BigQuery function to
 **Files:**
 - Create: `agents/core/prompts.py` and the `agents/core/prompts/` tree.
 
-- [ ] **Step 1: Create the shared prompt fragments**
+- [x] **Step 1: Create the shared prompt fragments**
 
 Use Write to create `agents/core/prompts/shared/whatsapp_plain.md`:
 ```markdown
@@ -522,7 +522,7 @@ Cada herramienta devuelve `{ok, error, ...}` — nunca lanza excepción. Ante un
 error, ajusta la consulta y vuelve a intentar; no inventes datos.
 ```
 
-- [ ] **Step 2: Relocate the per-agent prompt files**
+- [x] **Step 2: Relocate the per-agent prompt files**
 
 Move the existing per-agent prompt content into the new tree (content is copied, then the verbose Markdown-formatting block is removed from each root). Create these files with Write, copying the body from the listed source:
 
@@ -541,7 +541,7 @@ Move the existing per-agent prompt content into the new tree (content is copied,
 
 > The old `text2sql/instruction.md` prompt is **not** carried over — it instructed the LangChain SQL agent, which this PR deletes. The four-tool workflow in `bq_workflow.md` replaces it. This also fixes the latent PP bug where `agent_pp_app/prompts.py` read the AA text2sql path.
 
-- [ ] **Step 3: Create `agents/core/prompts.py` (composition)**
+- [x] **Step 3: Create `agents/core/prompts.py` (composition)**
 
 Use Write:
 ```python
@@ -588,7 +588,7 @@ def bq_description(agent: str) -> str:
     return _read(agent, "bq_description.md")
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add agents/core/prompts.py agents/core/prompts/
@@ -602,7 +602,7 @@ git commit -m "refactor(agents): relocate prompts to core/, extract shared rules
 
 `build_app` constructs the RAG sub-agent (Vertex AI Search — but the datastore MUST be the full resource name via `_datastore`, not the bare id today's code passes; see the 2026-07-01 update above), the BQ sub-agent (now an ordinary `LlmAgent` with the four function tools — no more `LangGraphAgent`), the root supervisor, and wraps the root in an `AdkApp`. `main_datastore_env` is the per-agent datastore env var name (`DATASTORE_AA_ID` or `DATASTORE_PP_ID`); the guides/faq/chileprunes datastores are shared.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Use Write to create `agents/tests/test_core_agent.py`:
 ```python
@@ -661,12 +661,12 @@ def test_datastore_builds_full_resource_name():
     )
 ```
 
-- [ ] **Step 2: Run — should fail with `ModuleNotFoundError: No module named 'core.agent'`**
+- [x] **Step 2: Run — should fail with `ModuleNotFoundError: No module named 'core.agent'`**
 
 Run: `cd agents && uv run --group dev pytest tests/test_core_agent.py -v`
 Expected: import error.
 
-- [ ] **Step 3: Implement `agents/core/agent.py`**
+- [x] **Step 3: Implement `agents/core/agent.py`**
 
 Use Write:
 ```python
@@ -747,12 +747,12 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
 
 > **Resolved during execution (2026-08-15).** Neither `.func` nor `.fn` exists: ADK 1.35 leaves plain functions in `LlmAgent.tools` **untouched** — `type(bq.tools[0]).__name__ == "function"`, `vars()` is empty — because the `FunctionTool` wrapping happens later, in `canonical_tools()`. The test uses a `_tool_name(t)` helper that falls back `.func` → `.fn` → the object itself, so it reads correctly today and survives a future ADK patch that wraps eagerly. The implementation is unchanged, as anticipated.
 
-- [ ] **Step 4: Run the tests — should pass**
+- [x] **Step 4: Run the tests — should pass**
 
 Run: `cd agents && uv run --group dev pytest tests/test_core_agent.py -v`
 Expected: 4 tests PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add agents/core/agent.py agents/tests/test_core_agent.py
@@ -769,7 +769,7 @@ git commit -m "feat(agents): add core.agent.build_app — shared factory, BQ as 
 - Modify: `agents/agent_aa_app/agent_engine_app.py`, `agents/agent_pp_app/agent_engine_app.py`
 - Delete: per-agent `agent.py`, `tools.py`, `llm_global.py`, `prompts.py`, `prompts/` trees, `utils/langgraph_agent.py` (×2), and `agents/utils/langgraph_agent.py`.
 
-- [ ] **Step 1: Rewrite the AA shim**
+- [x] **Step 1: Rewrite the AA shim**
 
 Use Write to replace `agents/agent_aa_app/agent_engine_app.py`:
 ```python
@@ -783,7 +783,7 @@ app = build_app(
 )
 ```
 
-- [ ] **Step 2: Rewrite the PP shim**
+- [x] **Step 2: Rewrite the PP shim**
 
 Use Write to replace `agents/agent_pp_app/agent_engine_app.py`:
 ```python
@@ -797,7 +797,7 @@ app = build_app(
 )
 ```
 
-- [ ] **Step 3: Delete the dead files**
+- [x] **Step 3: Delete the dead files**
 
 Run:
 ```bash
@@ -814,7 +814,7 @@ Expected: all listed paths removed.
 >
 > The original plan also had `git rm -r utils` here for a top-level orphan. **Skip it — `agents/utils/` no longer exists**; #43's `90e5586` already removed it (B6).
 
-- [ ] **Step 3b: Blank both package `__init__.py` files (B9)**
+- [x] **Step 3b: Blank both package `__init__.py` files (B9)**
 
 `agent_aa_app/__init__.py` and `agent_pp_app/__init__.py` each contain `from . import agent` — the module Step 3 just deleted, so both packages now raise `ImportError` on import. The original plan never listed these files anywhere. Replace each with a docstring-only marker:
 
@@ -828,7 +828,7 @@ exports.
 """
 ```
 
-- [ ] **Step 4: Confirm no remaining imports of deleted modules**
+- [x] **Step 4: Confirm no remaining imports of deleted modules**
 
 Run: `grep -rn "langgraph\|SQLDatabase\|text2sql_tools\|from agent_aa_app.agent\|from agent_pp_app.agent\|agent_aa_app.tools\|agent_pp_app.tools\|\.llm_global\|agent_aa_app.prompts\|agent_pp_app.prompts" agents --include="*.py" | grep -v "/.venv/"`
 Expected: **only these four known-pending hits**, each owned by a later task. Anything else is a missed reference — fix before continuing.
@@ -842,7 +842,7 @@ Expected: **only these four known-pending hits**, each owned by a later task. An
 
 (The original plan said "zero results", which its own task ordering makes impossible — these four are deleted-module references that survive until Tasks 6 and 8.) A hit on `core/agent.py:from core.llm_global import GlobalGemini` is the new correct import, not a leftover.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A agents/agent_aa_app agents/agent_pp_app agents/tests
@@ -854,7 +854,7 @@ git commit -m "refactor(agents): slim per-agent packages to shims; delete LangGr
 **Files:**
 - Modify: `agents/deploy.py`
 
-- [ ] **Step 1: Trim `REQUIREMENTS`**
+- [x] **Step 1: Trim `REQUIREMENTS`**
 
 Edit `agents/deploy.py` — replace the `REQUIREMENTS` list with:
 ```python
@@ -869,7 +869,7 @@ REQUIREMENTS = [
 
 > **Pin these to the regenerated `uv.lock` versions (`==`), not `>=` ranges.** #43 pinned `REQUIREMENTS` for reproducible engine builds (Rodrigo's REQUIREMENTS-drift finding); shipping `>=` to the engine lets a new upstream release change what the deployed engine runs vs. what the tests ran against. After Task 7 regenerates the lock, copy the resolved versions here. Also do **not** touch `read_secret`/`write_secret` (DISABLED-version handling) or `env_vars_for` (must not ship the reserved `GOOGLE_CLOUD_PROJECT`) — both landed in #43; see the 2026-07-01 update.
 
-- [ ] **Step 2: Ship `core` with every engine + fix the PP display name**
+- [x] **Step 2: Ship `core` with every engine + fix the PP display name**
 
 Edit `agents/deploy.py`:
 
@@ -885,12 +885,12 @@ In `deploy_one`, change the `extra_packages` line so `core` ships alongside the 
 
 > Without `"core"` in `extra_packages`, every engine import fails **at runtime on the deployed engine** — local tests still pass because `core` is on the local path. Task 11's deployed smoke test is the only thing that catches this; do not skip it.
 
-- [ ] **Step 3: Re-run the deploy unit tests**
+- [x] **Step 3: Re-run the deploy unit tests**
 
 Run: `cd agents && uv run --group dev pytest tests/test_deploy.py -v`
 Expected: existing deploy tests still PASS. If a test asserts the old PP display name or the old `REQUIREMENTS`, update the expectation in `tests/test_deploy.py` to match, then re-run.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add agents/deploy.py agents/tests/test_deploy.py
@@ -902,7 +902,7 @@ git commit -m "chore(agents): deploy.py — drop LangChain deps, ship core/, fix
 **Files:**
 - Modify: `agents/pyproject.toml`
 
-- [ ] **Step 1: Edit dependencies**
+- [x] **Step 1: Edit dependencies**
 
 Edit `agents/pyproject.toml` — set `dependencies` to:
 ```toml
@@ -917,7 +917,7 @@ dependencies = [
 ```
 (Removed: `langchain_community`, `langchain_google_vertexai`, `langgraph`, `sqlalchemy-bigquery`, `google-cloud-bigquery-storage`.)
 
-- [ ] **Step 2: Lock + sync**
+- [x] **Step 2: Lock + sync**
 
 Run:
 ```bash
@@ -927,7 +927,7 @@ uv sync --group dev
 ```
 Expected: the four LangChain/LangGraph trees disappear from `uv.lock`; `google-cloud-bigquery` is present; no resolution errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add agents/pyproject.toml agents/uv.lock
@@ -939,7 +939,7 @@ git commit -m "chore(agents): drop LangChain/LangGraph deps, add google-cloud-bi
 **Files:**
 - Modify: `agents/tests/conftest.py`, `agents/tests/test_agent_engine_app.py`
 
-- [ ] **Step 1: Strip the `SQLDatabase` stub from conftest**
+- [x] **Step 1: Strip the `SQLDatabase` stub from conftest**
 
 Use Write to replace `agents/tests/conftest.py`:
 ```python
@@ -975,7 +975,7 @@ google.auth.default = lambda *args, **kwargs: (
 
 > **Do not drop the `google.auth.default` stub (B3).** The original plan's rewrite removed it along with the `SQLDatabase` stub. Local runs with gcloud ADC still pass, so the breakage only shows up in CI — the worst place to discover it.
 
-- [ ] **Step 2: Update the shim test**
+- [x] **Step 2: Update the shim test**
 
 The existing `tests/test_agent_engine_app.py` imports `from agent_aa_app.agent import root_agent`, which no longer exists. Use Write to replace it:
 ```python
@@ -998,7 +998,7 @@ def test_pp_shim_exposes_adkapp():
     assert mod.app._tmpl_attrs["agent"].name == "pp_agent"
 ```
 
-- [ ] **Step 2b: Repoint `tests/test_llm_global.py` at `core.llm_global` (B2)**
+- [x] **Step 2b: Repoint `tests/test_llm_global.py` at `core.llm_global` (B2)**
 
 This file survives (the behaviour it covers moved, it did not disappear), but its imports point at modules Task 5 deleted. Apply two edits:
 
@@ -1008,12 +1008,12 @@ This file survives (the behaviour it covers moved, it did not disappear), but it
 Run: `cd agents && uv run --group dev pytest tests/test_llm_global.py -v`
 Expected: the remaining tests PASS against `core.llm_global`.
 
-- [ ] **Step 3: Run the entire agents test suite**
+- [x] **Step 3: Run the entire agents test suite**
 
 Run: `cd agents && uv run --group dev pytest -v`
 Expected: every test passes — `test_bq_tools.py` (8), `test_core_agent.py` (**4**, B7), `test_agent_engine_app.py` (2), `test_llm_global.py` (repointed, minus the PP-parity case), `test_deploy.py` (existing). `test_langgraph_agent.py` and `test_tools.py` must no longer be collected at all — Task 5 deleted them. If either still appears, that step was skipped.
 
-- [ ] **Step 4: Local InMemoryRunner smoke (no GCP engine, but exercises real imports)**
+- [x] **Step 4: Local InMemoryRunner smoke (no GCP engine, but exercises real imports)**
 
 Run:
 ```bash
@@ -1041,7 +1041,7 @@ for shim in ('agent_aa_app.agent_engine_app', 'agent_pp_app.agent_engine_app'):
 ```
 Expected: both shims import cleanly and print their root name + two sub-agents. This proves the `core` import graph is intact locally (it does **not** prove `extra_packages` is correct — Task 11 does that).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add agents/tests/conftest.py agents/tests/test_agent_engine_app.py agents/tests/test_llm_global.py
@@ -1060,7 +1060,7 @@ git commit -m "test(agents): drop SQLDatabase stub, update shim tests for build_
 
 WhatsApp uses `*bold*`, `_italic_`, `~strike~`, ` ```mono``` `. The model now emits plain text (per `whatsapp_plain.md`), but as belt-and-suspenders we deterministically down-convert any Markdown that slips through.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Use Write to create `webhook-application/tests/external_services/test_whatsapp_format.py`:
 ```python
@@ -1113,12 +1113,12 @@ def test_plain_text_unchanged():
     assert norm("Hola 👋 ¿en qué ayudo?") == "Hola 👋 ¿en qué ayudo?"
 ```
 
-- [ ] **Step 2: Run — should fail (module missing)**
+- [x] **Step 2: Run — should fail (module missing)**
 
 Run: `cd webhook-application && uv run --extra test pytest tests/external_services/test_whatsapp_format.py -v`
 Expected: import error.
 
-- [ ] **Step 3: Implement the sanitizer**
+- [x] **Step 3: Implement the sanitizer**
 
 Use Write to create `webhook-application/whatsapp_webhook/external_services/whatsapp_format.py`:
 ```python
@@ -1174,12 +1174,12 @@ def normalize_whatsapp_markdown(text: str) -> str:
     return text.strip()
 ```
 
-- [ ] **Step 4: Run the tests — should pass**
+- [x] **Step 4: Run the tests — should pass**
 
 Run: `cd webhook-application && uv run --extra test pytest tests/external_services/test_whatsapp_format.py -v`
 Expected: 10 tests PASS. (If `test_table_pipes_collapsed_to_text` is off by whitespace, adjust `_detable` join — the exact expected string in the test is the contract.)
 
-- [ ] **Step 5: Wire the sanitizer into `send_to_agent`**
+- [x] **Step 5: Wire the sanitizer into `send_to_agent`**
 
 Edit `webhook-application/whatsapp_webhook/external_services/agent_client.py`.
 
@@ -1200,12 +1200,12 @@ with:
 ```
 (Leave the empty-response and timeout branches unchanged — they return fixed Spanish error strings that need no normalization.)
 
-- [ ] **Step 6: Run the webhook suite end-to-end**
+- [x] **Step 6: Run the webhook suite end-to-end**
 
 Run: `cd webhook-application && uv run --extra test pytest tests/ -v`
 Expected: all tests pass, including the existing `test_agent_client.py`. If a `send_to_agent` test asserted an exact multi-line response that the sanitizer now reshapes, update that expectation to the normalized form.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add webhook-application/whatsapp_webhook/external_services/whatsapp_format.py \
