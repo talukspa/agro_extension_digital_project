@@ -9,11 +9,7 @@ dependencies = [
     "google-cloud-aiplatform[adk,agent_engines]>=1.135.0",
     "google-cloud-secret-manager>=2.20.0",
     "google-cloud-discoveryengine>=0.13.0",
-    "langchain_community",
-    "langchain_google_vertexai",
-    "langgraph",
-    "sqlalchemy-bigquery",
-    "google-cloud-bigquery-storage",
+    "google-cloud-bigquery>=3.25.0",
     "ipykernel",
 ]
 
