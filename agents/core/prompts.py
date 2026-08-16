@@ -20,12 +20,17 @@ def _join(*chunks: str) -> str:
 
 
 def root_instruction(agent: str) -> str:
-    """Root supervisor prompt: domain role + shared plain-text rule."""
-    return _join(_read(agent, "root.md"), _read("shared", "whatsapp_plain.md"))
+    """Root supervisor prompt: domain role + plain-text rule + citation passthrough."""
+    return _join(
+        _read(agent, "root.md"),
+        _read("shared", "whatsapp_plain.md"),
+        _read("shared", "preserve_citations.md"),
+    )
 
 
 def rag_instruction(agent: str) -> str:
-    return _read(agent, "rag.md")
+    """RAG sub-agent prompt: domain retrieval rules + shared citation format."""
+    return _join(_read(agent, "rag.md"), _read("shared", "rag_citations.md"))
 
 
 def rag_description(agent: str) -> str:

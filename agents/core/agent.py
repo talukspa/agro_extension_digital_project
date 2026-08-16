@@ -10,6 +10,9 @@ from google.adk.agents import LlmAgent
 from google.adk.tools import VertexAiSearchTool, agent_tool
 from vertexai.agent_engines import AdkApp
 
+from google.adk.planners import BuiltInPlanner
+from google.genai.types import ThinkingConfig
+
 from core import bq_tools, prompts
 from core.llm_global import GlobalGemini
 from core.retry_plugin import OkContractRetryPlugin
@@ -22,6 +25,29 @@ def _tool_max_retries() -> int:
     silently ignores the per-engine override.
     """
     return int(os.environ.get("TOOL_MAX_RETRIES", "3"))
+
+
+def _planner():
+    """BuiltInPlanner for the root + BQ agents, or None.
+
+    DEFAULT IS OFF. #44 estimated "+10-15% tokens", but thinking tokens bill at
+    OUTPUT rate and a WhatsApp reply is only 100-500 tokens — a 2048-token
+    budget can cost more than the answer. Ship dark, flip AGENT_PLANNER=builtin
+    on ONE engine, and compare against real npe traffic before defaulting it on.
+
+    PlanReActPlanner is deliberately not offered: it adds a full extra LLM
+    round-trip per planning step, which WhatsApp latency cannot absorb.
+
+    Env is read per call, never bound at import — see the B4 note in bq_tools.
+    """
+    if os.environ.get("AGENT_PLANNER", "off") != "builtin":
+        return None
+    return BuiltInPlanner(
+        thinking_config=ThinkingConfig(
+            include_thoughts=True,
+            thinking_budget=int(os.environ.get("AGENT_THINK_BUDGET", "2048")),
+        )
+    )
 
 
 def _prefix(name: str) -> str:
@@ -69,11 +95,15 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
         ],
     )
 
+    # No planner on the RAG agent: it is a single-step retrieve-and-answer task,
+    # so thinking budget buys nothing. The BQ agent's 4-tool workflow IS a plan,
+    # and the root's job is routing — both can benefit.
     bq = LlmAgent(
         name=f"{name}_bq",
         model=GlobalGemini(model="gemini-3.5-flash"),
         instruction=prompts.bq_instruction(key),
         description=prompts.bq_description(key),
+        planner=_planner(),
         tools=[
             bq_tools.list_tables,
             bq_tools.get_schema,
@@ -86,6 +116,7 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
         name=name,
         model=GlobalGemini(model="gemini-3.5-flash"),
         instruction=prompts.root_instruction(key),
+        planner=_planner(),
         tools=[
             agent_tool.AgentTool(agent=rag),
             agent_tool.AgentTool(agent=bq),
