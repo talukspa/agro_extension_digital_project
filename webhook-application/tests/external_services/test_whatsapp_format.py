@@ -39,8 +39,34 @@ def test_collapses_excess_blank_lines():
 
 
 def test_does_not_touch_bare_brackets():
-    # PR-C will add [fuente: ...] citations — the link regex must NOT eat them.
+    # The [fuente: ...] citations must survive — the link regex must NOT eat them.
     assert norm("dato [fuente: faq]") == "dato [fuente: faq]"
+
+
+def test_citation_markers_survive_full_normalization():
+    """Guards the PR-C citation contract against every rule in the pipeline."""
+    raw = (
+        "## Resumen\n"
+        "El límite es **4 mg/kg** [fuente: estandar]\n"
+        "* Ver [la guía](https://x.co/g) [fuente: guias]\n"
+        "Doble origen [fuente: faq][fuente: chileprunes]"
+    )
+    out = norm(raw)
+    for marker in ("[fuente: estandar]", "[fuente: guias]",
+                   "[fuente: faq]", "[fuente: chileprunes]"):
+        assert marker in out, f"{marker} was destroyed by the sanitizer"
+    # ...while the surrounding Markdown is still normalized.
+    assert "**" not in out
+    assert out.startswith("Resumen")
+    assert "https://x.co/g" in out and "](" not in out
+
+
+def test_citation_after_a_markdown_link_is_not_swallowed():
+    # The link rule is non-greedy on ] and requires (http...) — a following
+    # bracket group must not be pulled into the match.
+    assert norm("[guía](https://x.co/g) [fuente: guias]") == (
+        "https://x.co/g [fuente: guias]"
+    )
 
 
 def test_plain_text_unchanged():

@@ -10,9 +10,32 @@ from google.adk.agents import LlmAgent
 from google.adk.tools import VertexAiSearchTool, agent_tool
 from vertexai.agent_engines import AdkApp
 
+from google.adk.planners import BuiltInPlanner
+from google.genai.types import ThinkingConfig
+
 from core import bq_tools, prompts
 from core.llm_global import GlobalGemini
 from core.retry_plugin import OkContractRetryPlugin
+
+# Model choices are per-role, and the cheap one is NOT the obvious one.
+#
+# ROOT_MODEL / BQ_MODEL — gemini-3.7-flash costs $0.75/$3.75 per 1M in/out
+# through 2026-12-31 and $1.50/$7.50 after, versus $1.50/$9.00 for the
+# gemini-3.5-flash it replaces. It is cheaper today (-50% in, -58% out) and
+# still cheaper once the introductory rate lapses (same in, -17% out), so this
+# swap never costs more. A live 4-tool BigQuery run also came back in 13.2s
+# against 22.2s (n=1, indicative not conclusive). gemini-3.6-flash is priced
+# identically, so there is no reason to prefer it.
+#
+# RAG_MODEL — deliberately NOT upgraded. gemini-3.5-flash-lite is $0.30/$2.50
+# versus $0.25/$1.50 for gemini-3.1-flash-lite, i.e. more expensive on both
+# axes. Note the 3.1-flash-lite rate is introductory through 2026-12-31 and the
+# post-intro price is not published yet — worth re-checking before then, since
+# RAG is the highest-volume path.
+ROOT_MODEL = "gemini-3.7-flash"
+BQ_MODEL = "gemini-3.7-flash"
+RAG_MODEL = "gemini-3.1-flash-lite"
+
 
 def _tool_max_retries() -> int:
     """Consecutive tool failures before the plugin stops reflecting.
@@ -22,6 +45,29 @@ def _tool_max_retries() -> int:
     silently ignores the per-engine override.
     """
     return int(os.environ.get("TOOL_MAX_RETRIES", "3"))
+
+
+def _planner():
+    """BuiltInPlanner for the root + BQ agents, or None.
+
+    DEFAULT IS OFF. #44 estimated "+10-15% tokens", but thinking tokens bill at
+    OUTPUT rate and a WhatsApp reply is only 100-500 tokens — a 2048-token
+    budget can cost more than the answer. Ship dark, flip AGENT_PLANNER=builtin
+    on ONE engine, and compare against real npe traffic before defaulting it on.
+
+    PlanReActPlanner is deliberately not offered: it adds a full extra LLM
+    round-trip per planning step, which WhatsApp latency cannot absorb.
+
+    Env is read per call, never bound at import — see the B4 note in bq_tools.
+    """
+    if os.environ.get("AGENT_PLANNER", "off") != "builtin":
+        return None
+    return BuiltInPlanner(
+        thinking_config=ThinkingConfig(
+            include_thoughts=True,
+            thinking_budget=int(os.environ.get("AGENT_THINK_BUDGET", "2048")),
+        )
+    )
 
 
 def _prefix(name: str) -> str:
@@ -58,7 +104,7 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
 
     rag = LlmAgent(
         name=f"{name}_rag",
-        model=GlobalGemini(model="gemini-3.1-flash-lite"),
+        model=GlobalGemini(model=RAG_MODEL),
         instruction=prompts.rag_instruction(key),
         description=prompts.rag_description(key),
         tools=[
@@ -69,11 +115,15 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
         ],
     )
 
+    # No planner on the RAG agent: it is a single-step retrieve-and-answer task,
+    # so thinking budget buys nothing. The BQ agent's 4-tool workflow IS a plan,
+    # and the root's job is routing — both can benefit.
     bq = LlmAgent(
         name=f"{name}_bq",
-        model=GlobalGemini(model="gemini-3.5-flash"),
+        model=GlobalGemini(model=BQ_MODEL),
         instruction=prompts.bq_instruction(key),
         description=prompts.bq_description(key),
+        planner=_planner(),
         tools=[
             bq_tools.list_tables,
             bq_tools.get_schema,
@@ -84,8 +134,9 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
 
     root = LlmAgent(
         name=name,
-        model=GlobalGemini(model="gemini-3.5-flash"),
+        model=GlobalGemini(model=ROOT_MODEL),
         instruction=prompts.root_instruction(key),
+        planner=_planner(),
         tools=[
             agent_tool.AgentTool(agent=rag),
             agent_tool.AgentTool(agent=bq),
