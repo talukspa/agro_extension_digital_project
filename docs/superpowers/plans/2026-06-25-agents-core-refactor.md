@@ -1,6 +1,6 @@
 # Agents `core/` Refactor + WhatsApp Sanitizer Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Collapse the duplicated `agent_aa_app` / `agent_pp_app` code into one shared `core/` package, replace the LangGraph BigQuery sub-agent with four native ADK function tools, and move WhatsApp formatting out of the prompts into a deterministic post-processing sanitizer in the webhook — all on **ADK 1.35** (no version bump).
 
@@ -46,6 +46,32 @@ PR-C  planner + RAG quality (eval harness first/parallel)
 
 `deploy.py:find_existing()` matches an existing engine by `display_name`. This plan corrects PP's display name from `"Planificación de Producción"` to `"Producción Primaria"` (matches `cicd/stacks/dev/env.yaml:38` → `produccion-primaria`). Consequence: the first PR-A deploy will **not** match the existing PP engine and will **create a new PP engine** (new resource name → `write_secret` rewrites `engine-pp-resource-name` → the webhook's `get_engine` follows the new resource name on its next call). This is a clean cutover, but it leaves the **old PP engine orphaned**. Task 14 deletes it after soak. AA's display name is unchanged, so AA updates in place. This behavior is documented in Task 11 and gated in Task 13.
 
+### Update (2026-08-15) — pre-execution review, verified against the merged `main`
+
+PR #43 is merged; this plan is unblocked. A pre-execution pass ran every code block in this plan against the real tree and the installed `vertexai`/`google-adk` 1.35.0. Seven defects were found and are **already corrected inline below** — recorded here so the diff is reviewable:
+
+| # | Defect | Where it was fixed |
+|---|---|---|
+| B1 | **`AdkApp` has no `.agent` attribute** (verified: `hasattr(AdkApp, "agent") is False`). The correct accessor is `app._tmpl_attrs["agent"]`, as the *existing* `tests/test_agent_engine_app.py` already documents. 6 assertions used the wrong one. | Tasks 4, 8 |
+| B2 | Three test files import modules Task 5 deletes, and no task handled them → the Task 8 "whole suite green" gate could not pass. `test_langgraph_agent.py` + `test_tools.py` must be **deleted**; `test_llm_global.py` must be **repointed** at `core.llm_global`. | File Map, Tasks 5, 8 |
+| B3 | Task 8's conftest rewrite dropped the **`google.auth.default` stub** (added by `9df46f7`, "ci: make the suites hermetic on GitHub-hosted runners"), not just the `SQLDatabase` stub. `build_app` still builds `VertexAiSearchTool`/`AdkApp`, so it is still load-bearing. Local runs pass; CI breaks. | Task 8 |
+| B4 | `test_run_query_refuses_over_byte_cap` could never pass: `BQ_MAX_BYTES` was bound at **import** time, so `monkeypatch.setenv` after import was a no-op. Caps are now read per call. | Task 2 |
+| B5 | `@functools.cache` on `list_tables`/`get_schema` **cached failures** — one transient BigQuery error or cold-start IAM delay would poison the tool for the whole engine process lifetime. Only successes are memoized now (the cache moved to an inner function that raises). | Task 2 |
+| B6 | `agents/utils/` no longer exists — #43's `90e5586` already removed it. The `git rm -r utils` step errored. | File Map, Task 5 |
+| B7 | Test-count drift: Task 4 writes 4 tests, Task 8 said 3. | Task 8 |
+
+Three more surfaced **during** execution and are also fixed inline:
+
+| # | Defect | Where it was fixed |
+|---|---|---|
+| B8 | **The plan's `llm_global.py` code block is a stale pre-`f93e872` copy.** It was labelled "the AA copy verbatim — it is the canonical one", but the real file adds a module-level `_CLIENT_CACHE` keyed by `(project, location)`. Pasting the plan's version verbatim silently regressed the hot path to **building a fresh `genai.Client` (new gRPC channel) on every model call**. Caught by `test_llm_global.py`, which asserts `Client.call_count == 1`. | Task 1 |
+| B9 | `agent_{aa,pp}_app/__init__.py` contain `from . import agent` — the module Task 5 deletes. The plan's File Map never lists them under created/modified/deleted, so both packages raised `ImportError` on import after Task 5. | Task 5 |
+| B10 | Task 8 Step 4's smoke command seeds no env vars, so `build_app` dies on `KeyError: 'DATASTORE_AA_ID'`. Agent Engine injects these at runtime; a local run must seed them the way `conftest.py` does. | Task 8 |
+
+Nothing architectural changed: the four-tool design, the `core/` factoring, and the PR-A/B/C sequencing all stand as reviewed.
+
+**Lesson for PR-B/PR-C:** B8 is the dangerous class — a plan that inlines "verbatim" source can silently rot behind the code it copied. Always `git show` the real file before pasting a plan's code block.
+
 ### Update (2026-07-01) — validated by the #43 live `npe` deploy
 
 Since this plan was written, **#43 replaced `find_existing()`**: `deploy.py` now keys idempotency off the **stored engine resource name** (the `engine-{aa,pp}-resource-name` Secret Manager value), not `display_name`. A full deploy + direct-query test in `npe` confirmed the real behavior and surfaced three fixes PR-A must carry forward (each is landed in #43; do not regress them):
@@ -78,8 +104,9 @@ Since this plan was written, **#43 replaced `find_existing()`**: `deploy.py` now
 - `agents/agent_pp_app/agent_engine_app.py` — same.
 - `agents/deploy.py` — `REQUIREMENTS` (drop LangChain/LangGraph, add `google-cloud-bigquery`); `extra_packages` add `"core"`; PP `display_name` → `"Producción Primaria"`.
 - `agents/pyproject.toml` — drop `langchain_community`, `langchain_google_vertexai`, `langgraph`, `sqlalchemy-bigquery`; add `google-cloud-bigquery>=3.25.0`.
-- `agents/tests/conftest.py` — drop the `SQLDatabase.from_uri` stub.
+- `agents/tests/conftest.py` — drop the `SQLDatabase.from_uri` stub. **Keep the `google.auth.default` stub** (B3).
 - `agents/tests/test_agent_engine_app.py` — update assertions for the new shim shape.
+- `agents/tests/test_llm_global.py` — repoint `agent_{aa,pp}_app.llm_global` → `core.llm_global` (B2).
 - `webhook-application/whatsapp_webhook/external_services/agent_client.py` — call the sanitizer on `response_text` before returning.
 
 **Deleted:**
@@ -89,7 +116,10 @@ Since this plan was written, **#43 replaced `find_existing()`**: `deploy.py` now
 - `agents/agent_aa_app/prompts.py`, `agents/agent_pp_app/prompts.py`
 - `agents/agent_aa_app/prompts/` (tree), `agents/agent_pp_app/prompts/` (tree)
 - `agents/agent_aa_app/utils/langgraph_agent.py`, `agents/agent_pp_app/utils/langgraph_agent.py`
-- `agents/utils/langgraph_agent.py` (top-level orphan)
+- `agents/tests/test_langgraph_agent.py` — tests a class this PR deletes (B2).
+- `agents/tests/test_tools.py` — tests `agent_*_app/tools.py`, which this PR deletes (B2).
+
+> `agents/utils/langgraph_agent.py` (the top-level orphan the original plan listed) **no longer exists** — #43's `90e5586` already removed it. Nothing to do (B6).
 
 ---
 
@@ -99,12 +129,12 @@ Since this plan was written, **#43 replaced `find_existing()`**: `deploy.py` now
 
 **Files:** none (git only).
 
-- [ ] **Step 1: Confirm PR #43 is merged and `main` is current**
+- [x] **Step 1: Confirm PR #43 is merged and `main` is current**
 
 Run: `git checkout main && git pull && git log -1 --oneline`
 Expected: the tip includes the PR #43 merge. If PR #43 is not merged yet, **stop** — this plan cannot start.
 
-- [ ] **Step 2: Create the branch**
+- [x] **Step 2: Create the branch**
 
 Run: `git checkout -b feature/agents-core-refactor`
 Expected: switched to a new branch.
@@ -118,13 +148,13 @@ Expected: switched to a new branch.
 **Files:**
 - Create: `agents/core/__init__.py`, `agents/core/llm_global.py`
 
-- [ ] **Step 1: Create the package marker**
+- [x] **Step 1: Create the package marker**
 
 Use Write to create `agents/core/__init__.py` with content `""`.
 
-- [ ] **Step 2: Create `agents/core/llm_global.py`**
+- [x] **Step 2: Create `agents/core/llm_global.py`**
 
-Use Write (this is the AA copy verbatim — it is the canonical one; the PP copy was a comment-only stub):
+**Do not paste the block below blind — `git show HEAD:agents/agent_aa_app/llm_global.py` first and copy what is actually there (B8).** The version originally inlined here predated `f93e872` and omitted the `_CLIENT_CACHE`, which would have regressed the hot path to one new gRPC channel per model call. The corrected block follows; the PP copy was a comment-only stub.
 ```python
 """Gemini variant that routes model calls to location="global".
 
@@ -145,24 +175,35 @@ from google.adk.models import Gemini
 
 GEMINI_LOCATION = os.environ.get("GEMINI_LOCATION", "global")
 
+# Module-level client cache, keyed by (project, location). Deliberately NOT
+# stored on the Gemini instance: the AdkApp (and this model) get deepcopy'd
+# at engine-create time, and a genai.Client holds an unpicklable gRPC channel
+# / module reference. Keeping the cache off the instance preserves the
+# picklability that the previous plain @property guaranteed, while still
+# reusing one client (+channel) per (project, location) across all calls on
+# the hot path. First population happens lazily server-side, after deepcopy.
+_CLIENT_CACHE: dict[tuple[str, str], genai.Client] = {}
+
 
 class GlobalGemini(Gemini):
     @property
     def api_client(self) -> genai.Client:
-        # NOTE: plain @property (not @cached_property): the AdkApp gets
-        # deepcopy'd at engine-create time, and a cached genai.Client holds
-        # a module reference that fails to pickle. ADK's own Gemini caches
-        # the client; we trade a per-call client init for picklability.
-        return genai.Client(
-            vertexai=True,
-            project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
-            location=GEMINI_LOCATION,
-        )
+        project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+        key = (project, GEMINI_LOCATION)
+        client = _CLIENT_CACHE.get(key)
+        if client is None:
+            client = genai.Client(
+                vertexai=True,
+                project=project,
+                location=GEMINI_LOCATION,
+            )
+            _CLIENT_CACHE[key] = client
+        return client
 ```
 
 > **Do NOT delete `llm_global.py` in any later PR on the assumption that a `Gemini.location` field replaces it.** It exists for two reasons: global-location routing AND picklability of `api_client`. A `location` field would not fix the deepcopy/pickle issue (Rodrigo V2).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add agents/core/__init__.py agents/core/llm_global.py
@@ -174,9 +215,11 @@ git commit -m "refactor(agents): add core/ package with shared GlobalGemini"
 **Files:**
 - Create: `agents/core/bq_tools.py`, `agents/tests/test_bq_tools.py`
 
-The four tools replace the entire LangGraph/LangChain SQL stack. Each returns a dict with `ok: bool` and never raises into the model. `list_tables`/`get_schema` are `@cache`d (process-lifetime; redeploy is the flush). `check_query` is a free BigQuery dry-run. `run_query` refuses non-`SELECT`, refuses scans over `BQ_MAX_BYTES` (default 1 GB), and truncates to `max_rows`.
+The four tools replace the entire LangGraph/LangChain SQL stack. Each returns a dict with `ok: bool` and never raises into the model. `list_tables`/`get_schema` memoize **successes only** (process-lifetime; redeploy is the flush) — the `@cache` sits on an inner function that raises, so a transient BigQuery error is never cached (B5). `check_query` is a free BigQuery dry-run. `run_query` refuses non-`SELECT`, refuses scans over `BQ_MAX_BYTES` (default 1 GB), and truncates to `max_rows`.
 
-- [ ] **Step 1: Write the failing tests**
+> **Caps are read per call, not at import** (B4). Binding them at module level made them untestable via `monkeypatch.setenv` (the module is already imported by the time a test sets the var) and silently ignored any env change. `BQ_MAX_ROWS` acts as a **ceiling** on whatever `max_rows` the model asks for.
+
+- [x] **Step 1: Write the failing tests**
 
 Use Write to create `agents/tests/test_bq_tools.py`:
 ```python
@@ -189,8 +232,10 @@ import pytest
 @pytest.fixture(autouse=True)
 def _clear_caches():
     from core import bq_tools
-    bq_tools.list_tables.cache_clear()
-    bq_tools.get_schema.cache_clear()
+    # Only the INNER success-caches are memoized — the public tools are plain
+    # functions so a transient failure is never cached (B5).
+    bq_tools._list_tables_cached.cache_clear()
+    bq_tools._get_schema_cached.cache_clear()
     yield
 
 
@@ -284,12 +329,12 @@ def test_run_query_truncates_rows():
     assert out["truncated"] is True
 ```
 
-- [ ] **Step 2: Run — should fail with `ModuleNotFoundError: No module named 'core.bq_tools'`**
+- [x] **Step 2: Run — should fail with `ModuleNotFoundError: No module named 'core.bq_tools'`**
 
 Run: `cd agents && uv run --group dev pytest tests/test_bq_tools.py -v`
 Expected: collection/import error (module missing).
 
-- [ ] **Step 3: Implement `agents/core/bq_tools.py`**
+- [x] **Step 3: Implement `agents/core/bq_tools.py`**
 
 Use Write:
 ```python
@@ -297,19 +342,25 @@ Use Write:
 
 Each tool returns {"ok": bool, "error": str | None, ...} and never raises into
 the model: the LlmAgent recovers via the error -> fix -> retry loop the prompt
-teaches. `list_tables` / `get_schema` are @cache'd for process lifetime (schemas
-rarely change; engine redeploy is the natural flush). `check_query` is a free
-BigQuery dry-run guard. `run_query` refuses non-SELECT, refuses scans over
-BQ_MAX_BYTES (default 1 GB), and truncates to max_rows.
+teaches. `list_tables` / `get_schema` memoize SUCCESSES ONLY — the @cache sits
+on an inner helper that raises, so a transient BigQuery error is never frozen
+in for the process lifetime (schemas rarely change; engine redeploy is the
+natural flush). `check_query` is a free BigQuery dry-run guard. `run_query`
+refuses non-SELECT, refuses scans over BQ_MAX_BYTES (default 1 GB), and
+truncates to max_rows.
+
+Caps are read PER CALL, never bound at import: import-time binding made them
+untestable (monkeypatch.setenv runs after import) and silently ignored any
+per-engine env override.
 """
 import functools
 import os
 
 from google.cloud import bigquery
 
-# Hard caps — env-overridable per engine without code change.
-BQ_MAX_BYTES = int(os.environ.get("BQ_MAX_BYTES", str(1024 * 1024 * 1024)))  # 1 GB
-BQ_MAX_ROWS = int(os.environ.get("BQ_MAX_ROWS", "100"))
+# Hard caps — env-overridable per engine without code change. Read per call.
+_DEFAULT_MAX_BYTES = 1024 * 1024 * 1024  # 1 GB
+_DEFAULT_MAX_ROWS = 100
 LIST_TIMEOUT = 10.0
 SCHEMA_TIMEOUT = 10.0
 CHECK_TIMEOUT = 30.0
@@ -322,6 +373,14 @@ def _project() -> str:
 
 def _dataset() -> str:
     return os.environ["BIGQUERY_DATASET"]
+
+
+def _max_bytes() -> int:
+    return int(os.environ.get("BQ_MAX_BYTES", str(_DEFAULT_MAX_BYTES)))
+
+
+def _max_rows() -> int:
+    return int(os.environ.get("BQ_MAX_ROWS", str(_DEFAULT_MAX_ROWS)))
 
 
 def _client() -> bigquery.Client:
@@ -337,27 +396,36 @@ def _is_select(sql: str) -> bool:
 
 
 @functools.cache
+def _list_tables_cached() -> tuple:
+    """Raises on failure — so functools.cache never memoizes an error."""
+    ref = f"{_project()}.{_dataset()}"
+    return tuple(t.table_id for t in _client().list_tables(ref, timeout=LIST_TIMEOUT))
+
+
 def list_tables() -> dict:
     """List the table names available in the configured BigQuery dataset."""
     try:
-        ref = f"{_project()}.{_dataset()}"
-        tables = [t.table_id for t in _client().list_tables(ref, timeout=LIST_TIMEOUT)]
-        return {"ok": True, "error": None, "tables": tables}
+        return {"ok": True, "error": None, "tables": list(_list_tables_cached())}
     except Exception as e:  # noqa: BLE001 — surface to the model, never crash
         return {"ok": False, "error": str(e), "tables": []}
 
 
 @functools.cache
+def _get_schema_cached(table: str) -> str:
+    """Raises on failure — so functools.cache never memoizes an error."""
+    ref = f"{_project()}.{_dataset()}.{table}"
+    meta = _client().get_table(ref, timeout=SCHEMA_TIMEOUT)
+    lines = []
+    for f in meta.schema:
+        desc = f" — {f.description}" if f.description else ""
+        lines.append(f"{f.name} {f.field_type}{desc}")
+    return "\n".join(lines)
+
+
 def get_schema(table: str) -> dict:
     """Return the column schema (name, type, description) for one table."""
     try:
-        ref = f"{_project()}.{_dataset()}.{table}"
-        meta = _client().get_table(ref, timeout=SCHEMA_TIMEOUT)
-        lines = []
-        for f in meta.schema:
-            desc = f" — {f.description}" if f.description else ""
-            lines.append(f"{f.name} {f.field_type}{desc}")
-        return {"ok": True, "error": None, "schema": "\n".join(lines)}
+        return {"ok": True, "error": None, "schema": _get_schema_cached(table)}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": str(e), "schema": ""}
 
@@ -376,11 +444,14 @@ def check_query(sql: str) -> dict:
         return {"ok": False, "error": str(e), "bytes_processed": 0}
 
 
-def run_query(sql: str, max_rows: int = BQ_MAX_ROWS) -> dict:
+def run_query(sql: str, max_rows: int = 100) -> dict:
     """Run a SELECT and return up to max_rows result rows as dicts."""
     if not _is_select(sql):
         return {"ok": False, "error": "Only SELECT/WITH queries are allowed.",
                 "rows": [], "truncated": False}
+    # BQ_MAX_ROWS is a ceiling on whatever the model asked for, not a default.
+    max_rows = min(max_rows, _max_rows())
+    cap = _max_bytes()
     client = _client()
     try:
         dry = client.query(
@@ -388,16 +459,16 @@ def run_query(sql: str, max_rows: int = BQ_MAX_ROWS) -> dict:
             job_config=bigquery.QueryJobConfig(dry_run=True, use_query_cache=False),
             timeout=CHECK_TIMEOUT,
         )
-        if dry.total_bytes_processed and dry.total_bytes_processed > BQ_MAX_BYTES:
+        if dry.total_bytes_processed and dry.total_bytes_processed > cap:
             return {
                 "ok": False,
                 "error": (
-                    f"Query exceeds the {BQ_MAX_BYTES} byte scan cap "
+                    f"Query exceeds the {cap} byte scan cap "
                     f"({dry.total_bytes_processed} bytes). Add filters or a LIMIT."
                 ),
                 "rows": [], "truncated": False,
             }
-        cfg = bigquery.QueryJobConfig(maximum_bytes_billed=BQ_MAX_BYTES)
+        cfg = bigquery.QueryJobConfig(maximum_bytes_billed=cap)
         job = client.query(sql, job_config=cfg, timeout=RUN_TIMEOUT)
         rows, truncated = [], False
         for i, row in enumerate(job.result(timeout=RUN_TIMEOUT)):
@@ -410,12 +481,12 @@ def run_query(sql: str, max_rows: int = BQ_MAX_ROWS) -> dict:
         return {"ok": False, "error": str(e), "rows": [], "truncated": False}
 ```
 
-- [ ] **Step 4: Run the tests — should pass**
+- [x] **Step 4: Run the tests — should pass**
 
 Run: `cd agents && uv run --group dev pytest tests/test_bq_tools.py -v`
 Expected: 8 tests PASS. (Deps for `google-cloud-bigquery` land in Task 7; if the import fails here, jump to Task 7 step 1–3, then return.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add agents/core/bq_tools.py agents/tests/test_bq_tools.py
@@ -427,7 +498,7 @@ git commit -m "feat(agents): add core/bq_tools — 4 native BigQuery function to
 **Files:**
 - Create: `agents/core/prompts.py` and the `agents/core/prompts/` tree.
 
-- [ ] **Step 1: Create the shared prompt fragments**
+- [x] **Step 1: Create the shared prompt fragments**
 
 Use Write to create `agents/core/prompts/shared/whatsapp_plain.md`:
 ```markdown
@@ -451,7 +522,7 @@ Cada herramienta devuelve `{ok, error, ...}` — nunca lanza excepción. Ante un
 error, ajusta la consulta y vuelve a intentar; no inventes datos.
 ```
 
-- [ ] **Step 2: Relocate the per-agent prompt files**
+- [x] **Step 2: Relocate the per-agent prompt files**
 
 Move the existing per-agent prompt content into the new tree (content is copied, then the verbose Markdown-formatting block is removed from each root). Create these files with Write, copying the body from the listed source:
 
@@ -470,7 +541,7 @@ Move the existing per-agent prompt content into the new tree (content is copied,
 
 > The old `text2sql/instruction.md` prompt is **not** carried over — it instructed the LangChain SQL agent, which this PR deletes. The four-tool workflow in `bq_workflow.md` replaces it. This also fixes the latent PP bug where `agent_pp_app/prompts.py` read the AA text2sql path.
 
-- [ ] **Step 3: Create `agents/core/prompts.py` (composition)**
+- [x] **Step 3: Create `agents/core/prompts.py` (composition)**
 
 Use Write:
 ```python
@@ -517,7 +588,7 @@ def bq_description(agent: str) -> str:
     return _read(agent, "bq_description.md")
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add agents/core/prompts.py agents/core/prompts/
@@ -531,12 +602,20 @@ git commit -m "refactor(agents): relocate prompts to core/, extract shared rules
 
 `build_app` constructs the RAG sub-agent (Vertex AI Search — but the datastore MUST be the full resource name via `_datastore`, not the bare id today's code passes; see the 2026-07-01 update above), the BQ sub-agent (now an ordinary `LlmAgent` with the four function tools — no more `LangGraphAgent`), the root supervisor, and wraps the root in an `AdkApp`. `main_datastore_env` is the per-agent datastore env var name (`DATASTORE_AA_ID` or `DATASTORE_PP_ID`); the guides/faq/chileprunes datastores are shared.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Use Write to create `agents/tests/test_core_agent.py`:
 ```python
 """Shape tests for core.agent.build_app — no network (env is seeded in conftest)."""
 from vertexai.agent_engines import AdkApp
+
+
+def _root(app: AdkApp):
+    """AdkApp exposes NO public `.agent` — verified: hasattr(AdkApp, "agent") is
+    False. The wrapped agent lives in `_tmpl_attrs`, the internal-but-stable
+    template surface `vertexai.agent_engines.create()` itself reads. This is the
+    same accessor the pre-existing tests/test_agent_engine_app.py used (B1)."""
+    return app._tmpl_attrs["agent"]
 
 
 def test_build_app_returns_adkapp_with_named_root():
@@ -547,7 +626,7 @@ def test_build_app_returns_adkapp_with_named_root():
         main_datastore_env="DATASTORE_AA_ID",
     )
     assert isinstance(app, AdkApp)
-    assert app.agent.name == "aa_agent"
+    assert _root(app).name == "aa_agent"
 
 
 def test_root_has_rag_and_bq_subagents():
@@ -557,7 +636,7 @@ def test_root_has_rag_and_bq_subagents():
         display_name="Producción Primaria",
         main_datastore_env="DATASTORE_PP_ID",
     )
-    tool_names = {t.agent.name for t in app.agent.tools}
+    tool_names = {t.agent.name for t in _root(app).tools}
     assert tool_names == {"pp_agent_rag", "pp_agent_bq"}
 
 
@@ -568,7 +647,7 @@ def test_bq_subagent_uses_four_function_tools():
         display_name="Adecuación Agroindustrial",
         main_datastore_env="DATASTORE_AA_ID",
     )
-    bq = next(t.agent for t in app.agent.tools if t.agent.name == "aa_agent_bq")
+    bq = next(t.agent for t in _root(app).tools if t.agent.name == "aa_agent_bq")
     fn_names = {t.func.__name__ for t in bq.tools}
     assert fn_names == {"list_tables", "get_schema", "check_query", "run_query"}
 
@@ -582,12 +661,12 @@ def test_datastore_builds_full_resource_name():
     )
 ```
 
-- [ ] **Step 2: Run — should fail with `ModuleNotFoundError: No module named 'core.agent'`**
+- [x] **Step 2: Run — should fail with `ModuleNotFoundError: No module named 'core.agent'`**
 
 Run: `cd agents && uv run --group dev pytest tests/test_core_agent.py -v`
 Expected: import error.
 
-- [ ] **Step 3: Implement `agents/core/agent.py`**
+- [x] **Step 3: Implement `agents/core/agent.py`**
 
 Use Write:
 ```python
@@ -666,14 +745,14 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
     return AdkApp(agent=root)
 ```
 
-> If the test in Step 4 reports `t.func` does not exist, ADK wrapped the plain functions in a `FunctionTool` with a different attribute. Inspect one with `vars(bq.tools[0])` and adjust the assertion in `test_bq_subagent_uses_four_function_tools` to the real attribute (commonly `.func` or `.fn`). The implementation does not change — only the test's introspection.
+> **Resolved during execution (2026-08-15).** Neither `.func` nor `.fn` exists: ADK 1.35 leaves plain functions in `LlmAgent.tools` **untouched** — `type(bq.tools[0]).__name__ == "function"`, `vars()` is empty — because the `FunctionTool` wrapping happens later, in `canonical_tools()`. The test uses a `_tool_name(t)` helper that falls back `.func` → `.fn` → the object itself, so it reads correctly today and survives a future ADK patch that wraps eagerly. The implementation is unchanged, as anticipated.
 
-- [ ] **Step 4: Run the tests — should pass**
+- [x] **Step 4: Run the tests — should pass**
 
 Run: `cd agents && uv run --group dev pytest tests/test_core_agent.py -v`
 Expected: 4 tests PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add agents/core/agent.py agents/tests/test_core_agent.py
@@ -690,7 +769,7 @@ git commit -m "feat(agents): add core.agent.build_app — shared factory, BQ as 
 - Modify: `agents/agent_aa_app/agent_engine_app.py`, `agents/agent_pp_app/agent_engine_app.py`
 - Delete: per-agent `agent.py`, `tools.py`, `llm_global.py`, `prompts.py`, `prompts/` trees, `utils/langgraph_agent.py` (×2), and `agents/utils/langgraph_agent.py`.
 
-- [ ] **Step 1: Rewrite the AA shim**
+- [x] **Step 1: Rewrite the AA shim**
 
 Use Write to replace `agents/agent_aa_app/agent_engine_app.py`:
 ```python
@@ -704,7 +783,7 @@ app = build_app(
 )
 ```
 
-- [ ] **Step 2: Rewrite the PP shim**
+- [x] **Step 2: Rewrite the PP shim**
 
 Use Write to replace `agents/agent_pp_app/agent_engine_app.py`:
 ```python
@@ -718,7 +797,7 @@ app = build_app(
 )
 ```
 
-- [ ] **Step 3: Delete the dead files**
+- [x] **Step 3: Delete the dead files**
 
 Run:
 ```bash
@@ -727,19 +806,46 @@ git rm agent_aa_app/agent.py agent_aa_app/tools.py agent_aa_app/llm_global.py ag
 git rm -r agent_aa_app/prompts agent_aa_app/utils
 git rm agent_pp_app/agent.py agent_pp_app/tools.py agent_pp_app/llm_global.py agent_pp_app/prompts.py
 git rm -r agent_pp_app/prompts agent_pp_app/utils
-git rm -r utils
+git rm tests/test_langgraph_agent.py tests/test_tools.py
 ```
-Expected: all listed paths removed. (`agents/utils/` held only the orphaned `langgraph_agent.py` plus its `__pycache__`; if `git rm -r utils` reports it is not tracked, `rm -rf utils` instead.)
+Expected: all listed paths removed.
 
-- [ ] **Step 4: Confirm no remaining imports of deleted modules**
+> **The two test deletions are not optional (B2).** `tests/test_langgraph_agent.py` imports `agent_aa_app.utils.langgraph_agent` and `tests/test_tools.py` imports `agent_{aa,pp}_app.tools` — both modules die in this same step, so leaving the tests behind makes Task 8's "whole suite green" gate impossible. `tests/test_llm_global.py` is **repointed, not deleted** — see Task 8 Step 2b.
+>
+> The original plan also had `git rm -r utils` here for a top-level orphan. **Skip it — `agents/utils/` no longer exists**; #43's `90e5586` already removed it (B6).
+
+- [x] **Step 3b: Blank both package `__init__.py` files (B9)**
+
+`agent_aa_app/__init__.py` and `agent_pp_app/__init__.py` each contain `from . import agent` — the module Step 3 just deleted, so both packages now raise `ImportError` on import. The original plan never listed these files anywhere. Replace each with a docstring-only marker:
+
+```python
+"""Thin entry-point package — the AdkApp lives in agent_engine_app.
+
+Deliberately empty: the old `from . import agent` eagerly built the whole agent
+graph at package import. That module is gone (all logic moved to core/), and
+importing the shim must not have side effects beyond building the app it
+exports.
+"""
+```
+
+- [x] **Step 4: Confirm no remaining imports of deleted modules**
 
 Run: `grep -rn "langgraph\|SQLDatabase\|text2sql_tools\|from agent_aa_app.agent\|from agent_pp_app.agent\|agent_aa_app.tools\|agent_pp_app.tools\|\.llm_global\|agent_aa_app.prompts\|agent_pp_app.prompts" agents --include="*.py" | grep -v "/.venv/"`
-Expected: zero results. Any hit is a missed reference — fix before continuing.
+Expected: **only these four known-pending hits**, each owned by a later task. Anything else is a missed reference — fix before continuing.
 
-- [ ] **Step 5: Commit**
+| Hit | Fixed in |
+|---|---|
+| `deploy.py` → `langgraph==1.2.4` in `REQUIREMENTS` | Task 6 |
+| `tests/conftest.py` → `SQLDatabase` stub | Task 8 Step 1 |
+| `tests/test_llm_global.py` → `agent_{aa,pp}_app.llm_global` | Task 8 Step 2b |
+| `tests/test_agent_engine_app.py` → `from agent_*_app.agent import root_agent` | Task 8 Step 2 |
+
+(The original plan said "zero results", which its own task ordering makes impossible — these four are deleted-module references that survive until Tasks 6 and 8.) A hit on `core/agent.py:from core.llm_global import GlobalGemini` is the new correct import, not a leftover.
+
+- [x] **Step 5: Commit**
 
 ```bash
-git add -A agents/agent_aa_app agents/agent_pp_app
+git add -A agents/agent_aa_app agents/agent_pp_app agents/tests
 git commit -m "refactor(agents): slim per-agent packages to shims; delete LangGraph/SQLDatabaseToolkit"
 ```
 
@@ -748,7 +854,7 @@ git commit -m "refactor(agents): slim per-agent packages to shims; delete LangGr
 **Files:**
 - Modify: `agents/deploy.py`
 
-- [ ] **Step 1: Trim `REQUIREMENTS`**
+- [x] **Step 1: Trim `REQUIREMENTS`**
 
 Edit `agents/deploy.py` — replace the `REQUIREMENTS` list with:
 ```python
@@ -763,7 +869,7 @@ REQUIREMENTS = [
 
 > **Pin these to the regenerated `uv.lock` versions (`==`), not `>=` ranges.** #43 pinned `REQUIREMENTS` for reproducible engine builds (Rodrigo's REQUIREMENTS-drift finding); shipping `>=` to the engine lets a new upstream release change what the deployed engine runs vs. what the tests ran against. After Task 7 regenerates the lock, copy the resolved versions here. Also do **not** touch `read_secret`/`write_secret` (DISABLED-version handling) or `env_vars_for` (must not ship the reserved `GOOGLE_CLOUD_PROJECT`) — both landed in #43; see the 2026-07-01 update.
 
-- [ ] **Step 2: Ship `core` with every engine + fix the PP display name**
+- [x] **Step 2: Ship `core` with every engine + fix the PP display name**
 
 Edit `agents/deploy.py`:
 
@@ -779,12 +885,12 @@ In `deploy_one`, change the `extra_packages` line so `core` ships alongside the 
 
 > Without `"core"` in `extra_packages`, every engine import fails **at runtime on the deployed engine** — local tests still pass because `core` is on the local path. Task 11's deployed smoke test is the only thing that catches this; do not skip it.
 
-- [ ] **Step 3: Re-run the deploy unit tests**
+- [x] **Step 3: Re-run the deploy unit tests**
 
 Run: `cd agents && uv run --group dev pytest tests/test_deploy.py -v`
 Expected: existing deploy tests still PASS. If a test asserts the old PP display name or the old `REQUIREMENTS`, update the expectation in `tests/test_deploy.py` to match, then re-run.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add agents/deploy.py agents/tests/test_deploy.py
@@ -796,7 +902,7 @@ git commit -m "chore(agents): deploy.py — drop LangChain deps, ship core/, fix
 **Files:**
 - Modify: `agents/pyproject.toml`
 
-- [ ] **Step 1: Edit dependencies**
+- [x] **Step 1: Edit dependencies**
 
 Edit `agents/pyproject.toml` — set `dependencies` to:
 ```toml
@@ -811,7 +917,7 @@ dependencies = [
 ```
 (Removed: `langchain_community`, `langchain_google_vertexai`, `langgraph`, `sqlalchemy-bigquery`, `google-cloud-bigquery-storage`.)
 
-- [ ] **Step 2: Lock + sync**
+- [x] **Step 2: Lock + sync**
 
 Run:
 ```bash
@@ -821,7 +927,7 @@ uv sync --group dev
 ```
 Expected: the four LangChain/LangGraph trees disappear from `uv.lock`; `google-cloud-bigquery` is present; no resolution errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add agents/pyproject.toml agents/uv.lock
@@ -833,7 +939,7 @@ git commit -m "chore(agents): drop LangChain/LangGraph deps, add google-cloud-bi
 **Files:**
 - Modify: `agents/tests/conftest.py`, `agents/tests/test_agent_engine_app.py`
 
-- [ ] **Step 1: Strip the `SQLDatabase` stub from conftest**
+- [x] **Step 1: Strip the `SQLDatabase` stub from conftest**
 
 Use Write to replace `agents/tests/conftest.py`:
 ```python
@@ -842,6 +948,11 @@ Use Write to replace `agents/tests/conftest.py`:
 The old SQLDatabase.from_uri stub is gone — the BigQuery tools in
 core/bq_tools.py construct their client lazily (per call), so importing the
 agent modules no longer makes a live BigQuery call.
+
+The google.auth.default stub STAYS: build_app still constructs
+VertexAiSearchTool and AdkApp, which run Vertex/aiplatform initialization and
+call google.auth.default(). That fails offline and on GitHub-hosted runners
+with no ADC (see commit 9df46f7).
 """
 import os
 
@@ -852,9 +963,19 @@ os.environ.setdefault("DATASTORE_PP_ID", "test-datastore-pp")
 os.environ.setdefault("DATASTORE_GUIDES_ID", "test-datastore-guides")
 os.environ.setdefault("DATASTORE_FAQ_ID", "test-datastore-faq")
 os.environ.setdefault("DATASTORE_CHILEPRUNES_CL_ID", "test-datastore-chileprunes")
+
+import google.auth  # noqa: E402
+from google.auth.credentials import AnonymousCredentials  # noqa: E402
+
+google.auth.default = lambda *args, **kwargs: (
+    AnonymousCredentials(),
+    os.environ["GOOGLE_CLOUD_PROJECT"],
+)
 ```
 
-- [ ] **Step 2: Update the shim test**
+> **Do not drop the `google.auth.default` stub (B3).** The original plan's rewrite removed it along with the `SQLDatabase` stub. Local runs with gcloud ADC still pass, so the breakage only shows up in CI — the worst place to discover it.
+
+- [x] **Step 2: Update the shim test**
 
 The existing `tests/test_agent_engine_app.py` imports `from agent_aa_app.agent import root_agent`, which no longer exists. Use Write to replace it:
 ```python
@@ -867,37 +988,63 @@ from vertexai.agent_engines import AdkApp
 def test_aa_shim_exposes_adkapp():
     mod = importlib.import_module("agent_aa_app.agent_engine_app")
     assert isinstance(mod.app, AdkApp)
-    assert mod.app.agent.name == "aa_agent"
+    # AdkApp has no public `.agent` — _tmpl_attrs is the accessor (B1).
+    assert mod.app._tmpl_attrs["agent"].name == "aa_agent"
 
 
 def test_pp_shim_exposes_adkapp():
     mod = importlib.import_module("agent_pp_app.agent_engine_app")
     assert isinstance(mod.app, AdkApp)
-    assert mod.app.agent.name == "pp_agent"
+    assert mod.app._tmpl_attrs["agent"].name == "pp_agent"
 ```
 
-- [ ] **Step 3: Run the entire agents test suite**
+- [x] **Step 2b: Repoint `tests/test_llm_global.py` at `core.llm_global` (B2)**
+
+This file survives (the behaviour it covers moved, it did not disappear), but its imports point at modules Task 5 deleted. Apply two edits:
+
+- `import agent_aa_app.llm_global as lg` → `import core.llm_global as lg`
+- Delete the PP-parity test that does `import agent_pp_app.llm_global as pp` — after this PR there is only one `GlobalGemini`, so an AA-vs-PP equivalence assertion is meaningless. (The same reasoning retires `test_pp_langgraph_agent_is_importable_and_equivalent` along with its file in Task 5.)
+
+Run: `cd agents && uv run --group dev pytest tests/test_llm_global.py -v`
+Expected: the remaining tests PASS against `core.llm_global`.
+
+- [x] **Step 3: Run the entire agents test suite**
 
 Run: `cd agents && uv run --group dev pytest -v`
-Expected: every test passes — `test_bq_tools.py` (8), `test_core_agent.py` (3), `test_agent_engine_app.py` (2), `test_deploy.py` (existing).
+Expected: every test passes — `test_bq_tools.py` (8), `test_core_agent.py` (**4**, B7), `test_agent_engine_app.py` (2), `test_llm_global.py` (repointed, minus the PP-parity case), `test_deploy.py` (existing). `test_langgraph_agent.py` and `test_tools.py` must no longer be collected at all — Task 5 deleted them. If either still appears, that step was skipped.
 
-- [ ] **Step 4: Local InMemoryRunner smoke (no GCP engine, but exercises real imports)**
+- [x] **Step 4: Local InMemoryRunner smoke (no GCP engine, but exercises real imports)**
 
 Run:
 ```bash
 cd agents && uv run python -c "
+import os
+# Agent Engine injects these at runtime; a local run must seed them the way
+# tests/conftest.py does, or build_app dies on KeyError (B10).
+for k, v in {
+    'GOOGLE_CLOUD_PROJECT':'test-project','BIGQUERY_DATASET':'test_dataset',
+    'DATASTORE_AA_ID':'test-ds-aa','DATASTORE_PP_ID':'test-ds-pp',
+    'DATASTORE_GUIDES_ID':'test-ds-guides','DATASTORE_FAQ_ID':'test-ds-faq',
+    'DATASTORE_CHILEPRUNES_CL_ID':'test-ds-cp'}.items():
+    os.environ.setdefault(k, v)
+import google.auth
+from google.auth.credentials import AnonymousCredentials
+google.auth.default = lambda *a, **k: (AnonymousCredentials(), os.environ['GOOGLE_CLOUD_PROJECT'])
+
 import importlib
 for shim in ('agent_aa_app.agent_engine_app', 'agent_pp_app.agent_engine_app'):
-    app = importlib.import_module(shim).app
-    print(shim, '->', app.agent.name, 'tools:', [t.agent.name for t in app.agent.tools])
+    root = importlib.import_module(shim).app._tmpl_attrs['agent']
+    bq = next(t.agent for t in root.tools if t.agent.name.endswith('_bq'))
+    print(shim, '->', root.name, [t.agent.name for t in root.tools],
+          sorted(f.__name__ for f in bq.tools))
 "
 ```
 Expected: both shims import cleanly and print their root name + two sub-agents. This proves the `core` import graph is intact locally (it does **not** prove `extra_packages` is correct — Task 11 does that).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
-git add agents/tests/conftest.py agents/tests/test_agent_engine_app.py
+git add agents/tests/conftest.py agents/tests/test_agent_engine_app.py agents/tests/test_llm_global.py
 git commit -m "test(agents): drop SQLDatabase stub, update shim tests for build_app"
 ```
 
@@ -913,7 +1060,7 @@ git commit -m "test(agents): drop SQLDatabase stub, update shim tests for build_
 
 WhatsApp uses `*bold*`, `_italic_`, `~strike~`, ` ```mono``` `. The model now emits plain text (per `whatsapp_plain.md`), but as belt-and-suspenders we deterministically down-convert any Markdown that slips through.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Use Write to create `webhook-application/tests/external_services/test_whatsapp_format.py`:
 ```python
@@ -966,12 +1113,12 @@ def test_plain_text_unchanged():
     assert norm("Hola 👋 ¿en qué ayudo?") == "Hola 👋 ¿en qué ayudo?"
 ```
 
-- [ ] **Step 2: Run — should fail (module missing)**
+- [x] **Step 2: Run — should fail (module missing)**
 
 Run: `cd webhook-application && uv run --extra test pytest tests/external_services/test_whatsapp_format.py -v`
 Expected: import error.
 
-- [ ] **Step 3: Implement the sanitizer**
+- [x] **Step 3: Implement the sanitizer**
 
 Use Write to create `webhook-application/whatsapp_webhook/external_services/whatsapp_format.py`:
 ```python
@@ -1027,12 +1174,12 @@ def normalize_whatsapp_markdown(text: str) -> str:
     return text.strip()
 ```
 
-- [ ] **Step 4: Run the tests — should pass**
+- [x] **Step 4: Run the tests — should pass**
 
 Run: `cd webhook-application && uv run --extra test pytest tests/external_services/test_whatsapp_format.py -v`
 Expected: 10 tests PASS. (If `test_table_pipes_collapsed_to_text` is off by whitespace, adjust `_detable` join — the exact expected string in the test is the contract.)
 
-- [ ] **Step 5: Wire the sanitizer into `send_to_agent`**
+- [x] **Step 5: Wire the sanitizer into `send_to_agent`**
 
 Edit `webhook-application/whatsapp_webhook/external_services/agent_client.py`.
 
@@ -1053,12 +1200,12 @@ with:
 ```
 (Leave the empty-response and timeout branches unchanged — they return fixed Spanish error strings that need no normalization.)
 
-- [ ] **Step 6: Run the webhook suite end-to-end**
+- [x] **Step 6: Run the webhook suite end-to-end**
 
 Run: `cd webhook-application && uv run --extra test pytest tests/ -v`
 Expected: all tests pass, including the existing `test_agent_client.py`. If a `send_to_agent` test asserted an exact multi-line response that the sanitizer now reshapes, update that expectation to the normalized form.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add webhook-application/whatsapp_webhook/external_services/whatsapp_format.py \
@@ -1097,7 +1244,7 @@ gh pr create --draft --title "refactor(agents): shared core/ + native BQ tools +
 Since #43, deploy.py keys idempotency off the stored engine resource name (not display_name / find_existing), so changing PP's display_name UPDATES the existing PP engine in place (same id) — no new engine, no orphan. Both AA and PP update in place. Verified in the #43 npe live deploy.
 
 ## Test plan
-- [x] agents: bq_tools (8), core_agent (4), shim (2), deploy — all green
+- [x] agents: bq_tools (8), core_agent (4), shim (2), llm_global (repointed to core), deploy — all green; test_langgraph_agent + test_tools deleted
 - [x] webhook: whatsapp_format (10) + existing suite — green
 - [ ] npe deploy + DEPLOYED-engine smoke (verifies extra_packages ships core/)
 - [ ] 24h npe soak, error rate near-zero
@@ -1244,7 +1391,7 @@ App(
 Summarization uses `LlmEventSummarizer` (a Gemini model, `prompt_template` customizable). Point it at a cheap model (e.g. a flash-lite) so compaction never dominates turn latency. Env knobs mirror the `BQ_MAX_BYTES` per-engine-override pattern already in this plan.
 
 **Open questions — verify before committing (do not assume):**
-- **AdkApp threading.** We deploy via `vertexai.agent_engines.AdkApp(agent=root_agent)` in `build_app`, not the bare ADK `App`. Confirm how `events_compaction_config` reaches the running app — it may need to be passed through `AdkApp`, set on the `App` that `AdkApp` wraps, or configured on the agent. This is the main unknown and gates whether compaction fits cleanly in `build_app`.
+- **AdkApp threading — partially answered (2026-08-15).** `AdkApp.__init__` accepts **both** `app: App` and `agent: BaseAgent` (verified via `inspect.getsource` on the installed 1.35.0). So the path is to build an `App(name=..., root_agent=..., events_compaction_config=...)` and pass it as `AdkApp(app=...)` instead of `AdkApp(agent=...)`. Still to confirm: that `agent_engines.create()` deepcopies and templates an `App`-constructed AdkApp the same way, and that the compaction summarizer survives that round-trip.
 - **One owner only.** Agent Engine managed Sessions ALSO offer platform-side periodic Gemini summarization. Running both double-summarizes and wastes tokens. Pick one — prefer the **ADK-level `EventsCompactionConfig`** for explicit, testable, in-repo control unless the Agent-Engine-level path is strictly required.
 - **Managed-session compatibility.** Confirm the summary events ADK writes are accepted/rendered correctly by Agent Runtime managed Sessions (they store `SessionEvents`); a deployed check is the only real proof.
 
@@ -1285,4 +1432,8 @@ These are deliberately deferred (Rodrigo R2/R3) and each gets its own plan when 
 
 **Type consistency:** Tool dicts use a consistent `{ok, error, …}` shape across `bq_tools.py` and its tests. `build_app(name, display_name, main_datastore_env)` signature matches in `core/agent.py`, both shims (Task 5), and `test_core_agent.py`. `normalize_whatsapp_markdown` name matches across `whatsapp_format.py`, its test, and the `agent_client.py` import. Sub-agent naming (`<name>_rag`, `<name>_bq`) is consistent between `build_app` and the assertions in Task 4.
 
-**One known introspection risk** (flagged inline at Task 4 step 3): the FunctionTool attribute exposing the wrapped function may be `.func` or `.fn` depending on the installed ADK 1.35.x patch — the test adapts, the implementation doesn't.
+**Introspection risks — one verified, one still open:**
+- **Resolved (B1):** `AdkApp` exposes no public `.agent`. Confirmed against the installed `vertexai.agent_engines`: `hasattr(AdkApp, "agent") is False`. All shape assertions go through `app._tmpl_attrs["agent"]`, matching the accessor the pre-existing `test_agent_engine_app.py` already used and documented.
+- **Resolved during execution** (was flagged inline at Task 4 step 3): the guess was `.func` vs `.fn`; the reality is *neither*. ADK 1.35 keeps plain functions in `LlmAgent.tools` and defers `FunctionTool` wrapping to `canonical_tools()`. The test now resolves the name through a shape-tolerant `_tool_name()` helper.
+
+**2026-08-15 pre-execution pass:** B1–B7 (see the update block near the top) are corrected inline. Every code block was checked against the merged `main` and `google-adk` 1.35.0 / `vertexai` as installed. The unverifiable-until-deployed items are unchanged and still gated by Task 11: that `extra_packages` actually ships `core/`, and that `core/prompts/*.md` rides along with it.

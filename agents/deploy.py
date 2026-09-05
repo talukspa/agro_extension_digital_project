@@ -20,11 +20,7 @@ from vertexai import agent_engines
 REQUIREMENTS = [
     "google-cloud-aiplatform[adk,agent_engines]==1.157.0",
     "google-adk==1.35.0",
-    "langchain-community==0.4.2",
-    "langchain-google-vertexai==3.2.4",
-    "langgraph==1.2.4",
-    "sqlalchemy-bigquery==1.17.0",
-    "google-cloud-bigquery-storage==2.39.0",
+    "google-cloud-bigquery==3.33.0",
     "google-cloud-discoveryengine==0.13.12",
 ]
 
@@ -49,6 +45,20 @@ AGENTS = {
 RUNTIME_ENV_KEYS = [
     "DATASTORE_AA_ID", "DATASTORE_PP_ID", "DATASTORE_GUIDES_ID",
     "DATASTORE_FAQ_ID", "DATASTORE_CHILEPRUNES_CL_ID", "BIGQUERY_DATASET",
+]
+
+# Optional per-engine tuning knobs. Unlike RUNTIME_ENV_KEYS these are NOT
+# required: each is forwarded to the engine only when it is set in the deploy
+# environment, so leaving one unset keeps the code default.
+#
+# WITHOUT this passthrough these vars are read by code that only ever runs
+# INSIDE the engine (core/bq_tools.py, core/llm_global.py), where nothing sets
+# them — so every "env-overridable per engine" knob silently pinned to its
+# default and no operator override could ever take effect.
+OPTIONAL_ENV_KEYS = [
+    "GEMINI_LOCATION",   # core/llm_global.py
+    "BQ_MAX_BYTES",      # core/bq_tools.py — scan cap
+    "BQ_MAX_ROWS",       # core/bq_tools.py — row ceiling
 ]
 
 # Telemetry env vars required post-ADK 1.18 to actually export traces.
@@ -82,7 +92,8 @@ def env_vars_for(agent_key: str) -> dict[str, str]:
     # llm_global.py read via os.environ at runtime. (An earlier change shipped
     # GOOGLE_CLOUD_PROJECT explicitly; that broke real deploys, so it's gone.)
     base = {k: os.environ[k] for k in RUNTIME_ENV_KEYS}
-    return base | STATIC_ENV | TELEMETRY_ENV
+    optional = {k: os.environ[k] for k in OPTIONAL_ENV_KEYS if os.environ.get(k)}
+    return base | optional | STATIC_ENV | TELEMETRY_ENV
 
 
 def read_secret(project: str, secret_id: str) -> Optional[str]:
@@ -139,7 +150,11 @@ def deploy_one(key: str, cfg: dict, project: str, sa: str) -> None:
     kwargs = dict(
         agent_engine=mod.app,
         requirements=REQUIREMENTS,
-        extra_packages=[cfg["module_path"]],
+        # "core" must ship alongside the per-agent shim: without it every
+        # engine import fails AT RUNTIME on the deployed engine, while local
+        # tests still pass because core/ is on the local path. Task 11's
+        # deployed smoke test is the only thing that catches this.
+        extra_packages=[cfg["module_path"], "core"],
         display_name=cfg["display_name"],
         env_vars=env_vars_for(key),
         service_account=sa,

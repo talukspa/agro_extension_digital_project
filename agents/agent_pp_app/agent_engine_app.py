@@ -1,9 +1,8 @@
-"""AdkApp shim wrapping agent_pp_app's root_agent for Agent Runtime deploy.
+"""AdkApp shim for Producción Primaria — all logic lives in core."""
+from core.agent import build_app
 
-Mirror of agent_aa_app/agent_engine_app.py — see that file for the why.
-"""
-from vertexai.agent_engines import AdkApp
-
-from agent_pp_app.agent import root_agent
-
-app = AdkApp(agent=root_agent)
+app = build_app(
+    name="pp_agent",
+    display_name="Producción Primaria",
+    main_datastore_env="DATASTORE_PP_ID",
+)
