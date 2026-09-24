@@ -322,12 +322,14 @@ def test_main_aborts_before_mutation_when_required_env_missing(monkeypatch):
     deploy_one.assert_not_called()
 
 
-def test_main_happy_path_deploys_both_agents(monkeypatch):
+def test_main_happy_path_deploys_all_agents(monkeypatch):
     import deploy
     for k, v in {
         "DATASTORE_AA_ID": "a", "DATASTORE_PP_ID": "b", "DATASTORE_GUIDES_ID": "c",
         "DATASTORE_FAQ_ID": "d", "DATASTORE_CHILEPRUNES_CL_ID": "e",
         "BIGQUERY_DATASET": "bq",
+        # Requeridas por agent_wa (AGENTS["agent_wa"]["required_env"]).
+        "CIRUELA_API_BASE": "https://app.example", "AGENT_SERVICE_TOKEN": "tok",
     }.items():
         monkeypatch.setenv(k, v)
     # The workflow exports GOOGLE_CLOUD_PROJECT matching --env; mirror that.
@@ -344,12 +346,18 @@ def test_main_happy_path_deploys_both_agents(monkeypatch):
 
     init.assert_called_once()
     assert init.call_args.kwargs["project"] == "agro-extension-digital-prd"
-    # Both agents deployed with their per-agent runtime service accounts.
+    # Every agent deployed with its per-agent runtime service account.
     keys = {c[0] for c in calls}
-    assert keys == {"agent_aa", "agent_pp"}
+    assert keys == set(deploy.AGENTS)
+    assert keys == {"agent_aa", "agent_pp", "agent_wa"}
     sas = {c[2] for c in calls}
     assert (
         "agent-aa-runtime@agro-extension-digital-prd.iam.gserviceaccount.com" in sas
+    )
+    # Un engine sin service account propio correría con la default del proyecto,
+    # que es justo lo que el diseño de una SA por agente evita.
+    assert (
+        "agent-wa-runtime@agro-extension-digital-prd.iam.gserviceaccount.com" in sas
     )
 
 
@@ -364,6 +372,8 @@ def test_main_aborts_when_project_env_mismatches_target(monkeypatch):
         "BIGQUERY_DATASET": "bq",
     }.items():
         monkeypatch.setenv(k, v)
+    monkeypatch.setenv("CIRUELA_API_BASE", "https://app.example")
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
     # Target prd, but the environment still points at npe.
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "agro-extension-digital-npe")
     monkeypatch.setattr("sys.argv", ["deploy.py", "--env", "prd"])
@@ -413,3 +423,59 @@ def test_every_optional_knob_is_read_by_some_core_module():
     )
     for key in deploy.OPTIONAL_ENV_KEYS:
         assert key in src, f"{key} is shipped but no core/ module reads it"
+
+
+# --- required_env por agente: el copiloto no puede subir sin base ni token ---
+
+def test_env_vars_for_wa_incluye_sus_requeridas(monkeypatch):
+    import deploy
+    for k in deploy.RUNTIME_ENV_KEYS:
+        monkeypatch.setenv(k, "x")
+    monkeypatch.setenv("CIRUELA_API_BASE", "https://app.example")
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    env = deploy.env_vars_for("agent_wa")
+    assert env["CIRUELA_API_BASE"] == "https://app.example"
+    assert env["AGENT_SERVICE_TOKEN"] == "tok"
+
+
+def test_env_vars_for_aa_no_arrastra_las_del_wa(monkeypatch):
+    """AA/PP no hablan con /api/agent/*: declararlas globales se las impondría."""
+    import deploy
+    for k in deploy.RUNTIME_ENV_KEYS:
+        monkeypatch.setenv(k, "x")
+    monkeypatch.setenv("CIRUELA_API_BASE", "https://app.example")
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    env = deploy.env_vars_for("agent_aa")
+    assert "CIRUELA_API_BASE" not in env
+    assert "AGENT_SERVICE_TOKEN" not in env
+
+
+def test_main_aborta_si_falta_una_requerida_del_wa(monkeypatch):
+    """Sin token el engine sube y devuelve AGENT_SERVICE_TOKEN_UNSET en cada
+    llamada. Abortar antes es preferible a desplegar un copiloto mudo."""
+    import deploy
+    for k in deploy.RUNTIME_ENV_KEYS:
+        monkeypatch.setenv(k, "x")
+    monkeypatch.setenv("CIRUELA_API_BASE", "https://app.example")
+    monkeypatch.delenv("AGENT_SERVICE_TOKEN", raising=False)
+    monkeypatch.setattr("sys.argv", ["deploy.py", "--env", "npe"])
+    init = MagicMock()
+    monkeypatch.setattr(deploy.vertexai, "init", init)
+    deploy_one = MagicMock()
+    monkeypatch.setattr(deploy, "deploy_one", deploy_one)
+
+    with pytest.raises(SystemExit) as exc:
+        deploy.main()
+
+    assert "AGENT_SERVICE_TOKEN" in str(exc.value)
+    init.assert_not_called()
+    deploy_one.assert_not_called()
+
+
+def test_cada_agente_tiene_service_account_y_secreto_propios():
+    """Un secret_id repetido haría que dos engines se sobreescriban el handle."""
+    import deploy
+    secretos = [c["secret_id"] for c in deploy.AGENTS.values()]
+    assert len(secretos) == len(set(secretos))
+    modulos = [c["module_path"] for c in deploy.AGENTS.values()]
+    assert len(modulos) == len(set(modulos))

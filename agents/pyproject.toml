@@ -10,6 +10,12 @@ dependencies = [
     "google-cloud-secret-manager>=2.20.0",
     "google-cloud-discoveryengine>=0.13.0",
     "google-cloud-bigquery>=3.25.0",
+    # core/expediente_tools.py — cliente HTTP de /api/agent/*. httpx y no
+    # requests: las tools son async y corren dentro del event loop del
+    # engine, donde una llamada bloqueante frena las demás sesiones del
+    # mismo proceso. Llega transitivo por google-genai, pero se declara
+    # explícito porque este código lo importa directo.
+    "httpx>=0.25.0,<0.30.0",
     "ipykernel",
 ]
 

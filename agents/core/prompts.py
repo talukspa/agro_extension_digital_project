@@ -28,6 +28,18 @@ def root_instruction(agent: str) -> str:
     )
 
 
+def wa_instruction(agent: str) -> str:
+    """Copiloto de expediente: rol de dominio + regla de texto plano.
+
+    Sin preserve_citations.md a propósito: ese fragmento preserva los
+    marcadores [fuente: ...] del sub-agente RAG, y este agente no tiene RAG.
+    """
+    return _join(
+        _read(agent, "root.md"),
+        _read("shared", "whatsapp_plain.md"),
+    )
+
+
 def rag_instruction(agent: str) -> str:
     """RAG sub-agent prompt: domain retrieval rules + shared citation format."""
     return _join(_read(agent, "rag.md"), _read("shared", "rag_citations.md"))

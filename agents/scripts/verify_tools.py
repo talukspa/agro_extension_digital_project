@@ -46,6 +46,13 @@ from unittest.mock import MagicMock, patch
 SHIMS = {
     "agent_aa_app.agent_engine_app": "aa_agent",
     "agent_pp_app.agent_engine_app": "pp_agent",
+    # agent_wa_app queda FUERA a propósito. Todo lo que este script comprueba es
+    # la forma RAG+BQ: sub-agentes *_rag / *_bq y EXPECTED_DATASTORES búsquedas.
+    # El copiloto de certificación no tiene ninguno de los dos — sus diez tools
+    # son HTTP contra /api/agent/* — así que incluirlo obligaría a ramificar cada
+    # check por forma de agente. Su wiring se cubre en tests/: el shim se importa
+    # (test_agent_engine_app.py) y se asserta que lleva las diez tools y ninguna
+    # de BigQuery.
 }
 BQ_TOOLS = ("list_tables", "get_schema", "check_query", "run_query")
 EXPECTED_DATASTORES = 4

@@ -1,4 +1,4 @@
-"""Deploy or update agent_aa and agent_pp on Vertex AI Agent Runtime.
+"""Deploy or update agent_aa, agent_pp and agent_wa on Vertex AI Agent Runtime.
 
 Usage:
     uv run python agents/deploy.py --env npe        # or prd
@@ -25,6 +25,12 @@ REQUIREMENTS = [
     # here and in pyproject.toml or core/bq_tools.py fails to import on the engine.
     "google-cloud-bigquery==3.33.0",
     "google-cloud-discoveryengine==0.13.12",
+    # Mismo caso que bigquery: core/expediente_tools.py importa httpx directo,
+    # y core/ se embarca a los TRES engines (extra_packages incluye "core"),
+    # así que sin esta línea el import de core.agent falla en AA y PP también.
+    # Llega transitivo por google-genai, pero un extra de ADK podría dejar de
+    # traerlo igual que pasó con bigquery en 2.x.
+    "httpx==0.28.1",
 ]
 
 AGENTS = {
@@ -42,6 +48,18 @@ AGENTS = {
         "app_module": "agent_pp_app.agent_engine_app",
         "display_name": "Producción Primaria",
         "secret_id": "engine-pp-resource-name",
+    },
+    "agent_wa": {
+        "module_path": "agent_wa_app",
+        "app_module": "agent_wa_app.agent_engine_app",
+        "display_name": "Copiloto de Certificación (WhatsApp)",
+        "secret_id": "engine-wa-resource-name",
+        # Requeridas SOLO por este engine: sus diez tools son HTTP contra
+        # /api/agent/*, así que sin base ni token el engine despliega y después
+        # devuelve AGENT_SERVICE_TOKEN_UNSET en cada llamada. Se declaran acá y
+        # no en RUNTIME_ENV_KEYS para no volverlas obligatorias para AA/PP, que
+        # no las usan.
+        "required_env": ["CIRUELA_API_BASE", "AGENT_SERVICE_TOKEN"],
     },
 }
 
@@ -92,6 +110,11 @@ TELEMETRY_ENV = {
 STATIC_ENV = {"GOOGLE_GENAI_USE_VERTEXAI": "true"}
 
 
+def required_env_for(agent_key: str) -> list[str]:
+    """Env vars que este engine necesita además de RUNTIME_ENV_KEYS."""
+    return list(AGENTS[agent_key].get("required_env", []))
+
+
 def env_vars_for(agent_key: str) -> dict[str, str]:
     # Do NOT set GOOGLE_CLOUD_PROJECT / GOOGLE_CLOUD_LOCATION here: Agent Engine
     # reserves those names and rejects create() if they appear in
@@ -100,8 +123,12 @@ def env_vars_for(agent_key: str) -> dict[str, str]:
     # llm_global.py read via os.environ at runtime. (An earlier change shipped
     # GOOGLE_CLOUD_PROJECT explicitly; that broke real deploys, so it's gone.)
     base = {k: os.environ[k] for k in RUNTIME_ENV_KEYS}
+    # Requeridas por este engine en particular (ver AGENTS[...]["required_env"]).
+    # KeyError a propósito: main() ya abortó antes si falta alguna, así que
+    # llegar acá sin ellas es un bug del deployer, no un estado operable.
+    per_agent = {k: os.environ[k] for k in required_env_for(agent_key)}
     optional = {k: os.environ[k] for k in OPTIONAL_ENV_KEYS if os.environ.get(k)}
-    return base | optional | STATIC_ENV | TELEMETRY_ENV
+    return base | per_agent | optional | STATIC_ENV | TELEMETRY_ENV
 
 
 def read_secret(project: str, secret_id: str) -> Optional[str]:
@@ -197,7 +224,14 @@ def main() -> None:
     # Secret Manager by deploy-agents.yml) are missing — otherwise the first
     # engine could deploy and the second abort with an opaque KeyError, leaving
     # the webhook half-migrated.
-    missing = [k for k in RUNTIME_ENV_KEYS if not os.environ.get(k)]
+    # RUNTIME_ENV_KEYS + lo que cada engine exige por su cuenta. main() despliega
+    # todos los agentes en un loop, así que basta una faltante de cualquiera para
+    # abortar: es preferible a que el primer engine suba y el tercero se caiga,
+    # dejando el webhook a medio migrar.
+    required = list(RUNTIME_ENV_KEYS)
+    for _key in AGENTS:
+        required += [k for k in required_env_for(_key) if k not in required]
+    missing = [k for k in required if not os.environ.get(k)]
     if missing:
         raise SystemExit(
             f"Missing required runtime env vars: {', '.join(missing)}. "
@@ -225,6 +259,7 @@ def main() -> None:
     sa_for = {
         "agent_aa": f"agent-aa-runtime@{project}.iam.gserviceaccount.com",
         "agent_pp": f"agent-pp-runtime@{project}.iam.gserviceaccount.com",
+        "agent_wa": f"agent-wa-runtime@{project}.iam.gserviceaccount.com",
     }
     for key, cfg in AGENTS.items():
         deploy_one(key, cfg, project, sa_for[key])

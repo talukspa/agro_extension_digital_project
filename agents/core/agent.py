@@ -13,7 +13,7 @@ from vertexai.agent_engines import AdkApp
 from google.adk.planners import BuiltInPlanner
 from google.genai.types import ThinkingConfig
 
-from core import bq_tools, prompts
+from core import bq_tools, expediente_tools, prompts
 from core.llm_global import GlobalGemini
 from core.retry_plugin import OkContractRetryPlugin
 
@@ -35,6 +35,15 @@ from core.retry_plugin import OkContractRetryPlugin
 ROOT_MODEL = "gemini-3.7-flash"
 BQ_MODEL = "gemini-3.7-flash"
 RAG_MODEL = "gemini-3.1-flash-lite"
+
+# WA_MODEL — el copiloto de expediente es un agente de una sola capa: recibe
+# lenguaje natural, elige una de diez tools HTTP y redacta. No enruta
+# sub-agentes ni escribe SQL, pero SÍ mira fotos y documentos y los compara
+# contra el medio de verificación de cada acción, que es la parte que no admite
+# un modelo flojo: un respaldo archivado en la acción equivocada le cuesta
+# tiempo al auditor. Mismo modelo que el root por eso, y porque el precio de
+# gemini-3.7-flash ya es más barato que el 3.5 que reemplaza.
+WA_MODEL = "gemini-3.7-flash"
 
 
 def _tool_max_retries() -> int:
@@ -151,6 +160,43 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
     # raise into the model"; letting the last attempt raise inverts that
     # contract exactly when the model is already struggling, turning a
     # recoverable "I couldn't find that" into an engine-level exception.
+    return AdkApp(
+        agent=root,
+        plugins=[
+            OkContractRetryPlugin(
+                max_retries=_tool_max_retries(),
+                throw_exception_if_retry_exceeded=False,
+            )
+        ],
+    )
+
+
+def build_wa_app() -> AdkApp:
+    """AdkApp del copiloto de certificación por WhatsApp (#635).
+
+    No usa build_app(): esa fábrica arma un root que enruta a un sub-agente RAG
+    y uno de BigQuery, y este agente no tiene ninguno de los dos. Sus diez tools
+    son HTTP contra /api/agent/*, así que reusar build_app() obligaría a
+    parametrizarla con banderas para apagar lo que no aplica — más código para
+    hacer menos. Lo que sí se comparte es lo que vale: GlobalGemini (cliente
+    cacheado y a prueba de deepcopy), _planner() y el OkContractRetryPlugin.
+
+    El planner sirve acá por la misma razón que en el agente BQ: comparar un
+    adjunto contra el medio de verificación de varias acciones pendientes es un
+    plan de varios pasos, no una respuesta de un tiro. Sigue apagado por
+    defecto (AGENT_PLANNER=off).
+    """
+    root = LlmAgent(
+        name="wa_agent",
+        model=GlobalGemini(model=WA_MODEL),
+        instruction=prompts.wa_instruction("agent_wa"),
+        planner=_planner(),
+        tools=list(expediente_tools.TOOLS),
+    )
+    # Mismo razonamiento que en build_app(): las tools de expediente_tools
+    # devuelven {ok, error} y nunca levantan, así que sin OkContractRetryPlugin
+    # el reflect-and-retry de ADK 2.x no vería un solo fallo.
+    # throw_exception_if_retry_exceeded=False es obligatorio, no cosmético.
     return AdkApp(
         agent=root,
         plugins=[
