@@ -258,18 +258,26 @@ def adjuntar_evidencia(
     return _post("evidence", payload)
 
 
-def enviar_mensaje_al_auditor(codigo_accion: str, texto: str) -> dict:
+def enviar_mensaje_al_auditor(
+    codigo_accion: str, texto: str, estandar: str = ""
+) -> dict:
     """Publica un mensaje del productor en la conversación de una acción.
 
     Úsala cuando el productor quiera dejar una consulta o comentario para el
     auditor sobre una acción concreta. Es unidireccional: el auditor no
     responde por este canal.
 
+    Si el código existe en los dos estándares devuelve `ambiguous` y NO publica
+    nada. Pregúntale al productor de cuál es y vuelve a llamar con `estandar`.
+
     Args:
         codigo_accion: el código de la acción, por ejemplo "A001".
         texto: el mensaje del productor, en sus palabras.
+        estandar: déjalo vacío salvo tras una ambigüedad ya resuelta.
     """
-    return _post("auditor-message", {"questionCode": codigo_accion, "text": texto})
+    payload: dict[str, Any] = {"questionCode": codigo_accion, "text": texto}
+    payload.update(_alcance(standardCode=estandar))
+    return _post("auditor-message", payload)
 
 
 def registrar_preferencia_de_contacto(accion: str) -> dict:
