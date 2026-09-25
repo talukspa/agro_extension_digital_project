@@ -270,17 +270,61 @@ async def test_evidencia_manda_el_estandar_cuando_se_pasa(client):
     assert "fileName" not in body
 
 
-async def test_codigo_ambiguo_llega_como_error_reconocible(monkeypatch):
-    """El 409 del servidor tiene que llegar al modelo como un código, no como
-    texto. El prompt tiene una regla para ACTION_CODE_AMBIGUOUS: preguntar de
-    qué estándar es en vez de elegir."""
-    fake = _FakeAsyncClient(
-        _FakeResponse(409, {"error": {"code": "ACTION_CODE_AMBIGUOUS"}})
-    )
+AMBIGUO = {
+    "data": {
+        "ambiguous": True,
+        "kind": "action",
+        "candidates": [
+            {"standardCode": "PRODUCCION_PRIMARIA", "title": "Instalar medidor en el pozo"},
+            {"standardCode": "ADECUACION_AGROINDUSTRIAL", "title": "Mantención de la línea"},
+        ],
+    }
+}
+
+
+async def test_ambiguedad_llega_como_exito_no_como_fallo(monkeypatch):
+    """La ambigüedad tiene que llegar con ok=True, y esto no es un detalle.
+
+    Con ok=False el OkContractRetryPlugin la trataría como fallo de tool y
+    gastaría los reintentos — y reintentar no resuelve algo que necesita la
+    respuesta de una persona. El modelo tiene que VER el ambiguous y preguntar.
+    """
+    fake = _FakeAsyncClient(_FakeResponse(200, AMBIGUO))
     monkeypatch.setattr(httpx, "AsyncClient", fake)
     monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
     out = await et.adjuntar_evidencia("A001", "wamid.X", _ctx())
-    assert out == {"ok": False, "error": "ACTION_CODE_AMBIGUOUS"}
+    assert out["ok"] is True
+    assert out["data"]["ambiguous"] is True
+
+
+async def test_el_retry_plugin_NO_reintenta_una_ambiguedad(monkeypatch):
+    """Contraparte del test que verifica que sí detecta los fallos reales."""
+    from unittest.mock import MagicMock
+
+    from core.retry_plugin import OkContractRetryPlugin
+
+    fake = _FakeAsyncClient(_FakeResponse(200, AMBIGUO))
+    monkeypatch.setattr(httpx, "AsyncClient", fake)
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    resultado = await et.obtener_detalle_de_accion("A001", _ctx())
+
+    tool = MagicMock()
+    tool.name = "obtener_detalle_de_accion"
+    detectado = await OkContractRetryPlugin().extract_error_from_result(
+        tool=tool, tool_args={}, tool_context=_ctx(), result=resultado
+    )
+    assert detectado is None, "el plugin va a reintentar algo que sólo resuelve preguntando"
+
+
+async def test_los_candidatos_llegan_con_titulo_para_poder_preguntar(monkeypatch):
+    """Sin el título el agente sólo podría preguntar por el estándar, que es
+    jerga nuestra. El prompt le prohíbe usarla con el productor."""
+    fake = _FakeAsyncClient(_FakeResponse(200, AMBIGUO))
+    monkeypatch.setattr(httpx, "AsyncClient", fake)
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    out = await et.obtener_detalle_de_accion("A001", _ctx())
+    titulos = [c["title"] for c in out["data"]["candidates"]]
+    assert titulos == ["Instalar medidor en el pozo", "Mantención de la línea"]
 
 
 def test_el_estandar_no_es_un_id_de_alcance():
@@ -293,3 +337,49 @@ def test_el_estandar_no_es_un_id_de_alcance():
     import inspect
     for tool in (et.obtener_detalle_de_accion, et.adjuntar_evidencia):
         assert "estandar" in inspect.signature(tool).parameters
+
+
+# ---------------------------------------------------------------------------
+# Alcance: empresa / instalación / estándar
+# ---------------------------------------------------------------------------
+async def test_perfil_manda_la_empresa_elegida(client):
+    await et.obtener_perfil_empresa(_ctx(), "biz-1")
+    assert client.calls[0]["json"]["businessId"] == "biz-1"
+
+
+async def test_cumplimiento_manda_la_instalacion_elegida(client):
+    await et.obtener_cumplimiento(_ctx(), "inst-7")
+    assert client.calls[0]["json"]["installationId"] == "inst-7"
+
+
+async def test_labor_manda_la_empresa_elegida(client):
+    await et.registrar_labor("PRODUCCION_PRIMARIA", {"m3": 1}, _ctx(), "", "biz-2")
+    assert client.calls[0]["json"]["businessId"] == "biz-2"
+
+
+async def test_pendientes_acepta_estandar_y_empresa(client):
+    await et.listar_acciones_pendientes(_ctx(), 3, "PRODUCCION_PRIMARIA", "biz-1")
+    body = client.calls[0]["json"]
+    assert body == {
+        "producerUserId": "prod-1",
+        "limit": 3,
+        "standardCode": "PRODUCCION_PRIMARIA",
+        "businessId": "biz-1",
+    }
+
+
+async def test_sin_alcance_no_se_manda_ninguna_clave_de_alcance(client):
+    """Omitir es distinto de mandar vacío: el servidor aplica su DEFAULT NULL."""
+    await et.obtener_cumplimiento(_ctx())
+    assert client.calls[0]["json"] == {"producerUserId": "prod-1"}
+
+
+def test_las_tools_de_alcance_no_exponen_la_identidad():
+    """Los ids de empresa/instalación SÍ pueden ser parámetros: el servidor
+    verifica que sean de este productor. `producerUserId` sigue sin estarlo."""
+    import inspect
+    for tool in et.TOOLS:
+        params = set(inspect.signature(tool).parameters)
+        assert "producer_user_id" not in params
+    assert "empresa" in inspect.signature(et.obtener_perfil_empresa).parameters
+    assert "instalacion" in inspect.signature(et.obtener_cumplimiento).parameters

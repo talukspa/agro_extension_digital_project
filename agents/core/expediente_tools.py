@@ -23,6 +23,24 @@ tiene dónde vivir.
 
 El servidor además rechaza cualquier `business_id` que llegue en el cuerpo, así
 que hay dos capas — pero la primera es no darle al modelo la manija.
+
+DESAMBIGUACIÓN — por qué `empresa`, `instalacion` y `estandar` SÍ son visibles
+
+Un productor puede tener dos empresas, varias instalaciones y estar inscrito en
+los dos estándares. Cuando el servidor encuentra más de un candidato NO elige:
+devuelve `{"ambiguous": true, "kind": ..., "candidates": [...]}` con el nombre de
+cada uno, y el agente le pregunta al productor.
+
+Esos ids son distintos de `producerUserId`: el servidor verifica que pertenezcan
+a ESTE productor (el alcance sale igual de `get_user_business_ids()`), así que
+uno inventado o ajeno no devuelve nada. Lo peor que puede pasar equivocándolos es
+mostrarle al productor un dato suyo que no era el que pidió — no el expediente de
+otro. Por eso pueden ser parámetros; `producerUserId` no.
+
+La ambigüedad llega como éxito (`ok: True`) a propósito: es un estado
+conversacional, no un fallo. Si llegara como `ok: False`, el
+OkContractRetryPlugin la trataría como error de tool y reintentaría — y
+reintentar no resuelve algo que necesita la respuesta de una persona.
 """
 from __future__ import annotations
 
@@ -106,34 +124,72 @@ async def _post(path: str, payload: dict[str, Any], tool_context: ToolContext) -
 # --------------------------------------------------------------------------
 # Lecturas
 # --------------------------------------------------------------------------
-async def obtener_perfil_empresa(tool_context: ToolContext) -> dict:
+async def obtener_perfil_empresa(tool_context: ToolContext, empresa: str = "") -> dict:
     """Devuelve la empresa del productor y sus instalaciones activas.
 
     Úsala cuando el productor pregunte por su empresa, su RUT o qué
     instalaciones tiene registradas.
+
+    Si tiene más de una empresa devuelve `ambiguous` con los candidatos:
+    pregúntale cuál y vuelve a llamarla con `empresa`.
+
+    Args:
+        empresa: opcional. El `businessId` que el productor eligió, copiado tal
+            cual de los candidatos. Nunca lo inventes.
     """
-    return await _post("business-profile", {}, tool_context)
+    payload: dict[str, Any] = {}
+    if empresa:
+        payload["businessId"] = empresa
+    return await _post("business-profile", payload, tool_context)
 
 
-async def obtener_avance_del_plan(tool_context: ToolContext) -> dict:
+async def obtener_avance_del_plan(
+    tool_context: ToolContext, estandar: str = "", empresa: str = ""
+) -> dict:
     """Devuelve el avance del plan de implementación activo del productor.
 
     Incluye el total de acciones, cuántas ya tienen evidencia cargada y el
     porcentaje de avance. Úsala cuando pregunten "cómo voy" o por su progreso.
+
+    Si tiene dos planes activos devuelve `ambiguous`: "cómo voy" no tiene una
+    sola respuesta. Pregúntale de cuál y reintenta con `estandar`.
+
+    Args:
+        estandar: opcional. "PRODUCCION_PRIMARIA" o "ADECUACION_AGROINDUSTRIAL".
+        empresa: opcional. El `businessId` elegido, si tiene más de una empresa.
     """
-    return await _post("plan-status", {}, tool_context)
+    payload: dict[str, Any] = {}
+    if estandar:
+        payload["standardCode"] = estandar
+    if empresa:
+        payload["businessId"] = empresa
+    return await _post("plan-status", payload, tool_context)
 
 
-async def listar_acciones_pendientes(tool_context: ToolContext, limite: int = 5) -> dict:
+async def listar_acciones_pendientes(
+    tool_context: ToolContext, limite: int = 5, estandar: str = "", empresa: str = ""
+) -> dict:
     """Lista las acciones del plan que todavía no tienen evidencia cargada.
 
     Vienen ordenadas por fecha objetivo, la más próxima primero. Úsala cuando
     pregunten qué les falta, qué tienen que hacer o qué vence pronto.
 
+    Esta NO pregunta: si el productor está en los dos estándares la lista trae
+    acciones de ambos, y cada una dice a cuál pertenece en `standardCode`. Al
+    enumerarlas agrúpalas por estándar en vez de mezclarlas, y pasa ese
+    `standardCode` cuando después pidas el detalle o adjuntes algo.
+
     Args:
         limite: cuántas acciones traer como máximo (el servidor acota a 50).
+        estandar: opcional, para traer sólo las de un estándar.
+        empresa: opcional. El `businessId` elegido, si tiene más de una empresa.
     """
-    return await _post("pending-actions", {"limit": limite}, tool_context)
+    payload: dict[str, Any] = {"limit": limite}
+    if estandar:
+        payload["standardCode"] = estandar
+    if empresa:
+        payload["businessId"] = empresa
+    return await _post("pending-actions", payload, tool_context)
 
 
 async def obtener_detalle_de_accion(
@@ -146,9 +202,9 @@ async def obtener_detalle_de_accion(
     cómo cumplir con algo puntual.
 
     Si el productor está inscrito en los dos estándares, el mismo código puede
-    existir en ambos planes. En ese caso devuelve el error
-    ACTION_CODE_AMBIGUOUS: preguntale de cuál se trata y volvé a llamarla con
-    `estandar`.
+    existir en ambos planes. En ese caso devuelve `ambiguous` con las dos
+    acciones y su título: pregúntale cuál de las dos es —nombrándolas, no por el
+    estándar— y vuelve a llamarla con `estandar`.
 
     Args:
         codigo_accion: el código de la acción, por ejemplo "A001".
@@ -161,23 +217,55 @@ async def obtener_detalle_de_accion(
     return await _post("action", payload, tool_context)
 
 
-async def obtener_cumplimiento(tool_context: ToolContext) -> dict:
-    """Devuelve el cumplimiento de la instalación del productor.
+async def obtener_cumplimiento(
+    tool_context: ToolContext, instalacion: str = "", empresa: str = ""
+) -> dict:
+    """Devuelve el cumplimiento de UNA instalación del productor.
 
     Trae el detalle por dimensión y por temática. Úsala cuando pregunten por su
     nivel de cumplimiento o en qué están más débiles.
+
+    OJO: el cumplimiento es siempre de una instalación, no de la empresa
+    completa. Si el productor tiene varias devuelve `ambiguous` con sus nombres:
+    pregúntale de cuál quiere saber. Cuando responde, la respuesta trae
+    `installationName` — nómbrala al dar el número, para que no lo confunda con
+    el de toda la empresa.
+
+    Args:
+        instalacion: opcional. El `installationId` que el productor eligió,
+            copiado de los candidatos.
+        empresa: opcional. El `businessId` elegido, si tiene más de una empresa.
     """
-    return await _post("compliance", {}, tool_context)
+    payload: dict[str, Any] = {}
+    if instalacion:
+        payload["installationId"] = instalacion
+    if empresa:
+        payload["businessId"] = empresa
+    return await _post("compliance", payload, tool_context)
 
 
-async def obtener_nivel_de_certificacion(tool_context: ToolContext) -> dict:
+async def obtener_nivel_de_certificacion(
+    tool_context: ToolContext, estandar: str = "", empresa: str = ""
+) -> dict:
     """Devuelve el nivel de certificación del plan activo.
 
     Trae dos números distintos: `officialYear` es el resultado oficial,
     congelado al autodiagnóstico, y `recalculatedYear` es el recálculo en vivo.
     No los mezcles al responder: el oficial es el que vale.
+
+    Si tiene dos planes activos devuelve `ambiguous`: el nivel es por estándar.
+    Pregúntale de cuál y reintenta con `estandar`.
+
+    Args:
+        estandar: opcional. "PRODUCCION_PRIMARIA" o "ADECUACION_AGROINDUSTRIAL".
+        empresa: opcional. El `businessId` elegido, si tiene más de una empresa.
     """
-    return await _post("certification-level", {}, tool_context)
+    payload: dict[str, Any] = {}
+    if estandar:
+        payload["standardCode"] = estandar
+    if empresa:
+        payload["businessId"] = empresa
+    return await _post("certification-level", payload, tool_context)
 
 
 # --------------------------------------------------------------------------
@@ -188,6 +276,7 @@ async def registrar_labor(
     datos: dict[str, Any],
     tool_context: ToolContext,
     codigo_accion: str = "",
+    empresa: str = "",
 ) -> dict:
     """Registra una labor de terreno que el productor reporta.
 
@@ -195,15 +284,21 @@ async def registrar_labor(
     (consumos, aplicaciones, mantenciones). Los datos quedan pendientes de
     revisión.
 
+    Si tiene más de una empresa devuelve `ambiguous` y NO registra nada:
+    pregúntale en cuál fue y reintenta con `empresa`.
+
     Args:
         estandar: "PRODUCCION_PRIMARIA" o "ADECUACION_AGROINDUSTRIAL".
         datos: diccionario con los valores reportados, por ejemplo
             {"supply_source": "pozo", "monthly_consumption_m3": 120}.
         codigo_accion: código de la acción relacionada, si aplica.
+        empresa: opcional. El `businessId` elegido, si tiene más de una empresa.
     """
     payload: dict[str, Any] = {"standardCode": estandar, "payload": datos}
     if codigo_accion:
         payload["questionCode"] = codigo_accion
+    if empresa:
+        payload["businessId"] = empresa
     return await _post("labor-log", payload, tool_context)
 
 
@@ -225,8 +320,9 @@ async def adjuntar_evidencia(
     Ojo: adjuntar el respaldo NO significa que la acción quede cumplida. No se
     lo digas así al productor.
 
-    Si devuelve ACTION_CODE_AMBIGUOUS no se adjuntó nada: el código existe en
-    los dos estándares. Preguntale de cuál es y reintentá con `estandar`.
+    Si devuelve `ambiguous` NO se adjuntó nada: el código existe en los dos
+    estándares. Los candidatos traen el título de cada acción; pregúntale cuál
+    de las dos es y reintenta con `estandar`.
 
     Args:
         codigo_accion: el código de la acción, por ejemplo "A001".
