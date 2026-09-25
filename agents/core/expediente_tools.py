@@ -136,17 +136,29 @@ async def listar_acciones_pendientes(tool_context: ToolContext, limite: int = 5)
     return await _post("pending-actions", {"limit": limite}, tool_context)
 
 
-async def obtener_detalle_de_accion(codigo_accion: str, tool_context: ToolContext) -> dict:
+async def obtener_detalle_de_accion(
+    codigo_accion: str, tool_context: ToolContext, estandar: str = ""
+) -> dict:
     """Devuelve el detalle completo de una acción del plan por su código.
 
     Incluye descripción, medio de verificación, recursos necesarios y material
     de apoyo. Úsala cuando pregunten por una acción específica (ej. "A001") o
     cómo cumplir con algo puntual.
 
+    Si el productor está inscrito en los dos estándares, el mismo código puede
+    existir en ambos planes. En ese caso devuelve el error
+    ACTION_CODE_AMBIGUOUS: preguntale de cuál se trata y volvé a llamarla con
+    `estandar`.
+
     Args:
         codigo_accion: el código de la acción, por ejemplo "A001".
+        estandar: opcional. "PRODUCCION_PRIMARIA" o "ADECUACION_AGROINDUSTRIAL",
+            sólo si hace falta desambiguar.
     """
-    return await _post("action", {"questionCode": codigo_accion}, tool_context)
+    payload: dict[str, Any] = {"questionCode": codigo_accion}
+    if estandar:
+        payload["standardCode"] = estandar
+    return await _post("action", payload, tool_context)
 
 
 async def obtener_cumplimiento(tool_context: ToolContext) -> dict:
@@ -200,6 +212,7 @@ async def adjuntar_evidencia(
     id_de_adjunto: str,
     tool_context: ToolContext,
     nombre_archivo: str = "",
+    estandar: str = "",
 ) -> dict:
     """Adjunta a una acción del plan la foto o documento que mandó el productor.
 
@@ -212,14 +225,21 @@ async def adjuntar_evidencia(
     Ojo: adjuntar el respaldo NO significa que la acción quede cumplida. No se
     lo digas así al productor.
 
+    Si devuelve ACTION_CODE_AMBIGUOUS no se adjuntó nada: el código existe en
+    los dos estándares. Preguntale de cuál es y reintentá con `estandar`.
+
     Args:
         codigo_accion: el código de la acción, por ejemplo "A001".
         id_de_adjunto: el identificador del archivo que llegó por WhatsApp.
         nombre_archivo: nombre visible para el archivo, si se conoce.
+        estandar: opcional. "PRODUCCION_PRIMARIA" o "ADECUACION_AGROINDUSTRIAL",
+            sólo si hace falta desambiguar el código.
     """
     payload: dict[str, Any] = {"questionCode": codigo_accion, "mediaId": id_de_adjunto}
     if nombre_archivo:
         payload["fileName"] = nombre_archivo
+    if estandar:
+        payload["standardCode"] = estandar
     return await _post("evidence", payload, tool_context)
 
 

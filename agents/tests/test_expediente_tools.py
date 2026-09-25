@@ -247,3 +247,49 @@ async def test_authorization_lleva_el_token(client):
 def test_las_diez_tools_estan_registradas():
     assert len(et.TOOLS) == 10
     assert len({t.__name__ for t in et.TOOLS}) == 10
+
+
+# ---------------------------------------------------------------------------
+# Desambiguación por estándar (arregla el LIMIT 1 sin ORDER BY del lado servidor)
+# ---------------------------------------------------------------------------
+async def test_detalle_omite_el_estandar_cuando_no_se_pasa(client):
+    await et.obtener_detalle_de_accion("A001", _ctx())
+    assert "standardCode" not in client.calls[0]["json"]
+
+
+async def test_detalle_manda_el_estandar_cuando_se_pasa(client):
+    await et.obtener_detalle_de_accion("A001", _ctx(), "PRODUCCION_PRIMARIA")
+    assert client.calls[0]["json"]["standardCode"] == "PRODUCCION_PRIMARIA"
+
+
+async def test_evidencia_manda_el_estandar_cuando_se_pasa(client):
+    await et.adjuntar_evidencia("A001", "wamid.X", _ctx(), "", "ADECUACION_AGROINDUSTRIAL")
+    body = client.calls[0]["json"]
+    assert body["standardCode"] == "ADECUACION_AGROINDUSTRIAL"
+    # fileName vacío no se manda: el servidor le pone la extensión real del MIME.
+    assert "fileName" not in body
+
+
+async def test_codigo_ambiguo_llega_como_error_reconocible(monkeypatch):
+    """El 409 del servidor tiene que llegar al modelo como un código, no como
+    texto. El prompt tiene una regla para ACTION_CODE_AMBIGUOUS: preguntar de
+    qué estándar es en vez de elegir."""
+    fake = _FakeAsyncClient(
+        _FakeResponse(409, {"error": {"code": "ACTION_CODE_AMBIGUOUS"}})
+    )
+    monkeypatch.setattr(httpx, "AsyncClient", fake)
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    out = await et.adjuntar_evidencia("A001", "wamid.X", _ctx())
+    assert out == {"ok": False, "error": "ACTION_CODE_AMBIGUOUS"}
+
+
+def test_el_estandar_no_es_un_id_de_alcance():
+    """`estandar` es un enum de dos valores, no un identificador de expediente.
+
+    Distinto de producer_user_id: elegir el estándar equivocado le muestra al
+    productor una acción suya que no es la que pidió, no el expediente de otro.
+    Por eso sí puede ser parámetro visible para el modelo.
+    """
+    import inspect
+    for tool in (et.obtener_detalle_de_accion, et.adjuntar_evidencia):
+        assert "estandar" in inspect.signature(tool).parameters
