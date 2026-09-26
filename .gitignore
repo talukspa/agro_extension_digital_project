@@ -184,3 +184,12 @@ cython_debug/
 .gemini/
 # Terraform provider plugins / working dirs (can be >100MB)
 .terraform/
+
+# Generated knowledge graph output (graphify)
+graphify-out/
+
+# Git worktrees for parallel work on this repo
+.worktrees/
+
+# Node dependencies (the frontend subsystem was removed in PR #55; guard against strays)
+node_modules/
