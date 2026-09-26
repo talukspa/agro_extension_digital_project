@@ -77,6 +77,30 @@ def _stub_client(monkeypatch, response=None, raise_exc=None):
                         lambda: FakeAsyncClient(response, raise_exc))
 
 
+class CapturingAsyncClient(FakeAsyncClient):
+    """Como FakeAsyncClient, pero además guarda los `args`/`kwargs` de cada
+    `post` en `llamadas`, para afirmar el cuerpo y la URL exactos que armó
+    `_post` — los dobles existentes los descartan, y esta task necesita
+    verlos."""
+
+    def __init__(self, response=None, raise_exc=None):
+        super().__init__(response, raise_exc)
+        self.llamadas: list[dict] = []
+
+    async def post(self, *args, **kwargs):
+        self.llamadas.append({"args": args, "kwargs": kwargs})
+        return await super().post(*args, **kwargs)
+
+
+def _stub_capturing_client(monkeypatch, response=None, raise_exc=None):
+    """Instala un CapturingAsyncClient y devuelve su lista de llamadas (se va
+    llenando in situ a medida que la tool llama a `post`)."""
+    cliente = CapturingAsyncClient(response or FakeResponse(200, {"data": {}}),
+                                   raise_exc)
+    monkeypatch.setattr(record_tools, "_http_client", lambda: cliente)
+    return cliente.llamadas
+
+
 def _productor_ctx():
     return FakeToolContext(PRODUCTOR)
 
@@ -184,3 +208,134 @@ def test_scope_filtra_segun_el_valor(valor, esperado):
 ])
 def test_producer_id_valida_la_forma(valor, esperado):
     assert record_tools.producer_id(valor) == esperado
+
+
+# --- las once tools: registro, rutas y cuerpos exactos ----------------------
+
+
+async def test_las_once_tools_estan_registradas():
+    nombres = {fn.__name__ for fn in record_tools.TOOLS}
+    assert nombres == {
+        "obtener_perfil_empresa",
+        "obtener_avance_del_plan",
+        "listar_acciones_pendientes",
+        "obtener_detalle_de_accion",
+        "obtener_cumplimiento",
+        "obtener_nivel_de_certificacion",
+        "registrar_labor",
+        "adjuntar_evidencia",
+        "enviar_mensaje_al_auditor",
+        "leer_conversacion_de_accion",
+        "registrar_preferencia_de_contacto",
+    }
+
+
+@pytest.mark.parametrize("fn,kwargs,ruta", [
+    (record_tools.obtener_perfil_empresa, {}, "business-profile"),
+    (record_tools.obtener_avance_del_plan, {}, "plan-status"),
+    (record_tools.listar_acciones_pendientes, {}, "pending-actions"),
+    (record_tools.obtener_detalle_de_accion, {"codigo_accion": "A001"}, "action"),
+    (record_tools.obtener_cumplimiento, {}, "compliance"),
+    (record_tools.obtener_nivel_de_certificacion, {}, "certification-level"),
+    (record_tools.registrar_labor,
+     {"estandar": "PRODUCCION_PRIMARIA", "datos": {}}, "labor-log"),
+    (record_tools.adjuntar_evidencia,
+     {"codigo_accion": "A001", "id_de_adjunto": "wamid.X"}, "evidence"),
+    (record_tools.enviar_mensaje_al_auditor,
+     {"codigo_accion": "A001", "texto": "hola"}, "auditor-message"),
+    (record_tools.leer_conversacion_de_accion,
+     {"codigo_accion": "A001"}, "action-messages"),
+    (record_tools.registrar_preferencia_de_contacto,
+     {"accion": "granted"}, "consent"),
+], ids=lambda v: v if isinstance(v, str) else getattr(v, "__name__", str(v)))
+async def test_cada_tool_llama_a_su_ruta(monkeypatch, fn, kwargs, ruta):
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    llamadas = _stub_capturing_client(monkeypatch)
+    await fn(_productor_ctx(), **kwargs)
+    assert llamadas[0]["args"][0].endswith(f"/api/agent/{ruta}")
+
+
+async def test_el_cuerpo_de_perfil_lleva_el_productor_y_nada_mas(monkeypatch):
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok-test")
+    llamadas = _stub_capturing_client(monkeypatch)
+    await record_tools.obtener_perfil_empresa(_productor_ctx())
+    assert len(llamadas) == 1
+    llamada = llamadas[0]
+    assert llamada["kwargs"]["json"] == {"producerUserId": PRODUCTOR}
+    assert llamada["args"][0].endswith("/api/agent/business-profile")
+    assert llamada["kwargs"]["headers"]["Authorization"] == "Bearer tok-test"
+
+
+async def test_el_alcance_vacio_no_viaja(monkeypatch):
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    llamadas = _stub_capturing_client(monkeypatch)
+    await record_tools.obtener_cumplimiento(_productor_ctx(), instalacion_id="   ")
+    assert llamadas[0]["kwargs"]["json"] == {"producerUserId": PRODUCTOR}
+
+
+async def test_el_alcance_con_valor_si_viaja(monkeypatch):
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    llamadas = _stub_capturing_client(monkeypatch)
+    inst = "7e30cce1-8750-47bd-80f9-f5697111424d"
+    await record_tools.obtener_cumplimiento(_productor_ctx(), instalacion_id=inst)
+    assert llamadas[0]["kwargs"]["json"] == {
+        "producerUserId": PRODUCTOR, "installationId": inst}
+
+
+async def test_adjuntar_evidencia_no_elige_estandar_por_su_cuenta(monkeypatch):
+    """El primer intento va sin estandar: la ambigüedad la resuelve el servidor."""
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    llamadas = _stub_capturing_client(monkeypatch)
+    await record_tools.adjuntar_evidencia(_productor_ctx(),
+                                          codigo_accion="A001",
+                                          id_de_adjunto="wamid.ABC")
+    assert llamadas[0]["kwargs"]["json"] == {
+        "producerUserId": PRODUCTOR, "questionCode": "A001",
+        "mediaId": "wamid.ABC"}
+
+
+async def test_registrar_labor_manda_el_payload_del_productor(monkeypatch):
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    llamadas = _stub_capturing_client(monkeypatch)
+    await record_tools.registrar_labor(
+        _productor_ctx(), estandar="PRODUCCION_PRIMARIA",
+        datos={"supply_source": "pozo", "monthly_consumption_m3": 120})
+    assert llamadas[0]["kwargs"]["json"] == {
+        "producerUserId": PRODUCTOR,
+        "standardCode": "PRODUCCION_PRIMARIA",
+        "payload": {"supply_source": "pozo", "monthly_consumption_m3": 120}}
+
+
+async def test_la_ambiguedad_llega_como_exito(monkeypatch):
+    """ok: True, o el retry plugin gastaría reintentos en algo que necesita
+    la respuesta de una persona."""
+    ambigua = {"data": {"ambiguous": True, "kind": "installation",
+                        "candidates": [{"installationId": "x", "name": "Planta"}]}}
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    _stub_client(monkeypatch, FakeResponse(200, ambigua))
+    r = await record_tools.obtener_cumplimiento(_productor_ctx())
+    assert r["ok"] is True
+    assert r["data"]["ambiguous"] is True
+
+
+async def test_listar_acciones_incluir_con_respaldo_manda_la_llave(monkeypatch):
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    llamadas = _stub_capturing_client(monkeypatch)
+    await record_tools.listar_acciones_pendientes(
+        _productor_ctx(), incluir_las_que_ya_tienen_respaldo=True)
+    assert llamadas[0]["kwargs"]["json"]["includeWithEvidence"] is True
+
+
+async def test_listar_acciones_sin_incluir_no_manda_la_llave(monkeypatch):
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    llamadas = _stub_capturing_client(monkeypatch)
+    await record_tools.listar_acciones_pendientes(_productor_ctx())
+    assert "includeWithEvidence" not in llamadas[0]["kwargs"]["json"]
+
+
+async def test_registrar_preferencia_de_contacto_revoked(monkeypatch):
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    llamadas = _stub_capturing_client(monkeypatch)
+    await record_tools.registrar_preferencia_de_contacto(_productor_ctx(), "revoked")
+    assert llamadas[0]["kwargs"]["json"] == {
+        "producerUserId": PRODUCTOR, "action": "revoked"}

@@ -197,4 +197,239 @@ async def obtener_perfil_empresa(tool_context: ToolContext,
     return await _post("business-profile", _scope(businessId=empresa_id), tool_context)
 
 
-TOOLS: list = [obtener_perfil_empresa]
+async def obtener_avance_del_plan(tool_context: ToolContext, estandar: str = "",
+                                  empresa_id: str = "") -> dict:
+    """Devuelve el avance del plan de implementación activo del productor.
+
+    Incluye el total de acciones, cuántas ya tienen evidencia cargada y el
+    porcentaje de avance. Úsala cuando pregunten "cómo voy" o por su progreso.
+
+    Si tiene dos planes activos devuelve `ambiguous`: "cómo voy" no tiene una
+    sola respuesta. Pregúntale de cuál, por el NOMBRE del estándar.
+
+    Args:
+        estandar: "PRODUCCION_PRIMARIA" o "ADECUACION_AGROINDUSTRIAL".
+        empresa_id: el `businessId` de un candidato, tras una ambigüedad ya
+            resuelta. Vacío en la primera llamada.
+    """
+    return await _post("plan-status",
+                       _scope(standardCode=estandar, businessId=empresa_id),
+                       tool_context)
+
+
+async def listar_acciones_pendientes(
+    tool_context: ToolContext, limite: int = 5, estandar: str = "",
+    empresa_id: str = "", incluir_las_que_ya_tienen_respaldo: bool = False,
+) -> dict:
+    """Lista las acciones del plan que todavía no tienen evidencia cargada.
+
+    Vienen ordenadas por fecha objetivo, la más próxima primero, y cada una dice
+    de qué estándar es. Úsala cuando pregunten qué les falta o qué vence pronto.
+
+    Esta NO pregunta: si el productor está en los dos estándares trae acciones de
+    ambos. Al enumerarlas agrúpalas por estándar en vez de mezclarlas.
+
+    Args:
+        limite: cuántas traer como máximo (el servidor acota a 50).
+        estandar: opcional, para traer sólo las de un estándar.
+        empresa_id: el `businessId` de un candidato, tras una ambigüedad resuelta.
+        incluir_las_que_ya_tienen_respaldo: ponlo en True cuando estés UBICANDO
+            un documento que mandó el productor. Por defecto la lista sólo trae
+            las acciones sin ningún respaldo, y clasificar contra esa lista
+            recortada hace que termines forzando el calce contra la única que
+            quedó visible.
+    """
+    payload: dict[str, Any] = {"limit": limite}
+    if incluir_las_que_ya_tienen_respaldo:
+        payload["includeWithEvidence"] = True
+    payload.update(_scope(standardCode=estandar, businessId=empresa_id))
+    return await _post("pending-actions", payload, tool_context)
+
+
+async def obtener_detalle_de_accion(tool_context: ToolContext,
+                                    codigo_accion: str,
+                                    estandar: str = "") -> dict:
+    """Devuelve el detalle completo de una acción del plan por su código.
+
+    Incluye descripción, medio de verificación, recursos necesarios y material
+    de apoyo. Úsala cuando pregunten por una acción específica o cómo cumplir
+    con algo puntual.
+
+    Si el código existe en los dos estándares devuelve `ambiguous` con el título
+    de cada una: pregúntale al productor por el TÍTULO, no por el estándar.
+
+    Args:
+        codigo_accion: el código de la acción, por ejemplo "A001".
+        estandar: déjalo vacío salvo tras una ambigüedad ya resuelta.
+    """
+    payload: dict[str, Any] = {"questionCode": codigo_accion}
+    payload.update(_scope(standardCode=estandar))
+    return await _post("action", payload, tool_context)
+
+
+async def obtener_cumplimiento(tool_context: ToolContext, empresa_id: str = "",
+                               instalacion_id: str = "") -> dict:
+    """Devuelve el cumplimiento de UNA instalación del productor.
+
+    El cumplimiento es por instalación, no de la empresa completa. Si el
+    productor tiene varias activas devuelve `ambiguous` con sus nombres:
+    pregúntale de cuál, por su NOMBRE.
+
+    Args:
+        empresa_id: el `businessId` de un candidato, tras una ambigüedad resuelta.
+        instalacion_id: el `installationId` de un candidato. Cópialo tal cual del
+            contexto o de la respuesta anterior; no lo derives del nombre.
+    """
+    return await _post("compliance",
+                       _scope(businessId=empresa_id, installationId=instalacion_id),
+                       tool_context)
+
+
+async def obtener_nivel_de_certificacion(tool_context: ToolContext,
+                                         estandar: str = "",
+                                         empresa_id: str = "") -> dict:
+    """Devuelve el nivel de certificación del plan activo.
+
+    El nivel OFICIAL es el congelado al autodiagnóstico (`officialYear`). Si hay
+    un recálculo distinto (`recalculatedYear`), no lo presentes como si fuera el
+    resultado.
+
+    Args:
+        estandar: "PRODUCCION_PRIMARIA" o "ADECUACION_AGROINDUSTRIAL".
+        empresa_id: el `businessId` de un candidato, tras una ambigüedad resuelta.
+    """
+    return await _post("certification-level",
+                       _scope(standardCode=estandar, businessId=empresa_id),
+                       tool_context)
+
+
+async def leer_conversacion_de_accion(tool_context: ToolContext,
+                                      codigo_accion: str,
+                                      estandar: str = "") -> dict:
+    """Devuelve la conversación de una acción: lo que escribió el productor y lo
+    que respondió el auditor.
+
+    Úsala cuando pregunte si le respondieron, o antes de escribirle de nuevo
+    sobre la misma acción — así no le repites una consulta que ya hizo.
+
+    Cada mensaje dice de quién es en `from`: "productor", "auditor" o
+    "administrador".
+
+    Args:
+        codigo_accion: el código de la acción, por ejemplo "A001".
+        estandar: déjalo vacío salvo tras una ambigüedad ya resuelta.
+    """
+    payload: dict[str, Any] = {"questionCode": codigo_accion}
+    payload.update(_scope(standardCode=estandar))
+    return await _post("action-messages", payload, tool_context)
+
+
+async def registrar_labor(tool_context: ToolContext, estandar: str,
+                          datos: dict, codigo_accion: str = "",
+                          empresa_id: str = "") -> dict:
+    """Registra una labor de terreno que el productor reporta.
+
+    Úsala cuando cuente que hizo algo medible en su campo o planta (consumos,
+    aplicaciones, mantenciones). Los datos quedan pendientes de revisión.
+
+    Si tiene más de una empresa devuelve `ambiguous` y NO registra nada.
+    Pregúntale de cuál es y vuelve a llamar con `empresa_id`: si no, el registro
+    se pierde.
+
+    Args:
+        estandar: "PRODUCCION_PRIMARIA" o "ADECUACION_AGROINDUSTRIAL". Lo
+            deduces tú del contenido: campo, riego, agua, suelo y plagas es
+            Producción Primaria; planta, líneas, equipos y proceso es Adecuación
+            Agroindustrial. No se lo preguntes al productor.
+        datos: los valores reportados, por ejemplo
+            {"supply_source": "pozo", "monthly_consumption_m3": 120}.
+        codigo_accion: el código de la acción relacionada, si aplica.
+        empresa_id: el `businessId` de un candidato, tras una ambigüedad
+            resuelta. NUNCA el nombre de la empresa: se rechaza y el dato que el
+            productor te pidió registrar se pierde.
+    """
+    payload: dict[str, Any] = {"standardCode": estandar, "payload": datos}
+    if codigo_accion:
+        payload["questionCode"] = codigo_accion
+    payload.update(_scope(businessId=empresa_id))
+    return await _post("labor-log", payload, tool_context)
+
+
+async def adjuntar_evidencia(tool_context: ToolContext, codigo_accion: str,
+                             id_de_adjunto: str, nombre_archivo: str = "",
+                             estandar: str = "") -> dict:
+    """Adjunta a una acción del plan la foto o documento que mandó el productor.
+
+    Es el caso central del canal. Llámala SOLO cuando efectivamente haya enviado
+    un adjunto y esté claro a qué acción corresponde; si no sabes a cuál,
+    pregúntale antes.
+
+    Adjuntar el respaldo NO significa que la acción quede cumplida. No se lo
+    digas así.
+
+    Args:
+        codigo_accion: el código de la acción, por ejemplo "A001".
+        id_de_adjunto: el identificador del archivo que llegó por WhatsApp.
+        nombre_archivo: nombre visible, si se conoce. No inventes uno para un
+            archivo que no viste.
+        estandar: DÉJALO VACÍO en el primer intento, siempre, aunque creas saber
+            cuál es. Si el código existe en los dos estándares el servidor
+            responde `ambiguous` y ahí le preguntas. Rellenarlo por tu cuenta es
+            cómo se archiva un respaldo en el plan equivocado, donde nadie lo ve.
+    """
+    payload: dict[str, Any] = {"questionCode": codigo_accion,
+                               "mediaId": id_de_adjunto}
+    if nombre_archivo:
+        payload["fileName"] = nombre_archivo
+    payload.update(_scope(standardCode=estandar))
+    return await _post("evidence", payload, tool_context)
+
+
+async def enviar_mensaje_al_auditor(tool_context: ToolContext,
+                                    codigo_accion: str, texto: str,
+                                    estandar: str = "") -> dict:
+    """Publica un mensaje del productor en la conversación de una acción.
+
+    El auditor SÍ responde, en el mismo hilo: para leer lo que contestó usa
+    leer_conversacion_de_accion.
+
+    Si el código existe en los dos estándares devuelve `ambiguous` y NO publica
+    nada.
+
+    Args:
+        codigo_accion: el código de la acción, por ejemplo "A001".
+        texto: el mensaje del productor, en sus palabras.
+        estandar: déjalo vacío salvo tras una ambigüedad ya resuelta.
+    """
+    payload: dict[str, Any] = {"questionCode": codigo_accion, "text": texto}
+    payload.update(_scope(standardCode=estandar))
+    return await _post("auditor-message", payload, tool_context)
+
+
+async def registrar_preferencia_de_contacto(tool_context: ToolContext,
+                                            accion: str) -> dict:
+    """Registra que el productor acepta ("granted") o rechaza ("revoked")
+    recibir mensajes por WhatsApp.
+
+    Es un requisito legal: si pide la baja, regístrala de inmediato y
+    confírmasela. Llama a la herramienta PRIMERO y cuéntaselo DESPUÉS.
+
+    Args:
+        accion: "granted" para dar de alta, "revoked" para dar de baja.
+    """
+    return await _post("consent", {"action": accion}, tool_context)
+
+
+TOOLS: list = [
+    obtener_perfil_empresa,
+    obtener_avance_del_plan,
+    listar_acciones_pendientes,
+    obtener_detalle_de_accion,
+    obtener_cumplimiento,
+    obtener_nivel_de_certificacion,
+    leer_conversacion_de_accion,
+    registrar_labor,
+    adjuntar_evidencia,
+    enviar_mensaje_al_auditor,
+    registrar_preferencia_de_contacto,
+]
