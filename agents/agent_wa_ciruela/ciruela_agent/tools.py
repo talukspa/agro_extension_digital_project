@@ -120,7 +120,10 @@ def obtener_avance_del_plan(empresa_id: str = "", estandar: str = "") -> dict:
 
 
 def listar_acciones_pendientes(
-    limite: int = 5, empresa_id: str = "", estandar: str = ""
+    limite: int = 5,
+    empresa_id: str = "",
+    estandar: str = "",
+    incluir_las_que_ya_tienen_respaldo: bool = False,
 ) -> dict:
     """Lista las acciones del plan que todavía no tienen evidencia cargada.
 
@@ -133,8 +136,15 @@ def listar_acciones_pendientes(
         empresa_id: déjalo vacío salvo que una llamada anterior haya devuelto
             `ambiguous` y el productor haya elegido un candidato.
         estandar: déjalo vacío salvo que el productor ya haya dicho cuál.
+        incluir_las_que_ya_tienen_respaldo: ponlo en True cuando estés UBICANDO
+            un documento que mandó el productor. Por defecto la lista sólo trae
+            las acciones sin ningún respaldo, y clasificar contra esa lista
+            recortada hace que termines forzando el calce contra la única que
+            quedó visible.
     """
     payload: dict[str, Any] = {"limit": limite}
+    if incluir_las_que_ya_tienen_respaldo:
+        payload["includeWithEvidence"] = True
     payload.update(_alcance(businessId=empresa_id, standardCode=estandar))
     return _post("pending-actions", payload)
 
@@ -264,8 +274,8 @@ def enviar_mensaje_al_auditor(
     """Publica un mensaje del productor en la conversación de una acción.
 
     Úsala cuando el productor quiera dejar una consulta o comentario para el
-    auditor sobre una acción concreta. Es unidireccional: el auditor no
-    responde por este canal.
+    auditor sobre una acción concreta. El auditor SÍ responde, en el mismo hilo:
+    para leer lo que contestó usa leer_conversacion_de_accion.
 
     Si el código existe en los dos estándares devuelve `ambiguous` y NO publica
     nada. Pregúntale al productor de cuál es y vuelve a llamar con `estandar`.
@@ -278,6 +288,26 @@ def enviar_mensaje_al_auditor(
     payload: dict[str, Any] = {"questionCode": codigo_accion, "text": texto}
     payload.update(_alcance(standardCode=estandar))
     return _post("auditor-message", payload)
+
+
+def leer_conversacion_de_accion(codigo_accion: str, estandar: str = "") -> dict:
+    """Devuelve la conversación de una acción: lo que escribió el productor y lo
+    que respondió el auditor.
+
+    Úsala cuando el productor pregunte si le respondieron, qué le dijo el
+    auditor, o antes de escribirle de nuevo sobre la misma acción — así no le
+    repites una consulta que ya hizo.
+
+    Cada mensaje dice de quién es en `from`: "productor", "auditor" o
+    "administrador".
+
+    Args:
+        codigo_accion: el código de la acción, por ejemplo "A001".
+        estandar: déjalo vacío salvo tras una ambigüedad ya resuelta.
+    """
+    payload: dict[str, Any] = {"questionCode": codigo_accion}
+    payload.update(_alcance(standardCode=estandar))
+    return _post("action-messages", payload)
 
 
 def registrar_preferencia_de_contacto(accion: str) -> dict:
@@ -304,5 +334,6 @@ TOOLS = [
     registrar_labor,
     adjuntar_evidencia,
     enviar_mensaje_al_auditor,
+    leer_conversacion_de_accion,
     registrar_preferencia_de_contacto,
 ]
