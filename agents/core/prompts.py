@@ -44,3 +44,19 @@ def bq_instruction(agent: str) -> str:
 
 def bq_description(agent: str) -> str:
     return _read(agent, "bq_description.md")
+
+
+def record_instruction(agent: str) -> str:
+    """Prompt del sub-agente EXPEDIENTE: reglas del expediente + estilo WhatsApp.
+
+    Sin `preserve_citations.md` a propósito: eso es para respuestas de RAG con
+    fuente. Un dato del expediente del productor no se cita, es suyo.
+    """
+    return _join(
+        _read(agent, "record.md"),
+        _read("shared", "whatsapp_plain.md"),
+    )
+
+
+def record_description(agent: str) -> str:
+    return _read(agent, "record_description.md")
