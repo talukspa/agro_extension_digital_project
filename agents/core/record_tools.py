@@ -83,7 +83,7 @@ def producer_id(user_id: str | None) -> str | None:
     return None
 
 
-def _scope(**opcionales: str) -> dict[str, Any]:
+def _scope(**opcionales: Any) -> dict[str, Any]:
     """Agrega al cuerpo sólo los campos de alcance que vengan con valor.
 
     Mandar `businessId: ""` no es lo mismo que no mandarlo: dejar la llave fuera
@@ -92,6 +92,15 @@ def _scope(**opcionales: str) -> dict[str, Any]:
     """
     return {k: v.strip() for k, v in opcionales.items()
             if isinstance(v, str) and v.strip()}
+
+
+def _http_client() -> httpx.AsyncClient:
+    """Punto de inyección del cliente HTTP: mismo rol que `_client()` en
+    core/bq_tools.py. Los tests reemplazan este helper (no `httpx.AsyncClient`
+    directamente) para llegar a las ramas de manejo de respuesta sin hacer una
+    llamada de red real.
+    """
+    return httpx.AsyncClient(timeout=_TIMEOUT_SECONDS)
 
 
 async def _post(path: str, payload: dict[str, Any],
@@ -113,16 +122,30 @@ async def _post(path: str, payload: dict[str, Any],
         # modelo traduce a "no pude" sin que nadie vea la causa real.
         return {"ok": False, "error": "AGENT_SERVICE_TOKEN_UNSET"}
 
-    body = {"producerUserId": productor, **payload}
+    # La identidad va AL FINAL del merge para que gane siempre: si algún
+    # payload futuro trajera su propia llave "producerUserId" (un campo de
+    # alcance mal nombrado, no el modelo — eso ya está bloqueado en el
+    # schema), perdería contra la de la sesión en vez de pisarla en silencio.
+    # La propiedad de seguridad de este módulo queda así garantizada por
+    # construcción, no por la disciplina de nombrar campos en el futuro.
+    body = {**payload, "producerUserId": productor}
     try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS) as client:
+        async with _http_client() as client:
             r = await client.post(
                 f"{_base()}/api/agent/{path}",
                 headers={"Authorization": f"Bearer {token}",
                          "Content-Type": "application/json"},
                 json=body,
             )
-    except httpx.HTTPError as exc:
+    except Exception as exc:  # noqa: BLE001 — ancho a propósito, ver abajo
+        # httpx.InvalidURL (p.ej. un CIRUELA_API_BASE con un typo de despliegue)
+        # NO hereda de httpx.HTTPError — verificado en httpx 0.28:
+        # InvalidURL.__mro__ es (InvalidURL, Exception, BaseException, object).
+        # Un `except httpx.HTTPError` acá dejaría ese typo LEVANTAR hacia el
+        # llamador en vez de volver {ok, error}, justo el contrato que
+        # core/retry_plugin.py necesita para poder reflexionar y reintentar.
+        # Mismo trade-off que core/bq_tools.py con las excepciones de BigQuery:
+        # el nombre de la excepción real sigue en el mensaje para diagnosticar.
         return {"ok": False, "error": f"PLATFORM_UNREACHABLE: {type(exc).__name__}"}
 
     try:
@@ -130,11 +153,26 @@ async def _post(path: str, payload: dict[str, Any],
     except ValueError:
         return {"ok": False, "error": f"NON_JSON_RESPONSE_HTTP_{r.status_code}"}
 
+    if not isinstance(data, dict):
+        # JSON válido pero no un objeto ("texto", 42, null, ["algo"]): un
+        # proxy o WAF delante de la app hermana puede devolver un cuerpo así
+        # en un 429 o 500 de infraestructura. Sin este chequeo, tanto
+        # data.get("error") como data.get("data", data) más abajo levantarían
+        # AttributeError.
+        return {"ok": False, "error": f"NON_OBJECT_RESPONSE_HTTP_{r.status_code}"}
+
     if r.status_code >= 400:
         # Se devuelve el código, no el texto crudo: el modelo decide qué decirle
         # al productor a partir del código, no repitiendo mensajes internos.
+        # `error` puede venir como {"code": ...} o, de un handler más simple,
+        # como string plano — cualquiera de las dos formas se preserva.
         err = data.get("error")
-        code = err.get("code") if isinstance(err, dict) else None
+        if isinstance(err, dict):
+            code = err.get("code")
+        elif isinstance(err, str):
+            code = err
+        else:
+            code = None
         return {"ok": False, "error": code or f"HTTP_{r.status_code}"}
 
     return {"ok": True, "data": data.get("data", data)}
