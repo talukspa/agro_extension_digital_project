@@ -349,9 +349,11 @@ async def registrar_labor(tool_context: ToolContext, estandar: str,
             productor te pidió registrar se pierde.
     """
     payload: dict[str, Any] = {"standardCode": estandar, "payload": datos}
-    if codigo_accion:
-        payload["questionCode"] = codigo_accion
-    payload.update(_scope(businessId=empresa_id))
+    # Por _scope(), no por un `if codigo_accion`: un framework de
+    # function-calling puede mandar un espacio en vez de omitir un parámetro
+    # opcional, y un "questionCode" así no calza con ningún código real — la
+    # labor quedaría sin vincular a ninguna acción y `ok: True` no lo delata.
+    payload.update(_scope(questionCode=codigo_accion, businessId=empresa_id))
     return await _post("labor-log", payload, tool_context)
 
 
@@ -379,9 +381,10 @@ async def adjuntar_evidencia(tool_context: ToolContext, codigo_accion: str,
     """
     payload: dict[str, Any] = {"questionCode": codigo_accion,
                                "mediaId": id_de_adjunto}
-    if nombre_archivo:
-        payload["fileName"] = nombre_archivo
-    payload.update(_scope(standardCode=estandar))
+    # Por _scope(), no por un `if nombre_archivo`: un espacio en vez de un
+    # parámetro omitido dejaría "fileName": " " — el adjunto quedaría con
+    # nombre visible en blanco en el expediente, en vez de sin nombre.
+    payload.update(_scope(fileName=nombre_archivo, standardCode=estandar))
     return await _post("evidence", payload, tool_context)
 
 

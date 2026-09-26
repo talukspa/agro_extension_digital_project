@@ -52,13 +52,18 @@ class FakeResponse:
         return self._json_data
 
 
-class FakeAsyncClient:
+class CapturingAsyncClient:
     """Doble del cliente httpx: mismo rol que el `_client` fake de
-    test_bq_tools.py, pero async — soporta `async with` y `await .post(...)`."""
+    test_bq_tools.py, pero async — soporta `async with` y `await .post(...)`.
+    Además guarda los `args`/`kwargs` de cada `post` en `llamadas`, para
+    afirmar el cuerpo y la URL exactos que armó `_post`. Es el único doble de
+    cliente en este archivo: nada depende de que el cliente NO capture, así
+    que mantener uno que sí lo hace evita la duda de cuál usar."""
 
     def __init__(self, response=None, raise_exc=None):
         self._response = response
         self._raise_exc = raise_exc
+        self.llamadas: list[dict] = []
 
     async def __aenter__(self):
         return self
@@ -67,29 +72,10 @@ class FakeAsyncClient:
         return False
 
     async def post(self, *args, **kwargs):
+        self.llamadas.append({"args": args, "kwargs": kwargs})
         if self._raise_exc is not None:
             raise self._raise_exc
         return self._response
-
-
-def _stub_client(monkeypatch, response=None, raise_exc=None):
-    monkeypatch.setattr(record_tools, "_http_client",
-                        lambda: FakeAsyncClient(response, raise_exc))
-
-
-class CapturingAsyncClient(FakeAsyncClient):
-    """Como FakeAsyncClient, pero además guarda los `args`/`kwargs` de cada
-    `post` en `llamadas`, para afirmar el cuerpo y la URL exactos que armó
-    `_post` — los dobles existentes los descartan, y esta task necesita
-    verlos."""
-
-    def __init__(self, response=None, raise_exc=None):
-        super().__init__(response, raise_exc)
-        self.llamadas: list[dict] = []
-
-    async def post(self, *args, **kwargs):
-        self.llamadas.append({"args": args, "kwargs": kwargs})
-        return await super().post(*args, **kwargs)
 
 
 def _stub_capturing_client(monkeypatch, response=None, raise_exc=None):
@@ -107,14 +93,14 @@ def _productor_ctx():
 
 async def test_post_camino_feliz_devuelve_la_data(monkeypatch):
     monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
-    _stub_client(monkeypatch, response=FakeResponse(200, {"data": {"x": 1}}))
+    _stub_capturing_client(monkeypatch, response=FakeResponse(200, {"data": {"x": 1}}))
     r = await record_tools._post("business-profile", {}, _productor_ctx())
     assert r == {"ok": True, "data": {"x": 1}}
 
 
 async def test_post_400_con_error_de_codigo(monkeypatch):
     monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
-    _stub_client(monkeypatch, response=FakeResponse(
+    _stub_capturing_client(monkeypatch, response=FakeResponse(
         400, {"error": {"code": "ID_INVALID"}}))
     r = await record_tools._post("business-profile", {}, _productor_ctx())
     assert r == {"ok": False, "error": "ID_INVALID"}
@@ -123,14 +109,14 @@ async def test_post_400_con_error_de_codigo(monkeypatch):
 async def test_post_400_con_error_de_texto(monkeypatch):
     """Arreglo 5: `error` como string no debe colapsar a un código genérico."""
     monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
-    _stub_client(monkeypatch, response=FakeResponse(400, {"error": "texto plano"}))
+    _stub_capturing_client(monkeypatch, response=FakeResponse(400, {"error": "texto plano"}))
     r = await record_tools._post("business-profile", {}, _productor_ctx())
     assert r == {"ok": False, "error": "texto plano"}
 
 
 async def test_post_respuesta_no_json(monkeypatch):
     monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
-    _stub_client(monkeypatch, response=FakeResponse(500, json_raises=True))
+    _stub_capturing_client(monkeypatch, response=FakeResponse(500, json_raises=True))
     r = await record_tools._post("business-profile", {}, _productor_ctx())
     assert r == {"ok": False, "error": "NON_JSON_RESPONSE_HTTP_500"}
 
@@ -140,7 +126,7 @@ async def test_post_respuesta_json_que_no_es_objeto(monkeypatch):
     debe levantar AttributeError al llamar .get() sobre él."""
     monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
     for cuerpo in [["algo"], "texto", None, 42]:
-        _stub_client(monkeypatch, response=FakeResponse(200, cuerpo))
+        _stub_capturing_client(monkeypatch, response=FakeResponse(200, cuerpo))
         r = await record_tools._post("business-profile", {}, _productor_ctx())
         assert r["ok"] is False
         assert r["error"].startswith("NON_OBJECT_RESPONSE_HTTP_"), cuerpo
@@ -154,7 +140,7 @@ async def test_post_excepcion_que_no_hereda_de_httpx_http_error(monkeypatch):
     assert not issubclass(httpx.InvalidURL, httpx.HTTPError)
     monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
     exc = httpx.InvalidURL("URL inválida")
-    _stub_client(monkeypatch, raise_exc=exc)
+    _stub_capturing_client(monkeypatch, raise_exc=exc)
     r = await record_tools._post("business-profile", {}, _productor_ctx())
     assert r == {"ok": False, "error": "PLATFORM_UNREACHABLE: InvalidURL"}
 
@@ -163,18 +149,11 @@ async def test_post_identidad_de_sesion_gana_sobre_el_payload(monkeypatch):
     """Arreglo 3: un payload con `producerUserId` no debe pisar la identidad
     que vino de tool_context.user_id."""
     monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
-    capturado = {}
-
-    class ClienteQueCaptura(FakeAsyncClient):
-        async def post(self, *args, **kwargs):
-            capturado.update(kwargs.get("json", {}))
-            return FakeResponse(200, {"data": {}})
-
-    monkeypatch.setattr(record_tools, "_http_client", lambda: ClienteQueCaptura())
+    llamadas = _stub_capturing_client(monkeypatch, FakeResponse(200, {"data": {}}))
     otro_uuid = "00000000-0000-0000-0000-000000000000"
     await record_tools._post(
         "business-profile", {"producerUserId": otro_uuid}, _productor_ctx())
-    assert capturado["producerUserId"] == PRODUCTOR
+    assert llamadas[0]["kwargs"]["json"]["producerUserId"] == PRODUCTOR
 
 
 # --- _scope: qué campos de alcance sobreviven al filtro ---------------------
@@ -312,7 +291,7 @@ async def test_la_ambiguedad_llega_como_exito(monkeypatch):
     ambigua = {"data": {"ambiguous": True, "kind": "installation",
                         "candidates": [{"installationId": "x", "name": "Planta"}]}}
     monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
-    _stub_client(monkeypatch, FakeResponse(200, ambigua))
+    _stub_capturing_client(monkeypatch, FakeResponse(200, ambigua))
     r = await record_tools.obtener_cumplimiento(_productor_ctx())
     assert r["ok"] is True
     assert r["data"]["ambiguous"] is True
@@ -339,3 +318,42 @@ async def test_registrar_preferencia_de_contacto_revoked(monkeypatch):
     await record_tools.registrar_preferencia_de_contacto(_productor_ctx(), "revoked")
     assert llamadas[0]["kwargs"]["json"] == {
         "producerUserId": PRODUCTOR, "action": "revoked"}
+
+
+async def test_enviar_mensaje_al_auditor_manda_el_cuerpo_exacto(monkeypatch):
+    """La única de las cuatro escrituras sin este test: si alguien cambia
+    `text` por `message`, o invierte código y texto en el payload, esta es la
+    que lo detecta — el mensaje quedaría publicado con el campo equivocado en
+    el expediente de una persona."""
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    llamadas = _stub_capturing_client(monkeypatch)
+    await record_tools.enviar_mensaje_al_auditor(
+        _productor_ctx(), codigo_accion="A001", texto="¿cuándo revisan esto?")
+    assert llamadas[0]["kwargs"]["json"] == {
+        "producerUserId": PRODUCTOR, "questionCode": "A001",
+        "text": "¿cuándo revisan esto?"}
+
+
+async def test_adjuntar_evidencia_con_nombre_en_blanco_no_manda_la_llave(monkeypatch):
+    """Un nombre de archivo con sólo espacios no es lo mismo que ausente: sin
+    pasar por `_scope()` viajaría `"fileName": " "` y el adjunto quedaría con
+    nombre visible en blanco en el expediente, en vez de sin nombre."""
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    llamadas = _stub_capturing_client(monkeypatch)
+    await record_tools.adjuntar_evidencia(
+        _productor_ctx(), codigo_accion="A001", id_de_adjunto="wamid.ABC",
+        nombre_archivo="   ")
+    assert "fileName" not in llamadas[0]["kwargs"]["json"]
+
+
+async def test_registrar_labor_con_codigo_en_blanco_no_manda_la_llave(monkeypatch):
+    """Un código de acción con sólo espacios no calza con ningún código real:
+    sin pasar por `_scope()` viajaría `"questionCode": " "` y la labor
+    quedaría sin vincular a ninguna acción, con `ok: True` igual — nadie se
+    entera."""
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    llamadas = _stub_capturing_client(monkeypatch)
+    await record_tools.registrar_labor(
+        _productor_ctx(), estandar="PRODUCCION_PRIMARIA", datos={"x": 1},
+        codigo_accion="   ")
+    assert "questionCode" not in llamadas[0]["kwargs"]["json"]
