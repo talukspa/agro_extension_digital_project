@@ -37,15 +37,6 @@ def rag_description(agent: str) -> str:
     return _read(agent, "rag_description.md")
 
 
-def bq_instruction(agent: str) -> str:
-    """BQ sub-agent prompt: domain/table specifics + shared 4-tool workflow."""
-    return _join(_read(agent, "bq.md"), _read("shared", "bq_workflow.md"))
-
-
-def bq_description(agent: str) -> str:
-    return _read(agent, "bq_description.md")
-
-
 def record_instruction(agent: str) -> str:
     """Prompt del sub-agente EXPEDIENTE: reglas del expediente + estilo WhatsApp.
 

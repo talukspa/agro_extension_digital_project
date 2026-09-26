@@ -41,15 +41,15 @@ def test_planner_enabled_by_env(monkeypatch):
 def test_default_build_attaches_no_planner(monkeypatch):
     monkeypatch.delenv("AGENT_PLANNER", raising=False)
     root = _root(_build())
-    bq = next(t.agent for t in root.tools if t.agent.name == "aa_agent_bq")
+    bq = next(t.agent for t in root.tools if t.agent.name == "aa_agent_catalog")
     rag = next(t.agent for t in root.tools if t.agent.name == "aa_agent_rag")
     assert root.planner is None and bq.planner is None and rag.planner is None
 
 
-def test_enabled_build_plans_on_root_and_bq_but_not_rag(monkeypatch):
+def test_enabled_build_plans_on_root_and_catalog_but_not_rag(monkeypatch):
     monkeypatch.setenv("AGENT_PLANNER", "builtin")
     root = _root(_build())
-    bq = next(t.agent for t in root.tools if t.agent.name == "aa_agent_bq")
+    bq = next(t.agent for t in root.tools if t.agent.name == "aa_agent_catalog")
     rag = next(t.agent for t in root.tools if t.agent.name == "aa_agent_rag")
     assert isinstance(root.planner, BuiltInPlanner)
     assert isinstance(bq.planner, BuiltInPlanner)
@@ -106,7 +106,7 @@ def test_models_are_wired_per_role():
     replaced; RAG deliberately stays on 3.1-flash-lite because 3.5-flash-lite
     is dearer on both axes."""
     from core import agent as core_agent
-    assert core_agent.ROOT_MODEL == core_agent.BQ_MODEL == "gemini-3.7-flash"
+    assert core_agent.ROOT_MODEL == core_agent.CATALOG_MODEL == "gemini-3.7-flash"
     assert core_agent.RAG_MODEL == "gemini-3.1-flash-lite"
 
 
@@ -115,5 +115,5 @@ def test_build_app_uses_those_models():
     root = _root(_build())
     assert root.model.model == core_agent.ROOT_MODEL
     by = {t.agent.name: t.agent for t in root.tools}
-    assert by["aa_agent_bq"].model.model == core_agent.BQ_MODEL
+    assert by["aa_agent_catalog"].model.model == core_agent.CATALOG_MODEL
     assert by["aa_agent_rag"].model.model == core_agent.RAG_MODEL

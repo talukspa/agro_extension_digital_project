@@ -9,7 +9,6 @@ dependencies = [
     "google-cloud-aiplatform[adk,agent_engines]>=1.135.0",
     "google-cloud-secret-manager>=2.20.0",
     "google-cloud-discoveryengine>=0.13.0",
-    "google-cloud-bigquery>=3.25.0",
     "httpx>=0.25.0,<0.30.0",
     # core/catalog_tools.py lee el catálogo del estándar desde Postgres.
     # [binary] a propósito: trae las ruedas precompiladas de libpq, así que el

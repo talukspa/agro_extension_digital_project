@@ -60,7 +60,7 @@ _UUID_RE = re.compile(
 def _base() -> str:
     """Base de la aplicación. Leída por llamada, nunca ligada al import.
 
-    Misma razón que los topes de core/bq_tools.py: una lectura en el import es
+    Misma razón que los topes de core/catalog_tools.py: una lectura en el import es
     intesteable por monkeypatch y se come el override por engine. Bajo Agent
     Engine el módulo se importa una vez en el cold start, así que un valor
     rotado se quedaría rancio hasta el próximo despliegue.
@@ -113,7 +113,7 @@ def _scope(**opcionales: Any) -> dict[str, Any]:
 
 def _http_client() -> httpx.AsyncClient:
     """Punto de inyección del cliente HTTP: mismo rol que `_client()` en
-    core/bq_tools.py. Los tests reemplazan este helper (no `httpx.AsyncClient`
+    core/catalog_tools.py. Los tests reemplazan este helper (no `httpx.AsyncClient`
     directamente) para llegar a las ramas de manejo de respuesta sin hacer una
     llamada de red real.
     """
@@ -161,7 +161,7 @@ async def _post(path: str, payload: dict[str, Any],
         # Un `except httpx.HTTPError` acá dejaría ese typo LEVANTAR hacia el
         # llamador en vez de volver {ok, error}, justo el contrato que
         # core/retry_plugin.py necesita para poder reflexionar y reintentar.
-        # Mismo trade-off que core/bq_tools.py con las excepciones de BigQuery:
+        # Mismo trade-off que core/catalog_tools.py con las excepciones de Postgres:
         # el nombre de la excepción real sigue en el mensaje para diagnosticar.
         return {"ok": False, "error": f"PLATFORM_UNREACHABLE: {type(exc).__name__}"}
 

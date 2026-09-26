@@ -266,7 +266,7 @@ async def test_fallo_del_endpoint_no_se_cachea(monkeypatch):
     plataforma dejaría al productor sin contexto durante TODA la sesión —
     justo cuando el bloque es lo que evita que el modelo invente ids. Cachear
     sólo éxitos (mismo criterio que `list_tables`/`get_schema` en
-    core/bq_tools.py) deja que la próxima vuelta lo reintente sola, sin que
+    core/catalog_tools.py) deja que la próxima vuelta lo reintente sola, sin que
     nadie tenga que reiniciar la sesión.
     """
     llamadas = []

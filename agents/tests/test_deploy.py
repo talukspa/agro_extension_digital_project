@@ -372,10 +372,10 @@ def test_optional_env_keys_are_forwarded_when_set(monkeypatch):
     import deploy
     for k in deploy.RUNTIME_ENV_KEYS:
         monkeypatch.setenv(k, "x")
-    monkeypatch.setenv("BQ_MAX_BYTES", "2048")
+    monkeypatch.setenv("CATALOG_MAX_ROWS", "2048")
     monkeypatch.setenv("GEMINI_LOCATION", "us-central1")
     env = deploy.env_vars_for("agent_aa")
-    assert env["BQ_MAX_BYTES"] == "2048"
+    assert env["CATALOG_MAX_ROWS"] == "2048"
     assert env["GEMINI_LOCATION"] == "us-central1"
 
 

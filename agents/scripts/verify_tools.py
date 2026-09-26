@@ -8,26 +8,26 @@ Runtime rather than a pytest-shaped approximation.
 Two modes:
 
   python scripts/verify_tools.py
-      Offline. Stubs google.auth and the BigQuery client, then (a) walks the
-      agent graph and (b) actually CALLS all four BigQuery tools, asserting each
+      Offline. Stubs google.auth and the Postgres connection, then (a) walks the
+      agent graph and (b) actually CALLS all four catalog tools, asserting each
       honours the {ok, error, ...} contract. Needs no credentials.
 
   python scripts/verify_tools.py --live
-      Hits real BigQuery with the caller's ADC. Proves the tools work against
+      Hits the real Postgres catalog with CATALOG_DSN. Proves the tools work against
       the actual dataset — list_tables/get_schema/check_query/run_query for real.
-      Requires GOOGLE_CLOUD_PROJECT + BIGQUERY_DATASET and BigQuery read access.
+      Requires CATALOG_DSN con el rol agent_catalog_reader.
 
   python scripts/verify_tools.py --runner
       THE REAL GATE. Everything above, plus it actually drives both agents with
       real questions through InMemoryRunner and asserts the MODEL reaches for
       the tools — routing, prompts and tool declarations exercised together.
-      Costs live Gemini + BigQuery + Vertex AI Search calls; run it against npe.
+      Costs live Gemini + Postgres + Vertex AI Search calls; run it against npe.
 
       Note it probes the BQ sub-agent DIRECTLY as well as through the root.
       AgentTool runs a sub-agent in its own invocation, so its function calls
       never appear in the root runner's event stream — checking only the root
       reports "no tools called" even when the reply plainly contains live
-      BigQuery data. That false negative is exactly what this layout avoids.
+      catalog data. That false negative is exactly what this layout avoids.
 
 Exit code is 0 only if every check passes, so it is usable as a CI or
 pre-deploy gate.
@@ -47,12 +47,12 @@ SHIMS = {
     "agent_aa_app.agent_engine_app": "aa_agent",
     "agent_pp_app.agent_engine_app": "pp_agent",
 }
-BQ_TOOLS = ("list_tables", "get_schema", "check_query", "run_query")
+CATALOG_TOOLS = ("list_tables", "get_schema", "check_query", "run_query")
 EXPECTED_DATASTORES = 4
 
 _PLACEHOLDER_ENV = {
     "GOOGLE_CLOUD_PROJECT": "verify-project",
-    "BIGQUERY_DATASET": "verify_dataset",
+    "CATALOG_DSN": "verify_dataset",
     "DATASTORE_AA_ID": "ds-aa",
     "DATASTORE_PP_ID": "ds-pp",
     "DATASTORE_GUIDES_ID": "ds-guides",
@@ -91,10 +91,10 @@ def seed_offline_env() -> None:
 
 
 def require_live_env() -> None:
-    missing = [k for k in ("GOOGLE_CLOUD_PROJECT", "BIGQUERY_DATASET")
+    missing = [k for k in ("GOOGLE_CLOUD_PROJECT", "CATALOG_DSN")
                if not os.environ.get(k)]
     if missing:
-        sys.exit(f"--live needs {', '.join(missing)} set (and BigQuery read access).")
+        sys.exit(f"--live needs {', '.join(missing)} set (y acceso al catálogo).")
 
 
 def root_of(module_name: str):
@@ -124,7 +124,7 @@ def verify_graph() -> None:
         bq = subs.get(f"{expected_root}_bq")
         if bq:
             names = sorted(tool_name(t) for t in bq.tools)
-            check("all 4 BigQuery tools", names == sorted(BQ_TOOLS), ", ".join(names))
+            check("all 4 catalog tools", names == sorted(CATALOG_TOOLS), ", ".join(names))
 
         rag = subs.get(f"{expected_root}_rag")
         if rag:
@@ -139,54 +139,57 @@ def verify_graph() -> None:
                   f"{len(bad)} bare id(s)" if bad else "all fully qualified")
 
 
-def _mock_bigquery_client() -> MagicMock:
-    client = MagicMock()
-    table = MagicMock()
-    table.table_id = "estandar_aa"
-    client.list_tables.return_value = [table]
-    field = MagicMock()
-    field.name, field.field_type, field.description = "codigo", "STRING", "código"
-    client.get_table.return_value = MagicMock(schema=[field])
-    job = MagicMock(total_bytes_processed=1234)
-    job.result.return_value = [MagicMock(items=lambda: {"codigo": "A001"}.items())]
-    client.query.return_value = job
-    return client
+def _mock_postgres_conn() -> MagicMock:
+    """Doble de la conexión de psycopg: sólo lo que catalog_tools usa.
+
+    `cursor.description` va con objetos que tienen `.name`, no tuplas — psycopg lo
+    expone así, y un doble con tuplas hace fallar el código que sí funciona contra
+    la base real.
+    """
+    columna = MagicMock()
+    columna.name = "question_number"
+    cur = MagicMock()
+    cur.__enter__ = lambda self: self
+    cur.__exit__ = lambda self, *a: False
+    cur.description = [columna]
+    cur.fetchall.return_value = [("questions",)]
+    conn = MagicMock()
+    conn.__enter__ = lambda self: self
+    conn.__exit__ = lambda self, *a: False
+    conn.cursor.return_value = cur
+    return conn
 
 
 def verify_tools_are_callable(live: bool) -> None:
-    mode = "LIVE against real BigQuery" if live else "offline, BigQuery mocked"
-    print(f"\n[2] invoking all 4 BigQuery tools ({mode})")
-    from core import bq_tools
-
-    dataset = os.environ.get("BIGQUERY_DATASET", "?")
-    table_for_schema = None
+    mode = "LIVE against real Postgres" if live else "offline, Postgres mocked"
+    print(f"\n[2] invoking all 4 catalog tools ({mode})")
+    from core import catalog_tools
 
     def run_all() -> None:
-        nonlocal table_for_schema
-        out = bq_tools.list_tables()
+        out = catalog_tools.list_tables()
         check("list_tables() ok", out.get("ok") is True, out.get("error") or
-              f"{len(out.get('tables', []))} table(s) in {dataset}")
-        tables = out.get("tables") or []
-        table_for_schema = tables[0] if tables else "estandar_aa"
+              f"{len(out.get('tables', []))} table(s)")
 
-        out = bq_tools.get_schema(table_for_schema)
-        check(f"get_schema({table_for_schema!r}) ok", out.get("ok") is True,
+        out = catalog_tools.get_schema("questions")
+        check("get_schema('questions') ok", out.get("ok") is True,
               out.get("error") or f"{len(out.get('schema','').splitlines())} column(s)")
 
-        out = bq_tools.check_query(f"SELECT 1 FROM `{table_for_schema}` LIMIT 1"
-                                   if live else "SELECT 1")
-        check("check_query() dry-run ok", out.get("ok") is True,
-              out.get("error") or f"{out.get('bytes_processed')} bytes")
+        out = catalog_tools.check_query(
+            "SELECT question_number FROM questions LIMIT 1" if live else "SELECT 1")
+        check("check_query() EXPLAIN ok", out.get("ok") is True,
+              out.get("error") or "plan devuelto")
 
-        out = bq_tools.run_query(f"SELECT * FROM `{table_for_schema}` LIMIT 5"
-                                 if live else "SELECT 1", max_rows=5)
+        out = catalog_tools.run_query(
+            "SELECT question_number FROM questions LIMIT 5" if live else "SELECT 1",
+            max_rows=5)
         check("run_query() ok", out.get("ok") is True,
               out.get("error") or f"{len(out.get('rows', []))} row(s)")
 
     if live:
         run_all()
     else:
-        with patch.object(bq_tools, "_client", return_value=_mock_bigquery_client()):
+        with patch.object(catalog_tools, "_connect",
+                          return_value=_mock_postgres_conn()):
             run_all()
 
     print("\n[3] guardrails actually refuse what they claim to")
@@ -194,7 +197,7 @@ def verify_tools_are_callable(live: bool) -> None:
         ("DELETE FROM t", "non-SELECT"),
         ("SELECT 1; DROP TABLE t", "multi-statement script"),
     ]:
-        for fn in (bq_tools.check_query, bq_tools.run_query):
+        for fn in (catalog_tools.check_query, catalog_tools.run_query):
             out = fn(sql)
             check(f"{fn.__name__} refuses {why}", out.get("ok") is False,
                   (out.get("error") or "")[:60])
@@ -241,7 +244,7 @@ def verify_agents_actually_call_tools() -> None:
     """
     import asyncio
 
-    print("\n[4] driving the real agents (live Gemini + BigQuery + Vertex Search)")
+    print("\n[4] driving the real agents (live Gemini + Postgres + Vertex Search)")
     for module_name, expected_root in SHIMS.items():
         root = root_of(module_name)
         print(f"\n  {module_name}")
@@ -264,7 +267,7 @@ def verify_agents_actually_call_tools() -> None:
         # This must drive the sub-agent DIRECTLY. AgentTool runs it in its own
         # invocation, so its function calls never surface in the root runner's
         # event stream — probing only the root shows "no tools called" even
-        # when the answer plainly contains live BigQuery data.
+        # when the answer plainly contains live catalog data.
         bq_agent = next(
             (t.agent for t in root.tools if t.agent.name.endswith("_bq")), None
         )
@@ -280,7 +283,7 @@ def verify_agents_actually_call_tools() -> None:
             check("BQ sub-agent probe ran", False, f"{type(e).__name__}: {str(e)[:90]}")
             continue
         hit = {"list_tables", "get_schema", "check_query", "run_query"} & called
-        check("BQ sub-agent invoked its BigQuery tools", bool(hit),
+        check("BQ sub-agent invoked its Postgres tools", bool(hit),
               ", ".join(sorted(hit)) or "none called")
         check("BQ sub-agent started with list_tables", "list_tables" in called,
               "workflow step 1" if "list_tables" in called else "skipped discovery")
@@ -291,11 +294,11 @@ def verify_agents_actually_call_tools() -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--live", action="store_true",
-                    help="hit real BigQuery with your ADC instead of mocks")
+                    help="hit real Postgres with your ADC instead of mocks")
     ap.add_argument("--runner", action="store_true",
                     help="THE REAL GATE: drive both agents with real questions "
                          "and assert the model actually calls the tools "
-                         "(costs live Gemini/BigQuery/Search calls)")
+                         "(costs live Gemini/Postgres/Search calls)")
     args = ap.parse_args()
 
     if args.live or args.runner:

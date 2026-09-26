@@ -1,6 +1,6 @@
 """Tools del catálogo del estándar, sobre el Postgres de Supabase.
 
-Reemplazan a las de BigQuery. `estandar_pp` y `estandar_aa` eran una importación
+Reemplazan a las que leían BigQuery. `estandar_pp` y `estandar_aa` eran una importación
 de Excel hecha una vez —el esquema documentaba la columna `n` como "el número de
 la fila en la planilla Excel de origen"— y nada las sincronizaba: 145 códigos de
 Producción Primaria contra los 129 que tiene `questions`. Como las acciones del
@@ -16,10 +16,11 @@ error legible en lugar de un `permission denied` que el modelo traduce a "la
 plataforma está caída".
 
 Y el rol filtra `is_active` en su política, así que el agente **no puede** mostrar
-requisitos derogados, no sólo "no debería". BigQuery no tenía forma de saberlo.
+requisitos derogados, no sólo "no debería". La copia en BigQuery no tenía forma
+de saberlo.
 
 Los topes y el DSN se leen POR LLAMADA, nunca ligados al import: misma razón que
-los de core/bq_tools.py y core/record_tools.py — una lectura en el import es
+los de core/record_tools.py — una lectura en el import es
 intesteable por monkeypatch y se come el override por engine.
 """
 from __future__ import annotations
@@ -39,7 +40,7 @@ _DEFAULT_MAX_ROWS = 100
 CONNECT_TIMEOUT = 10
 
 # Descripciones para el modelo. Postgres no tiene comentarios en estas columnas,
-# y el `get_schema` de BigQuery sí traía descripciones — eran parte del prompt del
+# y el `get_schema` que leía BigQuery sí las traía del esquema — eran parte del prompt
 # que el modelo saca cómo consultar. Se escriben acá para no perder eso.
 #
 # Las dos primeras líneas de `standard_id` y `standard_code` son la trampa más
@@ -101,7 +102,8 @@ def _max_rows() -> int:
 def _connect() -> psycopg.Connection:
     """Conexión nueva por llamada, no cacheada.
 
-    Misma razón que el `_client()` de core/bq_tools.py: el AdkApp se deepcopy'a al
+    Misma razón por la que el cliente de BigQuery tampoco se cacheaba: el AdkApp se
+    deepcopy'a al
     crear el engine, y una conexión cacheada guarda referencias a módulos que no
     se pueden picklear.
     """
@@ -200,7 +202,7 @@ def get_schema(table: str) -> dict:
 def check_query(sql: str) -> dict:
     """Valida una consulta sin ejecutarla, y devuelve su plan.
 
-    BigQuery tenía un dry-run gratis del servicio; Postgres no. `EXPLAIN` es el
+    Postgres tenía un dry-run gratis del servicio; Postgres no. `EXPLAIN` es el
     equivalente: planifica sin ejecutar el cuerpo —verificado, un EXPLAIN de
     `pg_sleep(3)` tarda 0.00s— y detecta los tres errores que el modelo comete
     escribiendo SQL: tabla inexistente, columna inexistente y falta de permiso.

@@ -54,7 +54,7 @@ class FakeResponse:
 
 class CapturingAsyncClient:
     """Doble del cliente httpx: mismo rol que el `_client` fake de
-    test_bq_tools.py, pero async — soporta `async with` y `await .post(...)`.
+    test_catalog_tools.py, pero async — soporta `async with` y `await .post(...)`.
     Además guarda los `args`/`kwargs` de cada `post` en `llamadas`, para
     afirmar el cuerpo y la URL exactos que armó `_post`. Es el único doble de
     cliente en este archivo: nada depende de que el cliente NO capture, así

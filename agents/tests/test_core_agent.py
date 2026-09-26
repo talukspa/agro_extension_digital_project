@@ -30,7 +30,7 @@ def test_build_app_returns_adkapp_with_named_root():
     assert _root(app).name == "aa_agent"
 
 
-def test_root_has_rag_and_bq_subagents():
+def test_root_has_rag_and_catalog_subagents():
     from core.agent import build_app
     app = build_app(
         name="pp_agent",
@@ -38,17 +38,17 @@ def test_root_has_rag_and_bq_subagents():
         main_datastore_env="DATASTORE_PP_ID",
     )
     tool_names = {t.agent.name for t in _root(app).tools}
-    assert tool_names == {"pp_agent_rag", "pp_agent_bq", "pp_agent_record"}
+    assert tool_names == {"pp_agent_rag", "pp_agent_catalog", "pp_agent_record"}
 
 
-def test_bq_subagent_uses_four_function_tools():
+def test_catalog_subagent_uses_four_function_tools():
     from core.agent import build_app
     app = build_app(
         name="aa_agent",
         display_name="Adecuación Agroindustrial",
         main_datastore_env="DATASTORE_AA_ID",
     )
-    bq = next(t.agent for t in _root(app).tools if t.agent.name == "aa_agent_bq")
+    bq = next(t.agent for t in _root(app).tools if t.agent.name == "aa_agent_catalog")
     fn_names = {_tool_name(t) for t in bq.tools}
     assert fn_names == {"list_tables", "get_schema", "check_query", "run_query"}
 
@@ -91,7 +91,7 @@ def test_el_root_tiene_los_tres_subagentes():
     app = build_app(name="pp_agent", display_name="PP",
                     main_datastore_env="DATASTORE_PP_ID")
     nombres = {t.agent.name for t in app._tmpl_attrs["agent"].tools}
-    assert nombres == {"pp_agent_rag", "pp_agent_bq", "pp_agent_record"}
+    assert nombres == {"pp_agent_rag", "pp_agent_catalog", "pp_agent_record"}
 
 
 def test_el_subagente_del_expediente_tiene_las_once_tools():
@@ -189,8 +189,85 @@ def test_los_dos_agentes_quedan_iguales_en_estructura():
         root = app._tmpl_attrs["agent"]
 
         nombres = {t.agent.name for t in root.tools}
-        assert nombres == {f"{name}_rag", f"{name}_bq", f"{name}_record"}
+        assert nombres == {f"{name}_rag", f"{name}_catalog", f"{name}_record"}
         assert root.before_model_callback is consent_guard.before_model
 
         record = next(t.agent for t in root.tools if t.agent.name == f"{name}_record")
         assert len(record.tools) == len(record_tools.TOOLS) == 11
+
+
+# ------------------------------------ el catálogo reemplazó a Postgres en el grafo
+def test_el_root_tiene_rag_catalogo_y_expediente():
+    from core.agent import build_app
+    app = build_app(name="pp_agent", display_name="PP",
+                    main_datastore_env="DATASTORE_PP_ID")
+    nombres = {t.agent.name for t in app._tmpl_attrs["agent"].tools}
+    assert nombres == {"pp_agent_rag", "pp_agent_catalog", "pp_agent_record"}
+
+
+def test_el_subagente_del_catalogo_tiene_las_cuatro_tools():
+    from core.agent import build_app
+    from core import catalog_tools
+    app = build_app(name="pp_agent", display_name="PP",
+                    main_datastore_env="DATASTORE_PP_ID")
+    catalogo = next(t.agent for t in app._tmpl_attrs["agent"].tools
+                    if t.agent.name == "pp_agent_catalog")
+    assert len(catalogo.tools) == len(catalog_tools.TOOLS) == 4
+
+
+def test_no_queda_nada_de_bigquery_en_el_paquete():
+    """Un rename a medias es peor que ninguno.
+
+    Se prohíbe lo que ROMPE o MIENTE, no la palabra: un import de un módulo que no
+    existe, un nombre de variable que nadie inyecta, una dependencia que nadie usa.
+
+    Las menciones a BigQuery EN PROSA se permiten a propósito: explican qué se
+    reemplazó y por qué, y borrarlas dejaría los comentarios diciendo "la copia
+    desincronizada" sin decir de qué copia hablan. Ésa es la historia que le ahorra
+    a alguien reabrir la decisión en seis meses.
+    """
+    from pathlib import Path
+    raiz = Path(__file__).resolve().parents[1]
+
+    # los archivos borrados
+    assert not (raiz / "core" / "bq_tools.py").exists()
+    assert not (raiz / "tests" / "test_bq_tools.py").exists()
+    for agente in ("agent_pp", "agent_aa"):
+        assert not (raiz / "core" / "prompts" / agente / "bq.md").exists()
+        assert not (raiz / "core" / "prompts" / agente / "bq_description.md").exists()
+
+    # nada que pueda ejecutarse o inyectarse
+    rompe = [
+        "from core import bq_tools", "import bq_tools", "bq_tools.",
+        "BIGQUERY_DATASET", "BQ_MAX_BYTES", "BQ_MAX_ROWS",
+        "google-cloud-bigquery", "from google.cloud import bigquery",
+        "prompts.bq_instruction", "prompts.bq_description",
+    ]
+    for patron in rompe:
+        golpes = []
+        for p in list(raiz.rglob("*.py")) + list(raiz.rglob("*.toml")):
+            if ".venv" in str(p) or "__pycache__" in str(p):
+                continue
+            texto = p.read_text(encoding="utf-8")
+            # la lista de patrones de este propio test no cuenta
+            if p.name == "test_core_agent.py":
+                continue
+            if patron in texto:
+                golpes.append(p.relative_to(raiz).as_posix())
+        assert not golpes, f"{patron} sigue en {golpes}"
+
+
+def test_el_root_nombra_al_catalogo_no_a_bq():
+    from core import prompts
+    for agente in ("agent_pp", "agent_aa"):
+        texto = prompts.root_instruction(agente)
+        assert "CATÁLOGO" in texto
+        assert "Postgres" not in texto
+
+
+def test_los_prompts_de_bq_ya_no_existen():
+    from pathlib import Path
+    raiz = Path(__file__).resolve().parents[1] / "core" / "prompts"
+    for agente in ("agent_pp", "agent_aa"):
+        assert not (raiz / agente / "bq.md").exists()
+        assert not (raiz / agente / "bq_description.md").exists()

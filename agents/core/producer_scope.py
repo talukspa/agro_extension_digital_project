@@ -33,7 +33,7 @@ from core import record_tools
 # proceso y un único slot le daría a un productor el alcance de otro.
 #
 # Sólo se cachean ÉXITOS (mismo criterio que list_tables/get_schema en
-# core/bq_tools.py): un fallo del endpoint NO entra aquí, así que la próxima
+# core/catalog_tools.py): un fallo del endpoint NO entra aquí, así que la próxima
 # vuelta lo reintenta sola. Cachear el fallo sería más "eficiente", pero el
 # turno de WhatsApp siguiente llega segundos después — una plataforma caída
 # que se cachea deja al productor sin contexto (y al modelo inventando ids)

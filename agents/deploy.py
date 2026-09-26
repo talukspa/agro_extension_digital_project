@@ -20,10 +20,6 @@ from vertexai import agent_engines
 REQUIREMENTS = [
     "google-cloud-aiplatform[adk,agent_engines]==1.157.0",
     "google-adk==2.7.0",
-    # ADK 2.x moved google-cloud-bigquery behind extras ([gcp]/[bigquery-analytics]),
-    # so it is no longer pulled in transitively — it MUST stay listed explicitly
-    # here and in pyproject.toml or core/bq_tools.py fails to import on the engine.
-    "google-cloud-bigquery==3.33.0",
     "google-cloud-discoveryengine==0.13.12",
     # core/record_tools.py lo importa para hablar con /api/agent/*. Llega
     # transitivamente en el venv local, pero en el engine sólo se instala lo
@@ -55,7 +51,7 @@ AGENTS = {
 
 RUNTIME_ENV_KEYS = [
     "DATASTORE_AA_ID", "DATASTORE_PP_ID", "DATASTORE_GUIDES_ID",
-    "DATASTORE_FAQ_ID", "DATASTORE_CHILEPRUNES_CL_ID", "BIGQUERY_DATASET",
+    "DATASTORE_FAQ_ID", "DATASTORE_CHILEPRUNES_CL_ID",
     # El expediente: base de la app y token de servicio de /api/agent/*.
     # Obligatorias, no opcionales — van acá y no entre los knobs de más abajo:
     # sin ellas cada tool del expediente devuelve AGENT_SERVICE_TOKEN_UNSET o
@@ -63,6 +59,12 @@ RUNTIME_ENV_KEYS = [
     # conversación real en lugar de al desplegar. El chequeo de `missing` en
     # main() sólo imprime los NOMBRES que falten, nunca los valores.
     "CIRUELA_API_BASE", "AGENT_SERVICE_TOKEN",
+    # El catálogo: el DSN del rol de sólo lectura sobre el Postgres de Supabase.
+    # Reemplaza al dataset de BigQuery que leía el catálogo. Obligatoria por la
+    # misma razón que las de arriba: sin ella cada tool del catálogo devuelve
+    # "CATALOG_DSN no está configurada" y el fallo aparece en la primera
+    # conversación, no al desplegar.
+    "CATALOG_DSN",
 ]
 
 # Optional per-engine tuning knobs. Unlike RUNTIME_ENV_KEYS these are NOT
@@ -70,13 +72,12 @@ RUNTIME_ENV_KEYS = [
 # environment, so leaving one unset keeps the code default.
 #
 # WITHOUT this passthrough these vars are read by code that only ever runs
-# INSIDE the engine (core/bq_tools.py, core/llm_global.py), where nothing sets
+# INSIDE the engine (core/catalog_tools.py, core/llm_global.py), where nothing sets
 # them — so every "env-overridable per engine" knob silently pinned to its
 # default and no operator override could ever take effect.
 OPTIONAL_ENV_KEYS = [
     "GEMINI_LOCATION",   # core/llm_global.py
-    "BQ_MAX_BYTES",      # core/bq_tools.py — scan cap
-    "BQ_MAX_ROWS",       # core/bq_tools.py — row ceiling
+    "CATALOG_MAX_ROWS",  # core/catalog_tools.py — techo de filas por consulta
     "TOOL_MAX_RETRIES",  # core/agent.py — reflect-and-retry cap
     # Without these two the planner can never be switched on for a deployed
     # engine, which would make the whole ship-dark-then-A/B design unusable.

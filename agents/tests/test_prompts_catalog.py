@@ -1,7 +1,7 @@
 """Los prompts del catálogo, ya sobre Postgres.
 
 Cada test de acá corresponde a una forma concreta de romperse en silencio. Los
-nombres de columna de BigQuery en un ejemplo de SQL no dan error: le enseñan al
+nombres de columna de Postgres en un ejemplo de SQL no dan error: le enseñan al
 modelo a escribir consultas que fallan, o peor, consultas que devuelven cero filas
 y parecen una respuesta.
 """
@@ -11,11 +11,11 @@ from core import prompts
 
 AGENTES = ["agent_pp", "agent_aa"]
 
-# Todo lo que era de BigQuery y no puede sobrevivir en el prompt nuevo.
+# Todo lo que era de Postgres y no puede sobrevivir en el prompt nuevo.
 COLUMNAS_VIEJAS = [
     "estandar_pp", "estandar_aa", "recursos_pp", "recursos_aa",
     "buena_practica", "medio_de_verificacion", "link_recursos",
-    "BigQuery", "bigquery",
+    "Postgres", "bigquery",
 ]
 
 
@@ -77,7 +77,7 @@ def test_no_ensena_a_filtrar_por_standard_code(agente):
 @pytest.mark.parametrize("agente", AGENTES)
 def test_ofrece_las_dos_fuentes_de_material_de_apoyo(agente):
     """`link` es una URL por pregunta; `resources` trae tipo, detalle y varias
-    (pdf, web, curso). BigQuery sólo tenía la primera, así que el prompt viejo no
+    (pdf, web, curso). Postgres sólo tenía la primera, así que el prompt viejo no
     podía nombrar la segunda."""
     plano = _plano(prompts.catalog_instruction(agente))
     # las DOS descritas como fuentes distintas, no sólo nombradas de pasada

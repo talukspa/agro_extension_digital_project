@@ -14,17 +14,17 @@ from vertexai.agent_engines import AdkApp
 from google.adk.planners import BuiltInPlanner
 from google.genai.types import ThinkingConfig
 
-from core import bq_tools, consent_guard, producer_scope, prompts, record_tools
+from core import catalog_tools, consent_guard, producer_scope, prompts, record_tools
 from core.llm_global import GlobalGemini
 from core.retry_plugin import OkContractRetryPlugin
 
 # Model choices are per-role, and the cheap one is NOT the obvious one.
 #
-# ROOT_MODEL / BQ_MODEL — gemini-3.7-flash costs $0.75/$3.75 per 1M in/out
+# ROOT_MODEL / CATALOG_MODEL — gemini-3.7-flash costs $0.75/$3.75 per 1M in/out
 # through 2026-12-31 and $1.50/$7.50 after, versus $1.50/$9.00 for the
 # gemini-3.5-flash it replaces. It is cheaper today (-50% in, -58% out) and
 # still cheaper once the introductory rate lapses (same in, -17% out), so this
-# swap never costs more. A live 4-tool BigQuery run also came back in 13.2s
+# swap never costs more. A live 4-tool Postgres run also came back in 13.2s
 # against 22.2s (n=1, indicative not conclusive). gemini-3.6-flash is priced
 # identically, so there is no reason to prefer it.
 #
@@ -34,7 +34,7 @@ from core.retry_plugin import OkContractRetryPlugin
 # post-intro price is not published yet — worth re-checking before then, since
 # RAG is the highest-volume path.
 ROOT_MODEL = "gemini-3.7-flash"
-BQ_MODEL = "gemini-3.7-flash"
+CATALOG_MODEL = "gemini-3.7-flash"
 RAG_MODEL = "gemini-3.1-flash-lite"
 
 # El expediente es lectura y ESCRITURA sobre el productor: adjunta respaldos,
@@ -48,14 +48,14 @@ def _tool_max_retries() -> int:
     """Consecutive tool failures before the plugin stops reflecting.
 
     Read per call, never bound at import — same reason as the caps in
-    core/bq_tools.py: an import-time binding is untestable via monkeypatch and
+    core/catalog_tools.py: an import-time binding is untestable via monkeypatch and
     silently ignores the per-engine override.
     """
     return int(os.environ.get("TOOL_MAX_RETRIES", "3"))
 
 
 def _planner():
-    """BuiltInPlanner for the root + BQ agents, or None.
+    """BuiltInPlanner for the root + catalog agents, or None.
 
     DEFAULT IS OFF. #44 estimated "+10-15% tokens", but thinking tokens bill at
     OUTPUT rate and a WhatsApp reply is only 100-500 tokens — a 2048-token
@@ -65,7 +65,7 @@ def _planner():
     PlanReActPlanner is deliberately not offered: it adds a full extra LLM
     round-trip per planning step, which WhatsApp latency cannot absorb.
 
-    Env is read per call, never bound at import — see the B4 note in bq_tools.
+    Env is read per call, never bound at import — see the note in catalog_tools.
     """
     if os.environ.get("AGENT_PLANNER", "off") != "builtin":
         return None
@@ -137,20 +137,15 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
     )
 
     # No planner on the RAG agent: it is a single-step retrieve-and-answer task,
-    # so thinking budget buys nothing. The BQ agent's 4-tool workflow IS a plan,
+    # so thinking budget buys nothing. The catalog agent's 4-tool workflow IS a plan,
     # and the root's job is routing — both can benefit.
-    bq = LlmAgent(
-        name=f"{name}_bq",
-        model=GlobalGemini(model=BQ_MODEL),
-        instruction=prompts.bq_instruction(key),
-        description=prompts.bq_description(key),
+    catalog = LlmAgent(
+        name=f"{name}_catalog",
+        model=GlobalGemini(model=CATALOG_MODEL),
+        instruction=prompts.catalog_instruction(key),
+        description=prompts.catalog_description(key),
         planner=_planner(),
-        tools=[
-            bq_tools.list_tables,
-            bq_tools.get_schema,
-            bq_tools.check_query,
-            bq_tools.run_query,
-        ],
+        tools=list(catalog_tools.TOOLS),
     )
 
     record = LlmAgent(
@@ -172,16 +167,16 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
         before_model_callback=consent_guard.before_model,
         tools=[
             agent_tool.AgentTool(agent=rag),
-            agent_tool.AgentTool(agent=bq),
+            agent_tool.AgentTool(agent=catalog),
             agent_tool.AgentTool(agent=record),
         ],
     )
-    # The plugin only sees our BigQuery failures because OkContractRetryPlugin
+    # The plugin only sees our tool failures because OkContractRetryPlugin
     # teaches it the {ok, error} contract — see core/retry_plugin.py.
     #
     # throw_exception_if_retry_exceeded=False is REQUIRED, not cosmetic: it
     # defaults to True, so once max_retries consecutive failures are reached the
-    # plugin RAISES out of the tool path. core/bq_tools.py is built on "never
+    # plugin RAISES out of the tool path. core/catalog_tools.py is built on "never
     # raise into the model"; letting the last attempt raise inverts that
     # contract exactly when the model is already struggling, turning a
     # recoverable "I couldn't find that" into an engine-level exception.

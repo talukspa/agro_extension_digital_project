@@ -4,7 +4,7 @@ Gemini 3.x preview models (gemini-3.5-flash, gemini-3.1-flash-lite, ...) are
 served only from the Vertex AI `global` location as of 2026-06. The Agent
 Runtime engine itself must stay regional (Agent Engine resources are not
 available in `global`), but the LLM client inside the engine can target
-`global` for model calls. BigQuery + Vertex AI Search clients keep using
+`global` for model calls. Postgres + Vertex AI Search clients keep using
 the engine's regional location.
 
 This follows ADK's documented override pattern (see google.adk.models.Gemini

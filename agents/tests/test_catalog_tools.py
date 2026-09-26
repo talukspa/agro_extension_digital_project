@@ -1,6 +1,6 @@
 """Las cuatro tools del catálogo, sobre Postgres.
 
-Reemplazan a las de BigQuery, que leían una importación de Excel que nada
+Reemplazan a las que leían BigQuery, una importación de Excel que nada
 sincronizaba: 145 códigos de Producción Primaria contra los 129 que tiene
 `questions`. La forma de las cuatro tools y el contrato `{ok, error}` se
 conservan; lo que cambia es el motor y los nombres de las columnas.
@@ -168,7 +168,7 @@ def test_sin_dsn_no_intenta_conectar(monkeypatch):
 
 # ------------------------------------------------------ leído por llamada, no al importar
 def test_el_dsn_se_lee_por_llamada(monkeypatch):
-    """Misma razón que los topes de bq_tools y las bases de record_tools: una
+    """Misma razón que los topes de catalog_tools y las bases de record_tools: una
     lectura en el import es intesteable por monkeypatch y se come el override por
     engine."""
     monkeypatch.setenv("CATALOG_DSN", "postgresql://primero/d")
@@ -215,7 +215,7 @@ def test_get_schema_rechaza_una_tabla_fuera_del_catalogo(monkeypatch):
 
 
 def test_check_query_no_ejecuta_la_consulta(monkeypatch):
-    """BigQuery tenía dry-run gratis; Postgres no. EXPLAIN planifica sin ejecutar
+    """Postgres tenía dry-run gratis; Postgres no. EXPLAIN planifica sin ejecutar
     el cuerpo — verificado: un EXPLAIN de pg_sleep(3) tarda 0.00s."""
     registro = _stub(monkeypatch, filas=[("Seq Scan on questions",)],
                      descripcion=[("QUERY PLAN",)])
