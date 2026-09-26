@@ -17,3 +17,7 @@ respaldos ya subió y de su conversación con el auditor.
 **No lo uses** para preguntas sobre el estándar en general —"¿cuántos puntos
 vale la dimensión Ética?", "¿qué pide la acción P001?" sin referirse a su
 plan—: eso es del catálogo.
+
+Tampoco lo uses para "cómo hago" o "cómo instalo" algo del estándar —"¿cómo
+instalo un medidor de agua?"—, aunque use la misma palabra que un dato suyo:
+preguntar CÓMO implementar algo es normativa, no su expediente.

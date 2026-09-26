@@ -356,8 +356,8 @@ async def registrar_labor(tool_context: ToolContext, estandar: str,
     Args:
         estandar: "PRODUCCION_PRIMARIA" o "ADECUACION_AGROINDUSTRIAL". Lo
             deduces tú del contenido: campo, riego, agua, suelo y plagas es
-            Producción Primaria; planta, líneas, equipos y proceso es Adecuación
-            Agroindustrial. No se lo preguntes al productor.
+            Producción Primaria; planta, líneas, equipos, bodega y proceso es
+            Adecuación Agroindustrial. No se lo preguntes al productor.
         datos: los valores reportados, por ejemplo
             {"supply_source": "pozo", "monthly_consumption_m3": 120}.
         codigo_accion: el código de la acción relacionada, si aplica.
