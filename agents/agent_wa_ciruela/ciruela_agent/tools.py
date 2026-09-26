@@ -44,8 +44,9 @@ _producer_user_id: str | None = None
 
 def bind_producer(producer_user_id: str) -> None:
     """Fija el productor de la sesión. Lo llama el arranque, no el modelo."""
-    global _producer_user_id
+    global _producer_user_id, _alcance_cache
     _producer_user_id = producer_user_id
+    _alcance_cache = None  # otro productor, otro alcance
 
 
 def _alcance(**opcionales: str) -> dict[str, Any]:
@@ -56,6 +57,90 @@ def _alcance(**opcionales: str) -> dict[str, Any]:
     documenta el contrato. Se filtra acá una vez en lugar de en cada tool.
     """
     return {k: v.strip() for k, v in opcionales.items() if isinstance(v, str) and v.strip()}
+
+
+_alcance_cache: dict[str, Any] | None = None
+
+
+def contexto_del_productor() -> str:
+    """Devuelve el alcance del productor como texto para la instrucción.
+
+    POR QUÉ EXISTE: el agente preguntaba "¿de qué instalación?" antes de llamar a
+    ninguna herramienta, ~2 de cada 3 veces, incluso cuando el productor tenía
+    UNA sola instalación y no había nada que preguntar. La instrucción ya decía
+    "LLAMA PRIMERO, SIN ESOS DATOS" y el modelo la ignoraba; medido contra el
+    prompt anterior, falla igual, así que no era una regresión sino que pedir eso
+    por instrucción no alcanza.
+
+    La causa es que `empresa_id` e `instalacion_id` le parecen casillas que hay
+    que llenar, y la única fuente que conoce para llenarlas es preguntarle al
+    productor. La solución no es insistirle: es que ya lo sepa. Con el alcance en
+    la instrucción, si hay una sola instalación no tiene nada que averiguar, y si
+    hay varias puede preguntar por su nombre de inmediato, sin gastar un turno.
+
+    Cuesta una llamada HTTP por sesión, cacheada. El webhook ya hace una parecida
+    al resolver la identidad.
+    """
+    global _alcance_cache
+    if _alcance_cache is None:
+        respuesta = _post("business-profile", {})
+        _alcance_cache = respuesta if isinstance(respuesta, dict) else {}
+
+    datos = _alcance_cache
+    if datos.get("ambiguous"):
+        empresas = [
+            f"{c.get('legalName') or c.get('commercialName')} -> empresa_id={c.get('businessId')}"
+            for c in datos.get("candidates", [])
+        ]
+        return (
+            "\n\nCONTEXTO DE ESTE PRODUCTOR\n"
+            f"Tiene {len(empresas)} empresas: {'; '.join(empresas)}.\n"
+            "Antes de darle cualquier dato necesitas saber de cuál te habla. "
+            "Pregúntale por su NOMBRE, nunca por un identificador, y después copia "
+            "en empresa_id el id de arriba que le corresponde, tal cual. "
+            "empresa_id NO es el nombre de la empresa: si mandas el nombre ahí, la "
+            "llamada se rechaza y lo que el productor te pidió registrar se pierde."
+        )
+
+    perfil = (datos.get("profile") or {}) if isinstance(datos, dict) else {}
+    if not perfil:
+        return ""  # sin perfil no se inventa contexto; las tools avisarán el error
+
+    inst = perfil.get("installations") or []
+    nombre = perfil.get("commercialName") or perfil.get("legalName") or "su empresa"
+
+    lineas = [
+        "\n\nCONTEXTO DE ESTE PRODUCTOR",
+        f"Empresa: {nombre}. Es su ÚNICA empresa: deja empresa_id vacío siempre, "
+        "no pongas ahí el nombre.",
+    ]
+    if len(inst) == 1:
+        i = inst[0]
+        lineas.append(
+            f"Tiene UNA sola instalación: {i.get('name')} ({i.get('city')}). "
+            "Tus herramientas ya saben cuál es: resuelven esa sola sin que les "
+            "pases instalacion_id. Así que no hay nada que preguntar ni que "
+            "confirmar. Si te pregunta por su cumplimiento, llama a "
+            f"obtener_cumplimiento en el mismo turno y dale el número, nombrando "
+            f"{i.get('name')} para que sepa de qué le hablas."
+        )
+    elif len(inst) > 1:
+        detalle = "; ".join(
+            f"{i.get('name')} ({i.get('city')}) -> instalacion_id={i.get('installationId')}"
+            for i in inst
+        )
+        lineas.append(
+            f"Tiene {len(inst)} instalaciones: {detalle}. "
+            "El cumplimiento es de UNA instalación, no de la empresa completa, "
+            "así que cuando te pregunte por eso necesitas saber de cuál. "
+            "Pregúntale por el NOMBRE de la instalación, nunca por un identificador, "
+            "y después copia en instalacion_id el id de arriba que le corresponde, "
+            "tal cual, sin inventarlo ni derivarlo del nombre."
+        )
+    else:
+        lineas.append("No tiene instalaciones activas registradas.")
+
+    return "\n".join(lineas)
 
 
 def _post(path: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -259,7 +344,9 @@ def adjuntar_evidencia(
         codigo_accion: el código de la acción, por ejemplo "A001".
         id_de_adjunto: el identificador del archivo que llegó por WhatsApp.
         nombre_archivo: nombre visible para el archivo, si se conoce.
-        estandar: "PRODUCCION_PRIMARIA" o "ADECUACION_AGROINDUSTRIAL".
+        estandar: déjalo VACÍO en el primer intento, siempre. Complétalo sólo
+            después de que esta llamada haya devuelto `ambiguous` y el productor
+            haya dicho de cuál de los dos es.
     """
     payload: dict[str, Any] = {"questionCode": codigo_accion, "mediaId": id_de_adjunto}
     if nombre_archivo:
