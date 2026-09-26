@@ -6,6 +6,18 @@ test against the dev project.
 """
 from unittest.mock import MagicMock
 
+
+def _todas_las_runtime(deploy) -> dict[str, str]:
+    """Un valor de mentira para CADA variable obligatoria del runtime.
+
+    Se deriva de RUNTIME_ENV_KEYS en lugar de repetir la lista: main() aborta si
+    falta cualquiera, así que un diccionario hardcodeado hace fallar todos estos
+    tests cada vez que se agrega una variable — y el fallo no dice nada sobre la
+    variable nueva, sólo que estos tests no se enteraron.
+    """
+    return {k: f"valor-{k.lower()}" for k in deploy.RUNTIME_ENV_KEYS}
+
+
 import pytest
 
 
@@ -13,20 +25,16 @@ def test_env_vars_for_collects_required_runtime_keys(monkeypatch):
     """env_vars_for must read exactly the runtime + telemetry env keys."""
     import importlib
     import deploy
-    for k, v in {
-        "DATASTORE_AA_ID": "ds-aa",
-        "DATASTORE_PP_ID": "ds-pp",
-        "DATASTORE_GUIDES_ID": "ds-g",
-        "DATASTORE_FAQ_ID": "ds-faq",
-        "DATASTORE_CHILEPRUNES_CL_ID": "ds-cl",
-        "BIGQUERY_DATASET": "ds-bq",
-    }.items():
+    esperado = _todas_las_runtime(deploy)
+    for k, v in esperado.items():
         monkeypatch.setenv(k, v)
     monkeypatch.delenv("OTEL_CAPTURE_MESSAGE_CONTENT", raising=False)
     importlib.reload(deploy)  # TELEMETRY_ENV is materialized at import
     env = deploy.env_vars_for("agent_aa")
-    assert env["DATASTORE_AA_ID"] == "ds-aa"
-    assert env["BIGQUERY_DATASET"] == "ds-bq"
+    # TODAS las obligatorias, no una muestra: si se agrega una variable a
+    # RUNTIME_ENV_KEYS y env_vars_for se olvida de pasarla, esto falla.
+    for k, v in esperado.items():
+        assert env[k] == v, k
     # Telemetry must be on by default.
     assert env["GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY"] == "true"
     # Message-content capture is OFF by default to keep PII out of traces.
@@ -37,14 +45,7 @@ def test_env_vars_for_message_content_capture_opt_in(monkeypatch):
     """Operators can flip OTEL_CAPTURE_MESSAGE_CONTENT to opt back in."""
     import importlib
     import deploy
-    for k, v in {
-        "DATASTORE_AA_ID": "ds-aa",
-        "DATASTORE_PP_ID": "ds-pp",
-        "DATASTORE_GUIDES_ID": "ds-g",
-        "DATASTORE_FAQ_ID": "ds-faq",
-        "DATASTORE_CHILEPRUNES_CL_ID": "ds-cl",
-        "BIGQUERY_DATASET": "ds-bq",
-    }.items():
+    for k, v in _todas_las_runtime(deploy).items():
         monkeypatch.setenv(k, v)
     monkeypatch.setenv("OTEL_CAPTURE_MESSAGE_CONTENT", "true")
     importlib.reload(deploy)
@@ -64,14 +65,7 @@ def test_env_vars_for_omits_reserved_project_var(monkeypatch):
     NOT be shipped in deployment_spec.env — create() rejects them. The runtime
     injects them automatically."""
     import deploy
-    for k, v in {
-        "DATASTORE_AA_ID": "ds-aa",
-        "DATASTORE_PP_ID": "ds-pp",
-        "DATASTORE_GUIDES_ID": "ds-g",
-        "DATASTORE_FAQ_ID": "ds-faq",
-        "DATASTORE_CHILEPRUNES_CL_ID": "ds-cl",
-        "BIGQUERY_DATASET": "ds-bq",
-    }.items():
+    for k, v in _todas_las_runtime(deploy).items():
         monkeypatch.setenv(k, v)
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "agro-extension-digital-npe")
     env = deploy.env_vars_for("agent_aa")
@@ -324,11 +318,7 @@ def test_main_aborts_before_mutation_when_required_env_missing(monkeypatch):
 
 def test_main_happy_path_deploys_both_agents(monkeypatch):
     import deploy
-    for k, v in {
-        "DATASTORE_AA_ID": "a", "DATASTORE_PP_ID": "b", "DATASTORE_GUIDES_ID": "c",
-        "DATASTORE_FAQ_ID": "d", "DATASTORE_CHILEPRUNES_CL_ID": "e",
-        "BIGQUERY_DATASET": "bq",
-    }.items():
+    for k, v in _todas_las_runtime(deploy).items():
         monkeypatch.setenv(k, v)
     # The workflow exports GOOGLE_CLOUD_PROJECT matching --env; mirror that.
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "agro-extension-digital-prd")
@@ -358,11 +348,7 @@ def test_main_aborts_when_project_env_mismatches_target(monkeypatch):
     before any deploy — the agent modules bake datastore/RAG paths from that
     env var, so a mismatch would ship a cross-project engine."""
     import deploy
-    for k, v in {
-        "DATASTORE_AA_ID": "a", "DATASTORE_PP_ID": "b", "DATASTORE_GUIDES_ID": "c",
-        "DATASTORE_FAQ_ID": "d", "DATASTORE_CHILEPRUNES_CL_ID": "e",
-        "BIGQUERY_DATASET": "bq",
-    }.items():
+    for k, v in _todas_las_runtime(deploy).items():
         monkeypatch.setenv(k, v)
     # Target prd, but the environment still points at npe.
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "agro-extension-digital-npe")
@@ -413,3 +399,58 @@ def test_every_optional_knob_is_read_by_some_core_module():
     )
     for key in deploy.OPTIONAL_ENV_KEYS:
         assert key in src, f"{key} is shipped but no core/ module reads it"
+
+
+# ---------------------------------------------- las variables del expediente
+def _version_de_httpx_en_el_lockfile() -> str:
+    """Lee la versión que uv resolvió, para no repetirla a mano en dos lados."""
+    from pathlib import Path
+    lineas = (Path(__file__).resolve().parents[1] / "uv.lock").read_text().splitlines()
+    for i, linea in enumerate(lineas):
+        if linea.strip() == 'name = "httpx"':
+            for siguiente in lineas[i + 1 : i + 4]:
+                if siguiente.startswith("version = "):
+                    return siguiente.split("=", 1)[1].strip().strip('"')
+    raise AssertionError("httpx no aparece como paquete en uv.lock")
+
+
+def test_las_variables_del_expediente_son_obligatorias():
+    """Sin ellas el expediente no puede llamar a nada, y el fallo aparece recién
+    en la primera conversación real, no al desplegar.
+
+    Estar en RUNTIME_ENV_KEYS es lo que las vuelve obligatorias: main() aborta
+    con la lista de las que falten (deploy.py, `missing`).
+    """
+    import deploy
+    assert "CIRUELA_API_BASE" in deploy.RUNTIME_ENV_KEYS
+    assert "AGENT_SERVICE_TOKEN" in deploy.RUNTIME_ENV_KEYS
+
+
+def test_httpx_va_en_los_requirements_del_engine():
+    """core/record_tools.py lo importa; si falta, el engine no arranca."""
+    import deploy
+    assert any(r.startswith("httpx==") for r in deploy.REQUIREMENTS)
+
+
+def test_el_pin_de_httpx_coincide_con_el_lockfile():
+    """REQUIREMENTS dice en su comentario que va sincronizada con uv.lock. Un
+    pin desviado rompe sólo al desplegar, que es el peor momento para saberlo."""
+    import deploy
+    pin = next(r for r in deploy.REQUIREMENTS if r.startswith("httpx=="))
+    assert pin == f"httpx=={_version_de_httpx_en_el_lockfile()}"
+
+
+def test_httpx_declarado_en_pyproject():
+    """Los dos lugares: si alguien agrega uno y olvida el otro, esto falla."""
+    from pathlib import Path
+    texto = (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text()
+    assert "httpx" in texto
+
+
+def test_env_vars_for_pasa_las_del_expediente(monkeypatch):
+    import deploy
+    for k in deploy.RUNTIME_ENV_KEYS:
+        monkeypatch.setenv(k, f"valor-{k}")
+    env = deploy.env_vars_for("agent_pp")
+    assert env["CIRUELA_API_BASE"] == "valor-CIRUELA_API_BASE"
+    assert env["AGENT_SERVICE_TOKEN"] == "valor-AGENT_SERVICE_TOKEN"

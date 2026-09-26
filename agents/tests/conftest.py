@@ -18,6 +18,12 @@ os.environ.setdefault("DATASTORE_PP_ID", "test-datastore-pp")
 os.environ.setdefault("DATASTORE_GUIDES_ID", "test-datastore-guides")
 os.environ.setdefault("DATASTORE_FAQ_ID", "test-datastore-faq")
 os.environ.setdefault("DATASTORE_CHILEPRUNES_CL_ID", "test-datastore-chileprunes")
+# El expediente: sus tools leen estas dos por llamada. Van acá por la misma
+# razón que las de arriba — son obligatorias en RUNTIME_ENV_KEYS, así que sin
+# ellas los tests de deploy_one revientan con un KeyError que no dice nada sobre
+# lo que el test estaba probando. Valores de mentira: ninguna prueba sale a red.
+os.environ.setdefault("CIRUELA_API_BASE", "http://app-de-prueba.invalid")
+os.environ.setdefault("AGENT_SERVICE_TOKEN", "token-de-prueba")
 
 import google.auth  # noqa: E402
 from google.auth.credentials import AnonymousCredentials  # noqa: E402

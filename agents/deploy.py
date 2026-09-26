@@ -25,6 +25,10 @@ REQUIREMENTS = [
     # here and in pyproject.toml or core/bq_tools.py fails to import on the engine.
     "google-cloud-bigquery==3.33.0",
     "google-cloud-discoveryengine==0.13.12",
+    # core/record_tools.py lo importa para hablar con /api/agent/*. Llega
+    # transitivamente en el venv local, pero en el engine sólo se instala lo
+    # que está en esta lista, así que tiene que estar acá Y en pyproject.toml.
+    "httpx==0.28.1",
 ]
 
 AGENTS = {
@@ -48,6 +52,13 @@ AGENTS = {
 RUNTIME_ENV_KEYS = [
     "DATASTORE_AA_ID", "DATASTORE_PP_ID", "DATASTORE_GUIDES_ID",
     "DATASTORE_FAQ_ID", "DATASTORE_CHILEPRUNES_CL_ID", "BIGQUERY_DATASET",
+    # El expediente: base de la app y token de servicio de /api/agent/*.
+    # Obligatorias, no opcionales — van acá y no entre los knobs de más abajo:
+    # sin ellas cada tool del expediente devuelve AGENT_SERVICE_TOKEN_UNSET o
+    # pega contra localhost, y el fallo aparece recién en la primera
+    # conversación real en lugar de al desplegar. El chequeo de `missing` en
+    # main() sólo imprime los NOMBRES que falten, nunca los valores.
+    "CIRUELA_API_BASE", "AGENT_SERVICE_TOKEN",
 ]
 
 # Optional per-engine tuning knobs. Unlike RUNTIME_ENV_KEYS these are NOT
