@@ -37,13 +37,24 @@ from core import record_tools
 # Frases con las que un productor chileno pide la baja sin ambigüedad posible.
 # Deliberadamente cortas y literales: esto no interpreta, sólo reconoce.
 #
-# "no me (escriban?|escribas|mandes?|manden)...m[áa]s" y "no quiero..." exigen
-# el "no me"/"no quiero" pegado a la forma exacta de quien pide la baja: así
-# no muerden "no me escribió nadie?" (pasado, no es un pedido) ni "por qué no
-# me mandan más las guías?" ("mandan" indicativo de terceros, no "mandes?" ni
-# "manden" que es lo que dice quien pide que le paren de escribir).
+# "no me (escriban?|escribas|mandes?|manden)" exige el "no me" pegado a la
+# forma exacta de quien pide la baja: así no muerde "no me escribió nadie?"
+# (pasado, no es un pedido) ni "por qué no me mandan más las guías?"
+# ("mandan" indicativo de terceros, no "mandes?" ni "manden").
+#
+# El lookahead que sigue es la parte que distingue "no me escribas" (baja: el
+# imperativo negado no tiene objeto) de "no me mandes la foto" (instrucción
+# sobre un mensaje concreto: el imperativo negado SÍ tiene objeto, y ese
+# objeto es lo que decide, no la presencia de "más"). No hay una regla de
+# regex para "objeto ausente" en español libre, así que esto ENUMERA los
+# rellenos que pueden seguir al verbo sin que dejen de ser una baja — "más",
+# "mensajes/wsp/whatsapp" o "por favor", en cualquier combinación, y nada
+# más hasta el final del mensaje. Es una lista, no una regla: una forma de
+# pedir la baja que meta un objeto distinto ahí ("no me escribas al celular")
+# no la reconoce esta expresión, y por eso el modelo sigue cubriendo el resto.
+_RELLENO_BAJA = r"(?:\s+(?:m[áa]s|mensajes|wsp|whatsapp|por favor))*[\s,.!?]*$"
 _PIDE_BAJA = re.compile(
-    r"\bno me (escriban?|escribas|mandes?|manden)\b.{0,20}\bm[áa]s\b"
+    r"\bno me (escriban?|escribas|mandes?|manden)\b(?=" + _RELLENO_BAJA + r")"
     r"|\bno quiero (m[áa]s (mensajes|wsp|whatsapp)|recibir (los )?mensajes)\b"
     r"|\bd[ée]jame de escribir\b"
     r"|\bdame de baja\b|\bd[ae]r(me)? de baja\b|\bb[áa]jame de la lista\b"
@@ -73,6 +84,17 @@ def _sin_negacion_antes(texto: str, posicion: int) -> bool:
     frase que niega varía ("no vuelvan a escribirme" vs. "no quiero que
     vuelvan a escribirme"), así que se busca la negación en todo el texto
     anterior al match en lugar de en una ventana fija.
+
+    DELIBERADAMENTE CONSERVADOR, y a propósito asimétrico con _PIDE_BAJA: un
+    "no" en cualquier parte del mensaje ANTES de la frase de alta la anula,
+    aunque ese "no" pertenezca a otra idea. "no me llegó nada, dame de alta"
+    cae al modelo en vez de registrar "granted" — un falso negativo, pero uno
+    inofensivo: el alta es una conveniencia que la instrucción del prompt ya
+    cubre. La baja es la obligación legal, así que ahí sí se enumeran los
+    rellenos permitidos (ver _RELLENO_BAJA) en vez de exigir ausencia total
+    de "no" en el mensaje. Si algún día "arreglas" este falso negativo para
+    que el alta sea menos conservadora, revisa primero que no reabra el caso
+    de "no vuelvan a escribirme" registrándose como alta.
     """
     return not _NEGACION.search(texto[:posicion])
 

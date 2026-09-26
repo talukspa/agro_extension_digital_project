@@ -43,7 +43,13 @@ BAJAS = ["no me escriban más por favor", "no me manden más mensajes",
          "dame de baja", "bájame de la lista", "para de escribirme",
          "me doy de baja", "no quiero más wsp", "déjame de escribir",
          "NO ME ESCRIBAN MAS", "quiero dar de baja", "no me escribas más",
-         "ya no quiero recibir los mensajes"]
+         "ya no quiero recibir los mensajes",
+         # El imperativo negado SIN objeto ("no me escriban") es una baja
+         # igual que con "más" — "más" nunca fue la señal real. Ver
+         # _RELLENO_BAJA en consent_guard.py.
+         "no me escriban", "ya no me escriban", "no me escriban por favor",
+         "no me escribas", "no me manden mensajes", "no me mandes mensajes",
+         "por favor no me escriban"]
 
 
 async def test_toda_forma_de_pedir_la_baja_la_registra(registrado):
