@@ -52,7 +52,8 @@ cd /Users/rsolar/repos/agro_extension_digital_project/.worktrees/agents-endpoint
 .venv/bin/python -m pytest -q
 ```
 
-Esperado: `80 passed`.
+Esperado: `71 passed`. (En el checkout principal son 80: los 9 de más son
+`test_ciruela_contexto.py`, que vive en la rama del prototipo, no en main.)
 
 **Ojo:** no hagas `source .env` antes de correr pytest. `.env` trae el proyecto y el dataset reales, y `tests/conftest.py` usa `setdefault`, así que `.env` gana y dos tests de BigQuery/datastore fallan por comparar contra el valor real. Eso es preexistente y no es tuyo.
 
@@ -1584,7 +1585,7 @@ donde importe su fecha objetivo o si ya subió respaldos, es del EXPEDIENTE.
 .venv/bin/python -m pytest -q
 ```
 
-Esperado: todos los tests nuevos pasan y no se rompe ninguno de los 80
+Esperado: todos los tests nuevos pasan y no se rompe ninguno de los 71
 anteriores. Si `test_core_agent.py` falla por `_tmpl_attrs`, arregla el acceso
 como dice el Step 1.
 
