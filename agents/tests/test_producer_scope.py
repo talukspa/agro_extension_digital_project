@@ -84,6 +84,92 @@ def test_sin_perfil_no_inventa_contexto():
     assert producer_scope.render(None) == ""
 
 
+# --- ids/nombres ausentes: nunca "None" en el prompt ------------------------
+#
+# Este archivo existe para que el modelo no invente un id derivado del
+# nombre ("PLADES_SANTIAGO"). Si un candidato sin id se dejara en el bloque
+# tal cual, "cópialo tal cual" haría que el modelo mande el string "None" —
+# el mismo desenlace (400 ID_INVALID) con una causa distinta.
+
+
+def test_instalacion_sin_id_se_omite_no_inventa_none():
+    texto = producer_scope.render(_perfil(
+        {"name": "Centro de Acopio", "city": "Curicó"},  # sin installationId
+        {"installationId": PLANTA, "name": "Planta de Deshidratado",
+         "city": "Santiago"}))
+    assert "None" not in texto
+    # sólo queda una instalación usable: cae en la rama de UNA sola, que no
+    # necesita id, en vez de nombrar la segunda sin nada que copiar.
+    assert "UNA sola instalación" in texto
+    assert "Planta de Deshidratado" in texto
+    assert "Centro de Acopio" not in texto
+
+
+def test_instalacion_sin_nombre_usa_fallback_legible():
+    texto = producer_scope.render(_perfil(
+        {"installationId": ACOPIO, "city": "Curicó"},  # sin name
+        {"installationId": PLANTA, "name": "Planta de Deshidratado",
+         "city": "Santiago"}))
+    assert "None" not in texto
+    assert f"instalacion_id={ACOPIO}" in texto  # el id sigue, es lo que importa
+    assert "sin nombre registrado" in texto
+
+
+def test_todas_las_instalaciones_sin_id_no_inventa_ninguna():
+    texto = producer_scope.render(_perfil(
+        {"name": "Centro de Acopio", "city": "Curicó"},
+        {"name": "Planta", "city": "Santiago"}))
+    assert "None" not in texto
+    assert "No tiene instalaciones activas" in texto
+
+
+def test_empresa_ambigua_sin_id_se_omite():
+    texto = producer_scope.render({
+        "ambiguous": True, "kind": "business", "candidates": [
+            {"legalName": "Empresa Sin Id S.A."},  # sin businessId
+            {"businessId": EMP_DOS, "legalName": "Empresa Dos Ltda."}]})
+    assert "None" not in texto
+    assert "1 empresas" in texto
+    assert f"empresa_id={EMP_DOS}" in texto
+    assert "Empresa Sin Id" not in texto
+
+
+def test_empresa_ambigua_sin_nombre_usa_fallback_legible():
+    texto = producer_scope.render({
+        "ambiguous": True, "kind": "business", "candidates": [
+            {"businessId": EMP_UNO},  # sin legalName ni commercialName
+            {"businessId": EMP_DOS, "legalName": "Empresa Dos Ltda."}]})
+    assert "None" not in texto
+    assert f"empresa_id={EMP_UNO}" in texto
+    assert "sin nombre registrado" in texto
+
+
+def test_todas_las_empresas_sin_id_no_da_bloque():
+    texto = producer_scope.render({
+        "ambiguous": True, "kind": "business",
+        "candidates": [{"legalName": "Empresa Sin Id S.A."}]})
+    assert texto == ""
+
+
+# --- forma inesperada del endpoint: degrada a "", no revienta --------------
+
+
+def test_installations_no_es_lista_no_revienta():
+    assert producer_scope.render(
+        {"profile": {"commercialName": "T", "installations": {"a": 1}}}
+    ) == ""
+
+
+def test_candidates_no_es_lista_no_revienta():
+    assert producer_scope.render(
+        {"ambiguous": True, "kind": "business", "candidates": "no-es-lista"}
+    ) == ""
+
+
+def test_profile_no_es_dict_no_revienta():
+    assert producer_scope.render({"profile": "no-es-dict"}) == ""
+
+
 async def test_sin_uuid_no_llama_a_nadie(monkeypatch):
     """Un teléfono sin vincular no tiene alcance que consultar."""
     llamadas = []

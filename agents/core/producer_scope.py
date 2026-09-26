@@ -42,10 +42,36 @@ _cache: dict[str, dict[str, Any]] = {}
 
 
 class _Ctx:
-    """El mínimo que `record_tools._post` lee, para reusarlo desde acá."""
+    """El mínimo que las tools de record_tools leen de un ToolContext real."""
 
     def __init__(self, user_id: str) -> None:
         self.user_id = user_id
+
+
+def _texto(valor: Any, alterno: str) -> str:
+    """Nombre legible, o `alterno` si viene vacío / no es texto.
+
+    SÓLO para nombres, nunca para ids (ver `_con_id`): un nombre feo es
+    cosmético, un id inventado es una llamada rechazada.
+    """
+    return valor.strip() if isinstance(valor, str) and valor.strip() else alterno
+
+
+def _con_id(items: Any, campo: str) -> list[dict]:
+    """Filtra los que no traen un id usable en `campo`, y descarta lo que no
+    tenga forma de lista de dicts (el endpoint es de otro repo y puede cambiar
+    su forma en un camino de error).
+
+    Sin id el modelo no tiene nada real que copiar en la tool, y la
+    instrucción de al lado le dice "cópialo tal cual". Nombrar ese candidato
+    de todas formas deja lo único copiable como el string "None" — el mismo
+    id inventado que este archivo existe para evitar, sólo que ahora lo
+    inventa el bug en vez del modelo.
+    """
+    if not isinstance(items, list):
+        return []
+    return [i for i in items if isinstance(i, dict)
+            and isinstance(i.get(campo), str) and i.get(campo).strip()]
 
 
 def render(alcance: dict[str, Any] | None) -> str:
@@ -54,10 +80,13 @@ def render(alcance: dict[str, Any] | None) -> str:
         return ""
 
     if alcance.get("ambiguous"):
+        candidatos = _con_id(alcance.get("candidates"), "businessId")
+        if not candidatos:
+            return ""  # sin ids no hay nada usable que ofrecer
         empresas = [
-            f"{c.get('legalName') or c.get('commercialName')} -> "
-            f"empresa_id={c.get('businessId')}"
-            for c in alcance.get("candidates", [])
+            f"{_texto(c.get('legalName') or c.get('commercialName'), 'una empresa sin nombre registrado')} "
+            f"-> empresa_id={c['businessId']}"
+            for c in candidatos
         ]
         return (
             "\n\nCONTEXTO DE ESTE PRODUCTOR\n"
@@ -70,12 +99,23 @@ def render(alcance: dict[str, Any] | None) -> str:
             "pierde."
         )
 
-    perfil = alcance.get("profile") or {}
-    if not perfil:
+    perfil = alcance.get("profile")
+    if not isinstance(perfil, dict) or not perfil:
         return ""  # sin perfil no se inventa contexto; las tools avisan el error
 
     nombre = perfil.get("commercialName") or perfil.get("legalName") or "su empresa"
-    inst = perfil.get("installations") or []
+
+    inst_raw = perfil.get("installations")
+    if inst_raw is not None and not isinstance(inst_raw, list):
+        # Forma inesperada del endpoint (otro repo, puede cambiar en un camino
+        # de error): degrada a "", igual que "sin perfil" más arriba. No se
+        # inventa un "no tiene instalaciones activas" — eso sería afirmar algo
+        # que estos datos no dicen.
+        return ""
+    # Filtra las que no traen un id usable: si sólo queda una, cae sola en la
+    # rama de "UNA instalación" (que no necesita id), en vez de nombrar una
+    # segunda que el modelo no podría seleccionar de todos modos.
+    inst = _con_id(inst_raw, "installationId")
 
     lineas = [
         "\n\nCONTEXTO DE ESTE PRODUCTOR",
@@ -85,18 +125,21 @@ def render(alcance: dict[str, Any] | None) -> str:
 
     if len(inst) == 1:
         i = inst[0]
+        nombre_inst = _texto(i.get("name"), "la instalación")
+        ciudad = _texto(i.get("city"), "sin ciudad registrada")
         lineas.append(
-            f"Tiene UNA sola instalación: {i.get('name')} ({i.get('city')}). "
+            f"Tiene UNA sola instalación: {nombre_inst} ({ciudad}). "
             "Tus herramientas ya saben cuál es: resuelven esa sola sin que les "
             "pases instalacion_id. Así que no hay nada que preguntar ni que "
             "confirmar. Si te pregunta por su cumplimiento, llama a "
             f"obtener_cumplimiento en el mismo turno y dale el número, "
-            f"nombrando {i.get('name')} para que sepa de qué le hablas."
+            f"nombrando {nombre_inst} para que sepa de qué le hablas."
         )
     elif len(inst) > 1:
         detalle = "; ".join(
-            f"{i.get('name')} ({i.get('city')}) -> "
-            f"instalacion_id={i.get('installationId')}"
+            f"{_texto(i.get('name'), 'una instalación sin nombre registrado')} "
+            f"({_texto(i.get('city'), 'sin ciudad registrada')}) -> "
+            f"instalacion_id={i['installationId']}"
             for i in inst
         )
         lineas.append(
@@ -121,14 +164,12 @@ async def for_context(ctx: ReadonlyContext) -> str:
         return ""
 
     if productor not in _cache:
-        # Se llama a `record_tools._post`, que es privado al módulo, en vez de
-        # pedirle a record_tools una función pública nueva: `_post` ya hace
-        # exactamente lo que se necesita (inyecta producerUserId, devuelve el
-        # contrato {ok, data}) y envolverlo en un segundo nombre público sólo
-        # para que este módulo no toque un "_" sería una capa sin comportamiento
-        # propio. Los dos viven en el mismo paquete `core` y el mismo commit los
-        # revisa juntos, así que no hay un límite de paquete que proteger.
-        r = await record_tools._post("business-profile", {}, _Ctx(productor))
+        # `record_tools.obtener_perfil_empresa` ya es la función pública que
+        # hace esto: con `empresa_id=""` (su default) arma exactamente
+        # `_post("business-profile", {}, tool_context)`, porque `_scope`
+        # filtra la llave vacía. No hay que tocar `_post` ni pedirle a
+        # record_tools un símbolo nuevo — el que ya existe alcanza.
+        r = await record_tools.obtener_perfil_empresa(_Ctx(productor))
         if r.get("ok"):
             _cache[productor] = r.get("data", {})
         else:
