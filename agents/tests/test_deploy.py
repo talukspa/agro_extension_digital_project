@@ -402,16 +402,22 @@ def test_every_optional_knob_is_read_by_some_core_module():
 
 
 # ---------------------------------------------- las variables del expediente
-def _version_de_httpx_en_el_lockfile() -> str:
-    """Lee la versión que uv resolvió, para no repetirla a mano en dos lados."""
+def _version_en_el_lockfile(paquete: str) -> str:
+    """Lee la versión que uv resolvió, para no repetirla a mano en dos lados.
+
+    REQUIREMENTS dice en su comentario que va sincronizada con uv.lock, y un pin
+    desviado rompe sólo al desplegar — el peor momento para saberlo. Este lector
+    es el que hace que el test compare contra la fuente en lugar de contra una
+    constante que alguien tiene que acordarse de actualizar.
+    """
     from pathlib import Path
     lineas = (Path(__file__).resolve().parents[1] / "uv.lock").read_text().splitlines()
     for i, linea in enumerate(lineas):
-        if linea.strip() == 'name = "httpx"':
+        if linea.strip() == f'name = "{paquete}"':
             for siguiente in lineas[i + 1 : i + 4]:
                 if siguiente.startswith("version = "):
                     return siguiente.split("=", 1)[1].strip().strip('"')
-    raise AssertionError("httpx no aparece como paquete en uv.lock")
+    raise AssertionError(f"{paquete} no aparece como paquete en uv.lock")
 
 
 def test_las_variables_del_expediente_son_obligatorias():
@@ -437,7 +443,7 @@ def test_el_pin_de_httpx_coincide_con_el_lockfile():
     pin desviado rompe sólo al desplegar, que es el peor momento para saberlo."""
     import deploy
     pin = next(r for r in deploy.REQUIREMENTS if r.startswith("httpx=="))
-    assert pin == f"httpx=={_version_de_httpx_en_el_lockfile()}"
+    assert pin == f"httpx=={_version_en_el_lockfile('httpx')}"
 
 
 def test_httpx_declarado_en_pyproject():
@@ -454,3 +460,29 @@ def test_env_vars_for_pasa_las_del_expediente(monkeypatch):
     env = deploy.env_vars_for("agent_pp")
     assert env["CIRUELA_API_BASE"] == "valor-CIRUELA_API_BASE"
     assert env["AGENT_SERVICE_TOKEN"] == "valor-AGENT_SERVICE_TOKEN"
+
+
+def test_psycopg_va_en_los_requirements_del_engine():
+    """core/catalog_tools.py lo importa; si falta, el engine no arranca."""
+    import deploy
+    assert any(r.startswith("psycopg") for r in deploy.REQUIREMENTS)
+
+
+def test_el_pin_de_psycopg_coincide_con_el_lockfile():
+    import deploy
+    pin = next(r for r in deploy.REQUIREMENTS if r.startswith("psycopg"))
+    assert pin.endswith("==" + _version_en_el_lockfile("psycopg"))
+
+
+def test_psycopg_pide_las_ruedas_binarias():
+    """Sin [binary] hay que compilar libpq, y la imagen del engine no trae
+    libpq-dev: la instalación falla al desplegar, no acá."""
+    import deploy
+    pin = next(r for r in deploy.REQUIREMENTS if r.startswith("psycopg"))
+    assert "[binary]" in pin
+
+
+def test_psycopg_declarado_en_pyproject():
+    from pathlib import Path
+    texto = (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text()
+    assert "psycopg" in texto

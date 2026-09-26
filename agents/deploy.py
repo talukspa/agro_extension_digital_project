@@ -29,6 +29,10 @@ REQUIREMENTS = [
     # transitivamente en el venv local, pero en el engine sólo se instala lo
     # que está en esta lista, así que tiene que estar acá Y en pyproject.toml.
     "httpx==0.28.1",
+    # core/catalog_tools.py lee el catálogo desde Postgres. [binary] trae las
+    # ruedas precompiladas de libpq: sin eso hay que compilar, y la imagen del
+    # engine no tiene libpq-dev, así que la instalación falla al desplegar.
+    "psycopg[binary]==3.3.6",
 ]
 
 AGENTS = {
