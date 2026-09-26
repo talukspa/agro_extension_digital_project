@@ -78,3 +78,19 @@ def record_instruction(agent: str) -> str:
 
 def record_description(agent: str) -> str:
     return _read(agent, "record_description.md")
+
+
+def catalog_instruction(agent: str) -> str:
+    """Prompt del sub-agente CATÁLOGO: el estándar en abstracto, sobre Postgres.
+
+    Sin `preserve_citations.md`: el catálogo devuelve filas de una tabla, no
+    pasajes con fuente. Las citas son de RAG.
+    """
+    return _join(
+        _read(agent, "catalog.md"),
+        _read("shared", "whatsapp_plain.md"),
+    )
+
+
+def catalog_description(agent: str) -> str:
+    return _read(agent, "catalog_description.md")
