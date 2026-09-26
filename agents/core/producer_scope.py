@@ -41,13 +41,6 @@ from core import record_tools
 _cache: dict[str, dict[str, Any]] = {}
 
 
-class _Ctx:
-    """El mínimo que las tools de record_tools leen de un ToolContext real."""
-
-    def __init__(self, user_id: str) -> None:
-        self.user_id = user_id
-
-
 def _texto(valor: Any, alterno: str) -> str:
     """Nombre legible, o `alterno` si viene vacío / no es texto.
 
@@ -198,7 +191,8 @@ async def for_context(ctx: ReadonlyContext) -> str:
         # `_post("business-profile", {}, tool_context)`, porque `_scope`
         # filtra la llave vacía. No hay que tocar `_post` ni pedirle a
         # record_tools un símbolo nuevo — el que ya existe alcanza.
-        r = await record_tools.obtener_perfil_empresa(_Ctx(productor))
+        r = await record_tools.obtener_perfil_empresa(
+            record_tools.ProducerContext(productor))
         if r.get("ok"):
             _cache[productor] = r.get("data", {})
         else:

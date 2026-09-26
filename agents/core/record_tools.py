@@ -83,6 +83,23 @@ def producer_id(user_id: str | None) -> str | None:
     return None
 
 
+class ProducerContext:
+    """El mínimo que las tools de este módulo leen de un ToolContext real:
+    sólo `user_id`.
+
+    Público por el mismo motivo que `producer_id`: `core/producer_scope.py` y
+    `core/consent_guard.py` necesitan pasarle a estas tools un objeto con
+    `.user_id` sin tener un `ToolContext` real a mano (uno arma el bloque de
+    instrucción antes de que exista un turno de ADK; el otro intercepta el
+    turno antes de que llegue al modelo). Antes cada uno tenía su propia copia
+    de esta clase — la misma desincronización que el docstring de `producer_id`
+    ya advierte para ese chequeo, aplicada a la clase que lo envuelve.
+    """
+
+    def __init__(self, user_id: str) -> None:
+        self.user_id = user_id
+
+
 def _scope(**opcionales: Any) -> dict[str, Any]:
     """Agrega al cuerpo sólo los campos de alcance que vengan con valor.
 

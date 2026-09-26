@@ -41,7 +41,9 @@ def registrado(monkeypatch):
 
 BAJAS = ["no me escriban más por favor", "no me manden más mensajes",
          "dame de baja", "bájame de la lista", "para de escribirme",
-         "me doy de baja", "no quiero más wsp", "déjame de escribir"]
+         "me doy de baja", "no quiero más wsp", "déjame de escribir",
+         "NO ME ESCRIBAN MAS", "quiero dar de baja", "no me escribas más",
+         "ya no quiero recibir los mensajes"]
 
 
 async def test_toda_forma_de_pedir_la_baja_la_registra(registrado):
@@ -93,6 +95,11 @@ FALSOS_POSITIVOS = [
     "no me escribió nadie?",
     "mi vecino me dijo que me dieron de baja del programa, es cierto?",
     "por qué no me mandan más las guías?",
+    "no me llegó el mensaje",
+    "me bajé la guía de agua",
+    "el auditor no me ha escrito",
+    "no me mandes la foto, mándame el documento",
+    "no me quedan acciones pendientes",
 ]
 
 
@@ -101,6 +108,36 @@ async def test_no_muerde_falsos_positivos(registrado):
         assert await consent_guard.before_model(_Ctx(), _request(frase)) is None, \
             f"falso positivo: {frase!r}"
         assert registrado == [], f"registró de más con: {frase!r}"
+
+
+# --- "dame de alta" reconocida como alta, no como baja ---------------------
+
+async def test_dame_de_alta_no_es_una_baja(registrado):
+    r = await consent_guard.before_model(_Ctx(), _request("dame de alta"))
+    assert registrado == ["granted"]
+    assert "alta" in r.content.parts[0].text.lower()
+
+
+# --- Una baja NEGANDO la frase de alta no puede registrarse como alta -----
+#
+# "no vuelvan a escribirme" contiene "vuelvan a escribirme", que por sí solo
+# es una alta. Sin resguardo, _PIDE_ALTA la registra como "granted": el
+# productor pidió que le paren de escribir y queda confirmado como suscrito.
+
+NEGACIONES_DE_ALTA = [
+    "no vuelvan a escribirme",
+    "no quiero que vuelvan a escribirme",
+    "por favor no vuelvan a escribirme más",
+    "no me reactiven los mensajes",
+]
+
+
+async def test_negar_la_frase_de_alta_no_registra_alta(registrado):
+    for frase in NEGACIONES_DE_ALTA:
+        r = await consent_guard.before_model(_Ctx(), _request(frase))
+        assert "granted" not in registrado, \
+            f"registró alta por error con: {frase!r}"
+        registrado.clear()
 
 
 # --- Lee el ÚLTIMO mensaje del usuario, no el primero ----------------------
