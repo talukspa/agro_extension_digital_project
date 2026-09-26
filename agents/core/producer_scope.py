@@ -80,7 +80,19 @@ def render(alcance: dict[str, Any] | None) -> str:
         return ""
 
     if alcance.get("ambiguous"):
-        candidatos = _con_id(alcance.get("candidates"), "businessId")
+        candidatos_raw = alcance.get("candidates")
+        candidatos_raw = ([c for c in candidatos_raw if isinstance(c, dict)]
+                          if isinstance(candidatos_raw, list) else [])
+        # El total real de empresas es el que YA estableció el servidor al
+        # marcar `ambiguous: true` — eso es una afirmación suya de que hay más
+        # de una, independiente de cuántos candidatos trajeron un id usable.
+        # Nunca se colapsa este bloque al caso de "empresa única" aunque el
+        # filtro por id deje un solo candidato: haría que el modelo dejara
+        # `empresa_id` vacío en la siguiente llamada, y esa llamada volvería a
+        # encontrar más de una empresa y a devolver `ambiguous` — la misma
+        # contradicción que el colapso de instalaciones más abajo.
+        total = len(candidatos_raw)
+        candidatos = _con_id(candidatos_raw, "businessId")
         if not candidatos:
             return ""  # sin ids no hay nada usable que ofrecer
         empresas = [
@@ -88,9 +100,10 @@ def render(alcance: dict[str, Any] | None) -> str:
             f"-> empresa_id={c['businessId']}"
             for c in candidatos
         ]
+        plural = "empresa" if total == 1 else "empresas"
         return (
             "\n\nCONTEXTO DE ESTE PRODUCTOR\n"
-            f"Tiene {len(empresas)} empresas: {'; '.join(empresas)}.\n"
+            f"Tiene {total} {plural}: {'; '.join(empresas)}.\n"
             "Antes de darle cualquier dato necesitas saber de cuál te habla. "
             "Pregúntale por su NOMBRE, nunca por un identificador, y después "
             "copia en empresa_id el id de arriba que le corresponde, tal cual. "
@@ -112,9 +125,18 @@ def render(alcance: dict[str, Any] | None) -> str:
         # inventa un "no tiene instalaciones activas" — eso sería afirmar algo
         # que estos datos no dicen.
         return ""
-    # Filtra las que no traen un id usable: si sólo queda una, cae sola en la
-    # rama de "UNA instalación" (que no necesita id), en vez de nombrar una
-    # segunda que el modelo no podría seleccionar de todos modos.
+    inst_raw = [i for i in inst_raw if isinstance(i, dict)] if inst_raw else []
+    # El total real de instalaciones activas es cuántas trajo el servidor en
+    # este arreglo, NO cuántas de esas alcanzaron a traer un id usable. Contar
+    # sobre el filtrado es el bug: con dos instalaciones donde una no trae id,
+    # el conteo filtrado da 1 y colapsaba a la rama de "UNA sola", que le dice
+    # al modelo que el servidor la resuelve sin instalacion_id y que no hay
+    # nada que confirmar. Eso es falso — el servidor sigue viendo las DOS, y
+    # `obtener_cumplimiento` sin instalacion_id le va a devolver `ambiguous`
+    # igual, contradiciendo la instrucción que acabamos de darle. El conteo
+    # real decide la rama; el filtrado por id sólo decide qué se puede NOMBRAR
+    # dentro de ella.
+    total_inst = len(inst_raw)
     inst = _con_id(inst_raw, "installationId")
 
     lineas = [
@@ -123,8 +145,13 @@ def render(alcance: dict[str, Any] | None) -> str:
         "siempre, no pongas ahí el nombre.",
     ]
 
-    if len(inst) == 1:
-        i = inst[0]
+    if total_inst == 0:
+        lineas.append("No tiene instalaciones activas registradas.")
+    elif total_inst == 1:
+        # Certeza real: el servidor reportó exactamente una. No hace falta su
+        # id — esta rama nunca lo manda — así que ni siquiera importa si esa
+        # única instalación lo trae.
+        i = inst_raw[0]
         nombre_inst = _texto(i.get("name"), "la instalación")
         ciudad = _texto(i.get("city"), "sin ciudad registrada")
         lineas.append(
@@ -135,24 +162,26 @@ def render(alcance: dict[str, Any] | None) -> str:
             f"obtener_cumplimiento en el mismo turno y dale el número, "
             f"nombrando {nombre_inst} para que sepa de qué le hablas."
         )
-    elif len(inst) > 1:
-        detalle = "; ".join(
+    else:
+        # Más de una: puede que no todas trajeron un id usable, pero eso no
+        # cambia que el servidor puede pedir elegir. No se promete que la
+        # llamada resuelve sola ni que no hay nada que confirmar.
+        conocidas = "; ".join(
             f"{_texto(i.get('name'), 'una instalación sin nombre registrado')} "
             f"({_texto(i.get('city'), 'sin ciudad registrada')}) -> "
             f"instalacion_id={i['installationId']}"
             for i in inst
         )
         lineas.append(
-            f"Tiene {len(inst)} instalaciones: {detalle}. "
-            "El cumplimiento es de UNA instalación, no de la empresa completa, "
-            "así que cuando te pregunte por eso necesitas saber de cuál. "
-            "Pregúntale por el NOMBRE de la instalación, nunca por un "
-            "identificador, y después copia en instalacion_id el id de arriba "
-            "que le corresponde, tal cual, sin inventarlo ni derivarlo del "
-            "nombre."
+            f"Tiene {total_inst} instalaciones activas. El cumplimiento es de "
+            "UNA instalación, no de la empresa completa: si te pregunta por "
+            "eso, es probable que el servidor te devuelva varias opciones para "
+            "elegir en vez de responder directo. Pregúntale por el NOMBRE de "
+            "la instalación, nunca por un identificador, y copia en "
+            "instalacion_id el id que corresponda, tal cual, sin inventarlo ni "
+            "derivarlo del nombre"
+            + (f". De las que ya conoces: {conocidas}." if conocidas else ".")
         )
-    else:
-        lineas.append("No tiene instalaciones activas registradas.")
 
     return "\n".join(lineas)
 

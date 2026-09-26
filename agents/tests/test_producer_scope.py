@@ -92,16 +92,25 @@ def test_sin_perfil_no_inventa_contexto():
 # el mismo desenlace (400 ID_INVALID) con una causa distinta.
 
 
-def test_instalacion_sin_id_se_omite_no_inventa_none():
+def test_instalacion_sin_id_no_colapsa_a_certeza_falsa():
+    """El caso que reprodujo el revisor contra el endpoint real: con DOS
+    instalaciones (una sin id), un conteo filtrado por id daba 1 y colapsaba
+    a la rama de "UNA sola" — que le dice al modelo que el servidor la
+    resuelve sin instalacion_id y que no hay nada que confirmar. Verificado
+    contra el endpoint: sin instalacion_id y con 2 instalaciones reales, el
+    servidor SIGUE devolviendo `ambiguous`. El bloque no puede prometer lo
+    contrario."""
     texto = producer_scope.render(_perfil(
         {"name": "Centro de Acopio", "city": "Curicó"},  # sin installationId
         {"installationId": PLANTA, "name": "Planta de Deshidratado",
          "city": "Santiago"}))
     assert "None" not in texto
-    # sólo queda una instalación usable: cae en la rama de UNA sola, que no
-    # necesita id, en vez de nombrar la segunda sin nada que copiar.
-    assert "UNA sola instalación" in texto
-    assert "Planta de Deshidratado" in texto
+    assert "UNA sola instalación" not in texto
+    assert "no hay nada que preguntar" not in texto
+    # el conteo real (2) se mantiene, aunque sólo una trajo id usable
+    assert "2 instalaciones" in texto
+    assert f"instalacion_id={PLANTA}" in texto
+    # la que no trae id no se nombra: no hay nada que copiar para ella
     assert "Centro de Acopio" not in texto
 
 
@@ -115,23 +124,36 @@ def test_instalacion_sin_nombre_usa_fallback_legible():
     assert "sin nombre registrado" in texto
 
 
-def test_todas_las_instalaciones_sin_id_no_inventa_ninguna():
+def test_todas_las_instalaciones_sin_id_no_afirma_que_no_tiene():
+    """Mismo colapso, en el otro extremo: si NINGUNA trae id, el conteo
+    filtrado da 0 y podría colapsar a "no tiene instalaciones activas" — otra
+    afirmación que el servidor (que sigue viendo 2) va a contradecir."""
     texto = producer_scope.render(_perfil(
         {"name": "Centro de Acopio", "city": "Curicó"},
         {"name": "Planta", "city": "Santiago"}))
     assert "None" not in texto
-    assert "No tiene instalaciones activas" in texto
+    assert "No tiene instalaciones activas" not in texto
+    assert "2 instalaciones" in texto
 
 
-def test_empresa_ambigua_sin_id_se_omite():
+def test_empresa_ambigua_sin_id_se_omite_pero_el_conteo_no_baja():
+    """Mismo colapso en el eje de empresas: el conteo tiene que ser el que YA
+    estableció el servidor con `ambiguous: true` (2), no cuántos candidatos
+    trajeron id (1) — si no, el bloque diría "1 empresa" y la siguiente
+    llamada con empresa_id vacío volvería a encontrar 2 y a devolver
+    `ambiguous`, contradiciendo lo que se le acaba de decir al modelo."""
     texto = producer_scope.render({
         "ambiguous": True, "kind": "business", "candidates": [
             {"legalName": "Empresa Sin Id S.A."},  # sin businessId
             {"businessId": EMP_DOS, "legalName": "Empresa Dos Ltda."}]})
     assert "None" not in texto
-    assert "1 empresas" in texto
+    assert "2 empresas" in texto
+    assert "1 empresas" not in texto
     assert f"empresa_id={EMP_DOS}" in texto
     assert "Empresa Sin Id" not in texto
+    # tampoco se colapsa al caso de "empresa única": el servidor YA dijo que
+    # hay más de una, y ese caso instruye dejar empresa_id vacío siempre.
+    assert "ÚNICA empresa" not in texto
 
 
 def test_empresa_ambigua_sin_nombre_usa_fallback_legible():
