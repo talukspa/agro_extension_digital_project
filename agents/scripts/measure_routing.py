@@ -1,7 +1,7 @@
 """Mide a qué sub-agente enruta el root, con el agente real.
 
 POR QUÉ EXISTE: hasta ahora el root elegía entre dos sub-agentes —RAG para
-conceptos, BQ para el catálogo— con una regla de una línea cada uno. Con el
+conceptos, y uno de catálogo sobre BigQuery— con una regla de una línea cada uno. Con el
 EXPEDIENTE son tres, y las fronteras que se pueden confundir son concretas:
 
   "¿qué pide la acción P001?"              -> catálogo, es el estándar en abstracto
@@ -44,9 +44,9 @@ CASOS = [
     ("me respondió el auditor?", "record", "su conversación"),
     ("cuándo vence lo del medidor?", "record", "la fecha es de SU plan"),
     ("en qué año de certificación estoy?", "record", "su nivel"),
-    ("cuántos puntos vale la dimensión Ética?", "bq", "agregado del catálogo"),
-    ("lístame las acciones de Ambiente, tema Agua", "bq", "filtro del catálogo"),
-    ("qué pide la acción P001?", "bq", "el estándar en abstracto"),
+    ("cuántos puntos vale la dimensión Ética?", "catalog", "agregado del catálogo"),
+    ("lístame las acciones de Ambiente, tema Agua", "catalog", "filtro del catálogo"),
+    ("qué pide la acción P001?", "catalog", "el estándar en abstracto"),
     ("qué es la huella hídrica?", "rag", "concepto"),
     ("cómo instalo un medidor de agua?", "rag", "guía de implementación"),
 ]
@@ -67,7 +67,7 @@ def _elegidos(llamadas: list[str]) -> set[str]:
     estaba haciendo lo correcto. Un medidor que castiga el comportamiento
     deseado es peor que no medir.
     """
-    encontrados = {s for s in ("record", "bq", "rag")
+    encontrados = {s for s in ("record", "catalog", "rag")
                    if any(n.endswith(s) for n in llamadas)}
     if not encontrados and any("transfer" in n for n in llamadas):
         return {"transfer"}  # ADK despachó por transferencia, no por AgentTool
@@ -134,7 +134,7 @@ async def main() -> None:
             if not elegidos:
                 sin_llamar += 1
             # Acierta si el esperado está ENTRE los que llamó. Traer además otro
-            # no es un desvío: el prompt de BQ pide acompañar a RAG con el link
+            # no es un desvío: el prompt del catálogo pide acompañar a RAG con el link
             # del recurso, y el expediente puede necesitar el catálogo para
             # explicar una acción. Lo que sería un desvío es no llamar al que
             # corresponde.
