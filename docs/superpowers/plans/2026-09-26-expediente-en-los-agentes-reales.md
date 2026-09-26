@@ -184,7 +184,7 @@ def _base() -> str:
     Engine el módulo se importa una vez en el cold start, así que un valor
     rotado se quedaría rancio hasta el próximo despliegue.
     """
-    return os.environ.get("CIRUELA_API_BASE", "http://localhost:3000").rstrip("/")
+    return os.environ.get("CIRUELA_API_BASE", "http://localhost:3100").rstrip("/")
 
 
 def _token() -> str:
@@ -1830,7 +1830,7 @@ _TIMEOUT_SECONDS = 10.0
 def _api_base() -> str:
     """Leído por llamada, no en el import: el Cloud Run se reconfigura sin
     redeploy del módulo."""
-    return os.getenv("CIRUELA_API_BASE", "http://localhost:3000").rstrip("/")
+    return os.getenv("CIRUELA_API_BASE", "http://localhost:3100").rstrip("/")
 
 
 def _token() -> str:
@@ -2184,12 +2184,12 @@ MSG
 
 - [ ] **Step 1: Levantar la app**
 
-El repo del app corre en `:3000` con `next dev` desde
+El repo del app corre en `:3100` con `next dev` desde
 `agro_extension_digital_app/.worktrees/agent-layer-pa5/ciruela-certificada`. Si
 ya está arriba, no lo reinicies: sólo hay un lock de `next dev` por directorio.
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" --max-time 10 http://localhost:3000/
+curl -s -o /dev/null -w "%{http_code}\n" --max-time 10 http://localhost:3100/
 ```
 
 - [ ] **Step 2: Comprobar que el endpoint responde**
@@ -2197,7 +2197,7 @@ curl -s -o /dev/null -w "%{http_code}\n" --max-time 10 http://localhost:3000/
 ```bash
 cd /Users/rsolar/repos/agro_extension_digital_app/.worktrees/agent-layer-pa5/ciruela-certificada
 T=$(grep -E '^AGENT_SERVICE_TOKEN=' .env.local | cut -d= -f2- | tr -d '"'"'"'')
-curl -s --max-time 30 -X POST http://localhost:3000/api/agent/resolve-identity \
+curl -s --max-time 30 -X POST http://localhost:3100/api/agent/resolve-identity \
   -H "Authorization: Bearer $T" -H "Content-Type: application/json" \
   -d '{"waId":"56912345678"}'
 ```
@@ -2216,7 +2216,7 @@ psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -At -c \
 cd /Users/rsolar/repos/agro_extension_digital_project/.worktrees/agents-endpoints/agents
 set -a && . ./.env
 . /Users/rsolar/repos/agro_extension_digital_app/.worktrees/agent-layer-pa5/ciruela-certificada/.env.local
-export CIRUELA_API_BASE=http://localhost:3000
+export CIRUELA_API_BASE=http://localhost:3100
 set +a
 .venv/bin/python scripts/measure_routing.py
 ```
@@ -2231,11 +2231,18 @@ psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -At -c \
   "select source, status, payload::text from labor_logs where source='whatsapp_agent' order by created_at desc limit 3;"
 ```
 
-**Ojo:** hoy la base local tiene **0 filas en `implementation_plan_actions`**, así
-que los caminos de evidencia y de mensaje al auditor no se pueden ejercitar de
-verdad: no hay acción a la cual adjuntar. Si necesitas probarlos, primero hay que
-sembrar un plan con acciones. No lo reportes como defecto del agente sin haber
-mirado eso.
+**Estado de la base al 2026-09-26, verificado:** `implementation_plan_actions`
+tiene 3 filas —`P001`, `P004`, `P006`, todas de Producción Primaria, en el plan
+`33333333-…` de "Empresa Test Ciruelas S.A."— así que los caminos de evidencia y
+de mensaje al auditor **sí** se pueden ejercitar.
+
+Lo que NO se puede ejercitar contra la base real es la ambigüedad por código
+repetido en los dos estándares: los tres códigos son distintos y todos del mismo
+estándar. Ese camino queda cubierto sólo por el stub estricto, cuya fidelidad se
+verificó con curl contra los endpoints reales.
+
+Los ids de instalación del seed actual son `517b5d2a-bfb6-4db5-a37e-6f83203fb5b5`
+(Centro de Acopio, Curicó) y `deb40833-…` (Planta de Deshidratado, Santiago).
 
 - [ ] **Step 5: Commit del resultado**
 
