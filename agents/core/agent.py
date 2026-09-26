@@ -4,6 +4,7 @@ The agent `name` prefix (e.g. "aa_agent") derives the sub-agent names so traces
 stay readable. The main datastore env var name differs per agent; guides/faq/
 chileprunes datastores are shared across both.
 """
+import functools
 import os
 
 from google.adk.agents import LlmAgent
@@ -13,7 +14,7 @@ from vertexai.agent_engines import AdkApp
 from google.adk.planners import BuiltInPlanner
 from google.genai.types import ThinkingConfig
 
-from core import bq_tools, prompts
+from core import bq_tools, consent_guard, producer_scope, prompts, record_tools
 from core.llm_global import GlobalGemini
 from core.retry_plugin import OkContractRetryPlugin
 
@@ -35,6 +36,12 @@ from core.retry_plugin import OkContractRetryPlugin
 ROOT_MODEL = "gemini-3.7-flash"
 BQ_MODEL = "gemini-3.7-flash"
 RAG_MODEL = "gemini-3.1-flash-lite"
+
+# El expediente es lectura y ESCRITURA sobre el productor: adjunta respaldos,
+# registra labores, publica mensajes al auditor. Se le da el mismo modelo que al
+# root en lugar del flash-lite de RAG porque equivocarse acá deja un registro
+# mal puesto en el expediente de una persona, no una respuesta imprecisa.
+RECORD_MODEL = "gemini-3.7-flash"
 
 
 def _tool_max_retries() -> int:
@@ -73,6 +80,20 @@ def _planner():
 def _prefix(name: str) -> str:
     # "aa_agent" -> "agent_aa" prompt key. Names are aa_agent / pp_agent.
     return "agent_" + name.split("_", 1)[0]
+
+
+async def _record_instruction(key: str, ctx) -> str:
+    """La instrucción es una función, no una cadena: el alcance del productor
+    cambia por sesión y ADK la llama al armar cada request. Ver el docstring
+    de core/producer_scope.py, con la medición de por qué hace falta.
+
+    Módulo, no una función anidada en build_app: el resto de build_app no
+    define funciones internas (_prefix, _datastore, _planner ya viven acá
+    arriba), así que una `def` nueva ahí adentro sería el único caso que
+    rompe ese patrón. `functools.partial(_record_instruction, key)` en
+    build_app fija `key` sin crear una función por llamada.
+    """
+    return prompts.record_instruction(key) + await producer_scope.for_context(ctx)
 
 
 def _datastore(value: str) -> str:
@@ -132,14 +153,27 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
         ],
     )
 
+    record = LlmAgent(
+        name=f"{name}_record",
+        model=GlobalGemini(model=RECORD_MODEL),
+        instruction=functools.partial(_record_instruction, key),
+        description=prompts.record_description(key),
+        planner=_planner(),
+        tools=list(record_tools.TOOLS),
+    )
+
     root = LlmAgent(
         name=name,
         model=GlobalGemini(model=ROOT_MODEL),
         instruction=prompts.root_instruction(key),
         planner=_planner(),
+        # La baja de WhatsApp se registra antes de que el modelo pueda
+        # contestar sin registrarla — ver core/consent_guard.py.
+        before_model_callback=consent_guard.before_model,
         tools=[
             agent_tool.AgentTool(agent=rag),
             agent_tool.AgentTool(agent=bq),
+            agent_tool.AgentTool(agent=record),
         ],
     )
     # The plugin only sees our BigQuery failures because OkContractRetryPlugin
