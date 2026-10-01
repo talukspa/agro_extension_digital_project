@@ -60,10 +60,12 @@ async def test_text_message_routes_to_agent_and_acks():
 
 @pytest.mark.asyncio
 async def test_audio_message_routes_to_handle_audio():
+    # resolve_producer is not mocked here: it fails fast against localhost
+    # (connection refused) and falls back to the wa_id, same as today.
     with patch.object(messages, "create_agent_session", AsyncMock()), \
          patch.object(messages, "handle_audio_message", AsyncMock()) as h:
         await messages.process_message(WA_ID, _audio_msg("A1"), AA)
-    h.assert_awaited_once_with(WA_ID, "A1", AA)
+    h.assert_awaited_once_with(WA_ID, WA_ID, "A1", AA)
 
 
 @pytest.mark.asyncio
@@ -92,7 +94,7 @@ async def test_handle_audio_happy_path_transcribes_and_replies():
          patch.object(messages, "send_message_to_agent",
                       AsyncMock(return_value="respuesta")) as agent, \
          patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
-        await messages.handle_audio_message(WA_ID, "A1", AA)
+        await messages.handle_audio_message(WA_ID, WA_ID, "A1", AA)
 
     agent.assert_awaited_once_with(WA_ID, AA, WA_ID, "hola mundo")
     send.assert_awaited_once()
@@ -104,7 +106,7 @@ async def test_handle_audio_download_failure_sends_error_ack():
     with patch.object(messages, "download_whatsapp_media",
                       AsyncMock(return_value=None)), \
          patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
-        await messages.handle_audio_message(WA_ID, "A1", AA)
+        await messages.handle_audio_message(WA_ID, WA_ID, "A1", AA)
     send.assert_awaited_once()
     assert "descargar" in send.await_args.args[1]["text"]["body"]
 
@@ -116,7 +118,7 @@ async def test_handle_audio_empty_transcript_sends_error_ack():
          patch.object(messages, "transcribe_audio_file",
                       AsyncMock(return_value=None)), \
          patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
-        await messages.handle_audio_message(WA_ID, "A1", AA)
+        await messages.handle_audio_message(WA_ID, WA_ID, "A1", AA)
     send.assert_awaited_once()
     assert "entender" in send.await_args.args[1]["text"]["body"]
 
@@ -129,7 +131,7 @@ async def test_handle_audio_exception_path_sends_error_ack_no_nameerror():
                       AsyncMock(side_effect=RuntimeError("network"))), \
          patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
         # Must NOT raise.
-        await messages.handle_audio_message(WA_ID, "A1", AA)
+        await messages.handle_audio_message(WA_ID, WA_ID, "A1", AA)
     send.assert_awaited_once()
     assert "Error procesando tu audio" in send.await_args.args[1]["text"]["body"]
 
@@ -137,7 +139,7 @@ async def test_handle_audio_exception_path_sends_error_ack_no_nameerror():
 @pytest.mark.asyncio
 async def test_handle_audio_unknown_app_name_short_circuits():
     with patch.object(messages, "download_whatsapp_media", AsyncMock()) as dl:
-        await messages.handle_audio_message(WA_ID, "A1", "agent_unknown")
+        await messages.handle_audio_message(WA_ID, WA_ID, "A1", "agent_unknown")
     dl.assert_not_awaited()
 
 
@@ -331,57 +333,96 @@ PRODUCTOR = "c1d1ebe1-5c05-45ce-a9c1-fd4315850baa"
 
 
 @pytest.mark.asyncio
-async def test_el_agente_recibe_el_uuid_como_user_id_y_el_telefono_como_sesion():
-    """El expediente necesita el uuid; la sesión sigue llaveada por teléfono para
-    no perder el hilo de la conversación."""
+async def test_send_message_to_agent_pasa_el_user_id_ya_resuelto_sin_resolver_de_nuevo():
+    """send_message_to_agent YA NO resuelve: usa tal cual el agent_user_id que le
+    pasan (process_message lo resolvió una sola vez). Resolver dos veces por
+    turno era la causa del race de sesiones (ver plan 2026-10-01)."""
     visto = {}
 
     async def falso_send_to_agent(app_name, user, session_id, message):
         visto["args"] = (app_name, user, session_id, message)
         return {"response": "listo"}
 
-    with patch.object(messages, "resolve_producer",
-                      AsyncMock(return_value=PRODUCTOR)), \
+    with patch.object(messages, "resolve_producer", AsyncMock()) as resolve, \
          patch.object(messages, "send_to_agent", falso_send_to_agent):
-        out = await messages.send_message_to_agent(WA_ID, AA, WA_ID, "cómo voy?")
+        out = await messages.send_message_to_agent(PRODUCTOR, AA, WA_ID, "cómo voy?")
 
+    resolve.assert_not_awaited()
     assert out == "listo"
     assert visto["args"] == (AA, PRODUCTOR, WA_ID, "cómo voy?")
 
 
 @pytest.mark.asyncio
-async def test_sin_vinculo_el_user_id_queda_el_telefono():
-    """La conversación sigue: RAG y el catálogo son datos públicos del estándar."""
-    visto = {}
+async def test_process_message_resuelve_una_vez_y_usa_el_mismo_user_id_en_crear_y_consultar():
+    """Causa raíz del race: process_message resolvía el productor para crear la
+    sesión y send_message_to_agent lo resolvía OTRA VEZ para consultar — si
+    resolve_producer daba resultados distintos entre llamadas, create y query
+    quedaban con user_id distinto y Agent Runtime respondía 'Session does not
+    belong to user'. Ahora se resuelve UNA sola vez por turno y se threadea."""
+    seen = {"create": None, "query": None}
 
-    async def falso_send_to_agent(app_name, user, session_id, message):
-        visto["args"] = (app_name, user, session_id, message)
-        return {"response": "ok"}
+    async def fake_create(user_id, app_name, session_id):
+        seen["create"] = (user_id, session_id)
 
-    with patch.object(messages, "resolve_producer", AsyncMock(return_value=None)), \
-         patch.object(messages, "send_to_agent", falso_send_to_agent):
-        await messages.send_message_to_agent(WA_ID, AA, WA_ID, "hola")
+    async def fake_send_to_agent(app_name, user_id, session_id, message):
+        seen["query"] = (user_id, session_id)
+        return {"response": "listo"}
 
-    assert visto["args"] == (AA, WA_ID, WA_ID, "hola")
+    with patch.object(messages, "resolve_producer", AsyncMock(return_value=PRODUCTOR)), \
+         patch.object(messages, "create_agent_session", fake_create), \
+         patch.object(messages, "send_to_agent", fake_send_to_agent), \
+         patch.object(messages, "send_whatsapp_message", AsyncMock()):
+        await messages.process_message(WA_ID, _text_msg("cómo voy?"), AA)
+
+    assert seen["create"][0] == seen["query"][0] == PRODUCTOR  # mismo user_id
+    assert seen["create"][1] == seen["query"][1] == WA_ID       # mismo session_id
 
 
 @pytest.mark.asyncio
-async def test_si_resolver_la_identidad_levanta_el_turno_no_se_cae():
-    """resolve_producer promete no levantar, pero si alguna vez lo hiciera, el
-    mensaje del productor no puede perderse por eso."""
-    visto = {}
+async def test_process_message_sin_vinculo_usa_el_telefono_para_crear_y_consultar():
+    """La conversación sigue: RAG y el catálogo son datos públicos del estándar."""
+    seen = {"create": None, "query": None}
 
-    async def falso_send_to_agent(app_name, user, session_id, message):
-        visto["args"] = (app_name, user, session_id, message)
+    async def fake_create(user_id, app_name, session_id):
+        seen["create"] = (user_id, session_id)
+
+    async def fake_send_to_agent(app_name, user_id, session_id, message):
+        seen["query"] = (user_id, session_id)
+        return {"response": "ok"}
+
+    with patch.object(messages, "resolve_producer", AsyncMock(return_value=None)), \
+         patch.object(messages, "create_agent_session", fake_create), \
+         patch.object(messages, "send_to_agent", fake_send_to_agent), \
+         patch.object(messages, "send_whatsapp_message", AsyncMock()):
+        await messages.process_message(WA_ID, _text_msg("hola"), AA)
+
+    assert seen["create"] == (WA_ID, WA_ID)
+    assert seen["query"] == (WA_ID, WA_ID)
+
+
+@pytest.mark.asyncio
+async def test_process_message_si_resolver_la_identidad_levanta_el_turno_no_se_cae():
+    """resolve_producer promete no levantar, pero si alguna vez lo hiciera, el
+    mensaje del productor no puede perderse por eso: ambas llamadas (crear y
+    consultar) deben caer consistentemente al wa_id."""
+    seen = {"create": None, "query": None}
+
+    async def fake_create(user_id, app_name, session_id):
+        seen["create"] = (user_id, session_id)
+
+    async def fake_send_to_agent(app_name, user_id, session_id, message):
+        seen["query"] = (user_id, session_id)
         return {"response": "ok"}
 
     with patch.object(messages, "resolve_producer",
                       AsyncMock(side_effect=RuntimeError("boom"))), \
-         patch.object(messages, "send_to_agent", falso_send_to_agent):
-        out = await messages.send_message_to_agent(WA_ID, AA, WA_ID, "hola")
+         patch.object(messages, "create_agent_session", fake_create), \
+         patch.object(messages, "send_to_agent", fake_send_to_agent), \
+         patch.object(messages, "send_whatsapp_message", AsyncMock()):
+        await messages.process_message(WA_ID, _text_msg("hola"), AA)
 
-    assert visto["args"] == (AA, WA_ID, WA_ID, "hola")
-    assert out == "ok"
+    assert seen["create"] == (WA_ID, WA_ID)
+    assert seen["query"] == (WA_ID, WA_ID)
 
 
 @pytest.mark.asyncio

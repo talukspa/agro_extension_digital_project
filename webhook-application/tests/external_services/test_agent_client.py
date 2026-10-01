@@ -104,6 +104,54 @@ async def test_create_agent_session_returns_new_when_absent():
 
 
 @pytest.mark.asyncio
+async def test_create_agent_session_handles_exists_then_not_visible():
+    """Entregas concurrentes del mismo turno: un create() reporta AlreadyExists
+    mientras el primer get_session() todavía no ve esa sesión (consistencia
+    eventual). create_agent_session no debe propagar: reintenta el get acotado
+    y devuelve la sesión apenas sea visible."""
+    from whatsapp_webhook.external_services import agent_client
+
+    engine = MagicMock()
+    engine.async_create_session = AsyncMock(side_effect=gax.AlreadyExists("dup"))
+    get_calls = {"n": 0}
+
+    async def fake_get_session(*, user_id, session_id):
+        get_calls["n"] += 1
+        if get_calls["n"] == 1:
+            raise RuntimeError("Session not found. Please create it using .create_session()")
+        return {"id": session_id, "events": []}
+
+    engine.async_get_session = fake_get_session
+    with patch.object(agent_client, "get_engine", return_value=engine):
+        out = await agent_client.create_agent_session(
+            user_id="uuid-1", app_name="agent_aa", session_id="56999",
+        )
+    assert out["id"] == "56999"
+    assert get_calls["n"] == 2  # reintentó una vez
+
+
+@pytest.mark.asyncio
+async def test_create_agent_session_exists_then_never_visible_propagates(monkeypatch):
+    """Si tras agotar los reintentos la sesión sigue sin ser visible, el error
+    debe propagar (no quedar colgado ni devolver algo falso)."""
+    from whatsapp_webhook.external_services import agent_client
+
+    monkeypatch.setattr(agent_client, "SESSION_RETRY_ATTEMPTS", 2)
+    engine = MagicMock()
+    engine.async_create_session = AsyncMock(side_effect=gax.AlreadyExists("dup"))
+
+    async def always_not_found(*, user_id, session_id):
+        raise RuntimeError("Session not found. Please create it using .create_session()")
+
+    engine.async_get_session = always_not_found
+    with patch.object(agent_client, "get_engine", return_value=engine):
+        with pytest.raises(RuntimeError, match="Session not found"):
+            await agent_client.create_agent_session(
+                user_id="uuid-1", app_name="agent_aa", session_id="56999",
+            )
+
+
+@pytest.mark.asyncio
 async def test_send_to_agent_concatenates_assistant_text():
     """Multiple events with text parts -> concatenated response string."""
     from whatsapp_webhook.external_services import agent_client
@@ -177,6 +225,64 @@ async def test_send_to_agent_times_out_with_error_payload(monkeypatch):
         )
     assert "Error" in result["response"]
     assert "tiempo" in result["response"].lower()
+
+
+@pytest.mark.asyncio
+async def test_send_to_agent_recovers_from_eventual_consistency(monkeypatch):
+    """La sesión recién creada puede no ser visible al primer stream_query
+    (consistencia eventual). send_to_agent debe reintentar y completar, sin
+    duplicar el texto del intento fallido."""
+    from whatsapp_webhook.external_services import agent_client
+
+    calls = {"n": 0}
+
+    async def fake_stream_query(*, user_id, session_id, message):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("Session not found. Please create it using .create_session()")
+        # segundo intento: la sesión ya es visible
+        yield {"content": {"parts": [{"text": "hola productor"}]}}
+
+    engine = MagicMock()
+    engine.async_stream_query = lambda **kw: fake_stream_query(**kw)
+
+    monkeypatch.setattr(agent_client, "create_agent_session", AsyncMock())
+    with patch.object(agent_client, "get_engine", return_value=engine):
+        res = await agent_client.send_to_agent(
+            app_name="agent_aa", user_id="uuid-1", session_id="56999",
+            message="hola",
+        )
+    assert res["response"] == "hola productor"
+    assert calls["n"] == 2  # reintentó una vez
+    agent_client.create_agent_session.assert_awaited_once_with(
+        "uuid-1", "agent_aa", "56999",
+    )
+
+
+@pytest.mark.asyncio
+async def test_send_to_agent_gives_up_gracefully(monkeypatch):
+    """Si "Session not found" persiste tras agotar los reintentos, send_to_agent
+    no debe propagar la excepción: debe devolver un payload de error, igual que
+    hace hoy con el timeout."""
+    from whatsapp_webhook.external_services import agent_client
+
+    # Keep the test fast: 2 attempts -> a single 0.3s backoff.
+    monkeypatch.setattr(agent_client, "SESSION_RETRY_ATTEMPTS", 2)
+    monkeypatch.setattr(agent_client, "create_agent_session", AsyncMock())
+
+    async def always_not_found(*, user_id, session_id, message):
+        raise RuntimeError("Session not found. Please create it using .create_session()")
+        yield  # pragma: no cover
+
+    engine = MagicMock()
+    engine.async_stream_query = lambda **kw: always_not_found(**kw)
+    with patch.object(agent_client, "get_engine", return_value=engine):
+        result = await agent_client.send_to_agent(
+            app_name="agent_aa", user_id="uuid-1", session_id="56999",
+            message="hola",
+        )
+    assert "response" in result
+    assert "Error" in result["response"]
 
 
 @pytest.mark.asyncio

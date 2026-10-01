@@ -25,6 +25,12 @@ _logger = get_logger("agent_client")
 SESSION_TIMEOUT_SECONDS = float(os.getenv("AGENT_SESSION_TIMEOUT", "15"))
 QUERY_TIMEOUT_SECONDS = float(os.getenv("AGENT_QUERY_TIMEOUT", "90"))
 
+# Vertex Agent Runtime sessions are eventually consistent: a create() that just
+# reported "already exists" (or ran moments ago) can still be invisible to the
+# very next stream_query()/get_session(). Bound the number of retries so the
+# webhook absorbs that window instead of surfacing an empty response.
+SESSION_RETRY_ATTEMPTS = int(os.getenv("AGENT_SESSION_RETRY_ATTEMPTS", "3"))
+
 # TTL (seconds) for the resolved Secret Manager resource_name cache. Keeps
 # the per-message access_secret_version RPC off the hot path while staying
 # responsive to deploy.py rotating the engine within one TTL window.
@@ -126,6 +132,17 @@ def _is_session_already_exists(exc: Exception) -> bool:
     return "already exists" in str(exc).lower()
 
 
+def _is_session_not_found(exc: Exception) -> bool:
+    """True when Agent Runtime means "this session doesn't exist (yet)".
+
+    Mirrors _is_session_already_exists: string-match rather than a specific
+    exception type, because the SDK/engine doesn't consistently wrap this as
+    one exception class (a plain RuntimeError from async_stream_query, a
+    google.api_core NotFound from async_get_session, etc).
+    """
+    return "session not found" in str(exc).lower()
+
+
 async def create_agent_session(
     user_id: str, app_name: str, session_id: str
 ) -> dict[str, Any]:
@@ -153,16 +170,45 @@ async def create_agent_session(
                 "session_id": session_id,
             },
         )
-        return await asyncio.wait_for(
-            engine.async_get_session(user_id=user_id, session_id=session_id),
-            timeout=SESSION_TIMEOUT_SECONDS,
-        )
+        # "already exists" and "visible to a get" are not the same instant under
+        # eventual consistency: a concurrent delivery of the same WhatsApp turn
+        # can report AlreadyExists while async_get_session still 404s. Retry the
+        # get (bounded, same backoff as send_to_agent) instead of propagating.
+        for attempt in range(SESSION_RETRY_ATTEMPTS):
+            try:
+                return await asyncio.wait_for(
+                    engine.async_get_session(user_id=user_id, session_id=session_id),
+                    timeout=SESSION_TIMEOUT_SECONDS,
+                )
+            except Exception as get_exc:  # noqa: BLE001
+                if not _is_session_not_found(get_exc):
+                    raise
+                if attempt >= SESSION_RETRY_ATTEMPTS - 1:
+                    raise
+                _logger.warning(
+                    "agent_session.not_visible_yet_retry",
+                    extra={
+                        "app_name": app_name,
+                        "user_id": user_id,
+                        "session_id": session_id,
+                        "attempt": attempt + 1,
+                    },
+                )
+                await asyncio.sleep(0.3 * (attempt + 1))
 
 
 async def send_to_agent(
     app_name: str, user_id: str, session_id: str, message: str
 ) -> dict[str, Any]:
-    """Stream a query to Agent Runtime, returning the concatenated assistant text."""
+    """Stream a query to Agent Runtime, returning the concatenated assistant text.
+
+    Retries (bounded, short backoff) when the stream fails with "Session not
+    found": Agent Runtime sessions are eventually consistent, so the session
+    create_agent_session() just ran (or reported "already exists" for) can
+    still be invisible to this stream_query. Each retry re-asserts the session
+    via create_agent_session before trying again. out/raw_events are cleared
+    between attempts so a retry never duplicates text from the failed one.
+    """
     engine = await get_engine(app_name)
     _logger.info(
         "agent_query.start",
@@ -174,42 +220,75 @@ async def send_to_agent(
     )
     out: list[str] = []
     raw_events: list[dict] = []
-    try:
-        async with asyncio.timeout(QUERY_TIMEOUT_SECONDS):
-            async for event in engine.async_stream_query(
-                user_id=user_id, session_id=session_id, message=message
-            ):
-                raw_events.append(event)
-                # Skip partial (incremental) streaming events: when the engine
-                # streams token-by-token it emits partial events plus a final
-                # cumulative one, so collecting partials would duplicate text
-                # N-fold. Whether partials appear depends on the engine's
-                # streaming config; guarding here is safe either way.
-                if event.get("partial"):
-                    continue
-                # event["content"]["parts"][i] is either {"text": ...} (assistant
-                # token) or {"function_call": ...} / {"function_response": ...}
-                # (tool events). The `if text:` guard skips tool-call parts.
-                content = event.get("content") or {}
-                for part in content.get("parts") or []:
-                    text = part.get("text")
-                    if text:
-                        out.append(text)
-    except TimeoutError:
-        _logger.error(
-            "agent_query.timeout",
-            extra={
-                "app_name": app_name,
-                "user_id": user_id,
-                "session_id": session_id,
-                "timeout_s": QUERY_TIMEOUT_SECONDS,
-                "events_received": len(raw_events),
-            },
-        )
-        return {
-            "response": "Error: el agente excedió el tiempo de respuesta.",
-            "raw_response": raw_events,
-        }
+    for attempt in range(SESSION_RETRY_ATTEMPTS):
+        out.clear()
+        raw_events.clear()
+        try:
+            async with asyncio.timeout(QUERY_TIMEOUT_SECONDS):
+                async for event in engine.async_stream_query(
+                    user_id=user_id, session_id=session_id, message=message
+                ):
+                    raw_events.append(event)
+                    # Skip partial (incremental) streaming events: when the engine
+                    # streams token-by-token it emits partial events plus a final
+                    # cumulative one, so collecting partials would duplicate text
+                    # N-fold. Whether partials appear depends on the engine's
+                    # streaming config; guarding here is safe either way.
+                    if event.get("partial"):
+                        continue
+                    # event["content"]["parts"][i] is either {"text": ...} (assistant
+                    # token) or {"function_call": ...} / {"function_response": ...}
+                    # (tool events). The `if text:` guard skips tool-call parts.
+                    content = event.get("content") or {}
+                    for part in content.get("parts") or []:
+                        text = part.get("text")
+                        if text:
+                            out.append(text)
+            break
+        except TimeoutError:
+            _logger.error(
+                "agent_query.timeout",
+                extra={
+                    "app_name": app_name,
+                    "user_id": user_id,
+                    "session_id": session_id,
+                    "timeout_s": QUERY_TIMEOUT_SECONDS,
+                    "events_received": len(raw_events),
+                },
+            )
+            return {
+                "response": "Error: el agente excedió el tiempo de respuesta.",
+                "raw_response": raw_events,
+            }
+        except Exception as exc:  # noqa: BLE001
+            if not _is_session_not_found(exc):
+                raise
+            if attempt >= SESSION_RETRY_ATTEMPTS - 1:
+                _logger.error(
+                    "agent_query.session_not_found_exhausted",
+                    extra={
+                        "app_name": app_name,
+                        "user_id": user_id,
+                        "session_id": session_id,
+                        "attempts": SESSION_RETRY_ATTEMPTS,
+                    },
+                )
+                return {
+                    "response": "Error: la sesión del agente no está disponible, intenta de nuevo.",
+                    "raw_response": raw_events,
+                }
+            _logger.warning(
+                "agent_query.session_not_found_retry",
+                extra={
+                    "app_name": app_name,
+                    "user_id": user_id,
+                    "session_id": session_id,
+                    "attempt": attempt + 1,
+                },
+            )
+            await asyncio.sleep(0.3 * (attempt + 1))
+            # Re-assert the session exists before retrying the stream.
+            await create_agent_session(user_id, app_name, session_id)
     response_text = normalize_whatsapp_markdown("".join(out))
     if not response_text:
         _logger.warning(

@@ -23,33 +23,23 @@ if TYPE_CHECKING:
 _background_tasks: set[asyncio.Task] = set()
 
 
-async def send_message_to_agent(user: str, app_name: str, session_id: str, message: str) -> str:
+async def send_message_to_agent(
+    agent_user_id: str, app_name: str, session_id: str, message: str
+) -> str:
     """Sends a message to the internal agent service and parses the response.
 
-    `user` llega como el `wa_id` que manda Meta y se traduce acá al usuario de la
-    plataforma: el sub-agente EXPEDIENTE lee ese uuid de `tool_context.user_id`
-    para saber de quién es el expediente que está consultando.
-
-    La traducción va acá y no en cada quien llama, que hoy son dos —texto y
-    audio— y mañana pueden ser más: olvidarla en uno deja a ese productor sin
-    expediente y sin ninguna señal de que falta.
+    `agent_user_id` llega YA RESUELTO por `process_message` (el uuid del
+    productor, o el wa_id si no hay vínculo verificado) — esta función NO
+    vuelve a resolver. Antes resolvía acá de nuevo, y como `process_message`
+    resuelve una vez para crear la sesión, una segunda resolución con resultado
+    distinto (resolve-identity intermitente) dejaba a `create_agent_session` y a
+    `send_to_agent` con `user_id` distinto: Agent Runtime responde "Session does
+    not belong to user". Ver docs/superpowers/plans/2026-10-01-fix-agent-session-race.md.
 
     El `session_id` sigue siendo el teléfono: es lo que mantiene el hilo de la
     conversación, y cambiarlo huérfanaría las sesiones abiertas.
-
-    Sin vínculo verificado se manda el `wa_id` tal cual. Las tools del expediente
-    validan la forma de uuid y se niegan solas; RAG y el catálogo siguen
-    respondiendo, que son datos públicos del estándar.
     """
     logger = get_logger("agent_communication", {"app_name": app_name})
-
-    # resolve_producer promete no levantar nunca, pero el mensaje del productor
-    # no puede perderse si esa promesa se rompe en un refactor.
-    try:
-        agent_user_id = await resolve_producer(user) or user
-    except Exception as e:  # noqa: BLE001
-        logger.warning(f"No se pudo resolver la identidad, se sigue sin expediente: {e}")
-        agent_user_id = user
 
     try:
         response_data = await send_to_agent(app_name, agent_user_id, session_id, message)
@@ -149,20 +139,27 @@ async def process_message(
     sender_wa_id: str, message: "WhatsAppMessage", app_name: str
 ) -> None:
     """Processes a single message from WhatsApp."""
-    # La sesión debe crearse con el MISMO user_id con el que luego se consulta
-    # (send_message_to_agent resuelve el wa_id al uuid del productor). Si se crea
-    # con el wa_id crudo y se consulta con el uuid, el ADK rechaza con
-    # "Session does not belong to user". resolve_producer promete no levantar;
-    # ante fallo cae al wa_id, igual que la ruta de consulta.
-    agent_user_id = await resolve_producer(sender_wa_id) or sender_wa_id
+    logger = get_logger("agent_communication", {"app_name": app_name})
+    # Resolver el productor UNA sola vez por turno: el mismo agent_user_id se usa
+    # para crear la sesión Y para consultarla (texto o audio). Resolverlo dos
+    # veces —antes `send_message_to_agent` lo volvía a hacer— es lo que rompía la
+    # sesión cuando resolve-identity daba resultados distintos entre llamadas
+    # ("Session does not belong to user"). resolve_producer promete no levantar,
+    # pero el mensaje del productor no puede perderse si esa promesa se rompe en
+    # un refactor.
+    try:
+        agent_user_id = await resolve_producer(sender_wa_id) or sender_wa_id
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"No se pudo resolver la identidad, se sigue sin expediente: {e}")
+        agent_user_id = sender_wa_id
     # Firma: create_agent_session(user_id, app_name, session_id). El user_id es el
-    # uuid resuelto (igual que la consulta en send_to_agent); el session_id sigue
-    # siendo el wa_id (clave estable de la conversación).
+    # uuid resuelto (igual que la consulta en send_to_agent/handle_audio_message);
+    # el session_id sigue siendo el wa_id (clave estable de la conversación).
     await create_agent_session(agent_user_id, app_name, sender_wa_id)
     if message.type == "text":
-        await _process_single_text_message(sender_wa_id, message, app_name)
+        await _process_single_text_message(sender_wa_id, agent_user_id, message, app_name)
     elif message.type == "audio" and message.audio:
-        await handle_audio_message(sender_wa_id, message.audio.id, app_name)
+        await handle_audio_message(sender_wa_id, agent_user_id, message.audio.id, app_name)
     else:
         await _send_whatsapp_acknowledgment(
             sender_wa_id,
@@ -171,18 +168,18 @@ async def process_message(
         )
 
 async def _process_single_text_message(
-    sender_wa_id: str, message: "WhatsAppMessage", app_name: str
+    sender_wa_id: str, agent_user_id: str, message: "WhatsAppMessage", app_name: str
 ) -> None:
     """Process a single text message from WhatsApp."""
     message_text = message.get_message_content() or ""
     agent_response = await send_message_to_agent(
-        sender_wa_id, app_name, sender_wa_id, message_text
+        agent_user_id, app_name, sender_wa_id, message_text
     )
     response_text = agent_response or "No pude procesar tu mensaje. Intenta de nuevo."
     await _send_whatsapp_acknowledgment(sender_wa_id, response_text, app_name)
 
 async def handle_audio_message(
-    phone: str, audio_id: str, app_name: str
+    phone: str, agent_user_id: str, audio_id: str, app_name: str
 ) -> None:
     """Processes an audio message: downloads, transcribes, and responds."""
     # Get the appropriate configuration based on app name
@@ -217,7 +214,7 @@ async def handle_audio_message(
             )
             return
 
-        response = await send_message_to_agent(phone, app_name, phone, transcript)
+        response = await send_message_to_agent(agent_user_id, app_name, phone, transcript)
         await send_whatsapp_message(
             phone, create_text_message(response), f"{facebook_app_url}/messages", wsp_token
         )
