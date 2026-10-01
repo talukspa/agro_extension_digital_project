@@ -170,10 +170,31 @@ async def create_agent_session(
                 "session_id": session_id,
             },
         )
-        return await asyncio.wait_for(
-            engine.async_get_session(user_id=user_id, session_id=session_id),
-            timeout=SESSION_TIMEOUT_SECONDS,
-        )
+        # "already exists" and "visible to a get" are not the same instant under
+        # eventual consistency: a concurrent delivery of the same WhatsApp turn
+        # can report AlreadyExists while async_get_session still 404s. Retry the
+        # get (bounded, same backoff as send_to_agent) instead of propagating.
+        for attempt in range(SESSION_RETRY_ATTEMPTS):
+            try:
+                return await asyncio.wait_for(
+                    engine.async_get_session(user_id=user_id, session_id=session_id),
+                    timeout=SESSION_TIMEOUT_SECONDS,
+                )
+            except Exception as get_exc:  # noqa: BLE001
+                if not _is_session_not_found(get_exc):
+                    raise
+                if attempt >= SESSION_RETRY_ATTEMPTS - 1:
+                    raise
+                _logger.warning(
+                    "agent_session.not_visible_yet_retry",
+                    extra={
+                        "app_name": app_name,
+                        "user_id": user_id,
+                        "session_id": session_id,
+                        "attempt": attempt + 1,
+                    },
+                )
+                await asyncio.sleep(0.3 * (attempt + 1))
 
 
 async def send_to_agent(
