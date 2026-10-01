@@ -108,6 +108,18 @@ resource "google_cloud_run_v2_service" "cloud_run_name_webhook" {
         name  = "LOG_LEVEL"
         value = var.log_level
       }
+
+      # Expediente: base de la app y token de servicio para /api/agent/*
+      # (identity.py). Mismas dos env vars que lee el Agent Engine
+      # (ver RUNTIME_ENV_KEYS en agents/deploy.py).
+      env {
+        name  = "AGENT_SERVICE_TOKEN"
+        value = var.agent_service_token
+      }
+      env {
+        name  = "CIRUELA_API_BASE"
+        value = var.ciruela_api_base
+      }
     }
 
     service_account = google_service_account.webhook_app_sa.email

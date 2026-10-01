@@ -88,6 +88,8 @@ inputs = {
   whatsapp_app_secret_pp = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=whatsapp-app-secret-pp", "--project=${local.project_id}")
   wsp_token_aa           = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=wsp-token-aa", "--project=${local.project_id}")
   wsp_token_pp           = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=wsp-token-pp", "--project=${local.project_id}")
+  agent_service_token    = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=agent-service-token", "--project=${local.project_id}")
+  ciruela_api_base       = run_cmd("gcloud", "secrets", "versions", "access", "latest", "--secret=ciruela-api-base", "--project=${local.project_id}")
   whatsapp_base_url      = local.common_vars.urls.whatsapp_base
 
   # Configuración específica del entorno desde env.yaml

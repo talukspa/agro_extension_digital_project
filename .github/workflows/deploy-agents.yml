@@ -68,7 +68,8 @@ jobs:
       - name: Load runtime env vars from Secret Manager
         run: |
           for k in DATASTORE_AA_ID DATASTORE_PP_ID DATASTORE_GUIDES_ID \
-                   DATASTORE_FAQ_ID DATASTORE_CHILEPRUNES_CL_ID BIGQUERY_DATASET; do
+                   DATASTORE_FAQ_ID DATASTORE_CHILEPRUNES_CL_ID BIGQUERY_DATASET \
+                   CIRUELA_API_BASE AGENT_SERVICE_TOKEN CATALOG_DSN; do
             secret_id="$(echo $k | tr A-Z_ a-z- )"
             v=$(gcloud secrets versions access latest --secret="$secret_id")
             echo "$k=$v" >> $GITHUB_ENV
