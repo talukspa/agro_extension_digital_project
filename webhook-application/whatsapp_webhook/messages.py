@@ -149,7 +149,13 @@ async def process_message(
     sender_wa_id: str, message: "WhatsAppMessage", app_name: str
 ) -> None:
     """Processes a single message from WhatsApp."""
-    await create_agent_session(sender_wa_id, app_name, sender_wa_id)
+    # La sesión debe crearse con el MISMO user_id con el que luego se consulta
+    # (send_message_to_agent resuelve el wa_id al uuid del productor). Si se crea
+    # con el wa_id crudo y se consulta con el uuid, el ADK rechaza con
+    # "Session does not belong to user". resolve_producer promete no levantar;
+    # ante fallo cae al wa_id, igual que la ruta de consulta.
+    agent_user_id = await resolve_producer(sender_wa_id) or sender_wa_id
+    await create_agent_session(sender_wa_id, app_name, agent_user_id)
     if message.type == "text":
         await _process_single_text_message(sender_wa_id, message, app_name)
     elif message.type == "audio" and message.audio:
