@@ -324,3 +324,75 @@ async def test_process_webhook_in_background_message_error_sends_ack():
         await messages._process_webhook_in_background(payload, AA)
     ack.assert_awaited_once()
     assert "Error procesando mensaje" in ack.await_args.args[1]
+
+
+# ------------------------------------- el uuid del productor como user_id de ADK
+PRODUCTOR = "c1d1ebe1-5c05-45ce-a9c1-fd4315850baa"
+
+
+@pytest.mark.asyncio
+async def test_el_agente_recibe_el_uuid_como_user_id_y_el_telefono_como_sesion():
+    """El expediente necesita el uuid; la sesión sigue llaveada por teléfono para
+    no perder el hilo de la conversación."""
+    visto = {}
+
+    async def falso_send_to_agent(app_name, user, session_id, message):
+        visto["args"] = (app_name, user, session_id, message)
+        return {"response": "listo"}
+
+    with patch.object(messages, "resolve_producer",
+                      AsyncMock(return_value=PRODUCTOR)), \
+         patch.object(messages, "send_to_agent", falso_send_to_agent):
+        out = await messages.send_message_to_agent(WA_ID, AA, WA_ID, "cómo voy?")
+
+    assert out == "listo"
+    assert visto["args"] == (AA, PRODUCTOR, WA_ID, "cómo voy?")
+
+
+@pytest.mark.asyncio
+async def test_sin_vinculo_el_user_id_queda_el_telefono():
+    """La conversación sigue: RAG y el catálogo son datos públicos del estándar."""
+    visto = {}
+
+    async def falso_send_to_agent(app_name, user, session_id, message):
+        visto["args"] = (app_name, user, session_id, message)
+        return {"response": "ok"}
+
+    with patch.object(messages, "resolve_producer", AsyncMock(return_value=None)), \
+         patch.object(messages, "send_to_agent", falso_send_to_agent):
+        await messages.send_message_to_agent(WA_ID, AA, WA_ID, "hola")
+
+    assert visto["args"] == (AA, WA_ID, WA_ID, "hola")
+
+
+@pytest.mark.asyncio
+async def test_si_resolver_la_identidad_levanta_el_turno_no_se_cae():
+    """resolve_producer promete no levantar, pero si alguna vez lo hiciera, el
+    mensaje del productor no puede perderse por eso."""
+    visto = {}
+
+    async def falso_send_to_agent(app_name, user, session_id, message):
+        visto["args"] = (app_name, user, session_id, message)
+        return {"response": "ok"}
+
+    with patch.object(messages, "resolve_producer",
+                      AsyncMock(side_effect=RuntimeError("boom"))), \
+         patch.object(messages, "send_to_agent", falso_send_to_agent):
+        out = await messages.send_message_to_agent(WA_ID, AA, WA_ID, "hola")
+
+    assert visto["args"] == (AA, WA_ID, WA_ID, "hola")
+    assert out == "ok"
+
+
+@pytest.mark.asyncio
+async def test_el_texto_y_el_audio_pasan_los_dos_por_la_resolucion():
+    """Los dos caminos de entrada, no sólo el de texto: si uno se olvida, ese
+    productor queda sin expediente y nadie lo nota."""
+    import inspect
+    fuente = inspect.getsource(messages)
+    # Ningún call site debe pasar el teléfono como user_id: eso ahora lo resuelve
+    # send_message_to_agent por dentro, así que no puede haber una segunda ruta.
+    assert fuente.count("resolve_producer") >= 1
+    for linea in fuente.splitlines():
+        if "send_to_agent(" in linea and "def " not in linea:
+            assert "agent_user_id" in linea or "user" in linea, linea

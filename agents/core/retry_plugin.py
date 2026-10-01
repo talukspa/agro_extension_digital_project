@@ -1,6 +1,6 @@
 """Bridge ADK 2.x's reflect-and-retry plugin to our {ok, error} tool contract.
 
-`core/bq_tools.py` deliberately never raises into the model: every tool returns
+`core/catalog_tools.py` deliberately never raises into the model: every tool returns
 `{"ok": bool, "error": str | None, ...}` so the LlmAgent can read the error and
 fix its SQL. That contract has one consequence under ADK 2.x that is easy to
 miss:
@@ -14,7 +14,7 @@ detects nothing by default. So a tool that catches its exception and returns
 reflection guidance is ever produced.
 
 This subclass teaches it our contract. Without it, adopting the plugin would be
-a silent no-op for every BigQuery tool — which is the concrete form of the
+a silent no-op for every Postgres tool — which is the concrete form of the
 "broad excepts defeat 2.0's retry" concern raised in the #44 review.
 """
 from typing import Any, Optional

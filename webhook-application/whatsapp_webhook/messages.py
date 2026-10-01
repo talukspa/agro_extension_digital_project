@@ -3,6 +3,7 @@ import logging
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from .external_services.agent_client import create_agent_session, send_to_agent
+from .external_services.identity import resolve_producer
 from .external_services.whatsapp_client import (
     create_text_message,
     download_whatsapp_media,
@@ -23,11 +24,35 @@ _background_tasks: set[asyncio.Task] = set()
 
 
 async def send_message_to_agent(user: str, app_name: str, session_id: str, message: str) -> str:
-    """Sends a message to the internal agent service and parses the response."""
+    """Sends a message to the internal agent service and parses the response.
+
+    `user` llega como el `wa_id` que manda Meta y se traduce acá al usuario de la
+    plataforma: el sub-agente EXPEDIENTE lee ese uuid de `tool_context.user_id`
+    para saber de quién es el expediente que está consultando.
+
+    La traducción va acá y no en cada quien llama, que hoy son dos —texto y
+    audio— y mañana pueden ser más: olvidarla en uno deja a ese productor sin
+    expediente y sin ninguna señal de que falta.
+
+    El `session_id` sigue siendo el teléfono: es lo que mantiene el hilo de la
+    conversación, y cambiarlo huérfanaría las sesiones abiertas.
+
+    Sin vínculo verificado se manda el `wa_id` tal cual. Las tools del expediente
+    validan la forma de uuid y se niegan solas; RAG y el catálogo siguen
+    respondiendo, que son datos públicos del estándar.
+    """
     logger = get_logger("agent_communication", {"app_name": app_name})
 
+    # resolve_producer promete no levantar nunca, pero el mensaje del productor
+    # no puede perderse si esa promesa se rompe en un refactor.
     try:
-        response_data = await send_to_agent(app_name, user, session_id, message)
+        agent_user_id = await resolve_producer(user) or user
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"No se pudo resolver la identidad, se sigue sin expediente: {e}")
+        agent_user_id = user
+
+    try:
+        response_data = await send_to_agent(app_name, agent_user_id, session_id, message)
         return response_data.get(
             "response", "Error: No se pudo extraer el texto de la respuesta."
         )

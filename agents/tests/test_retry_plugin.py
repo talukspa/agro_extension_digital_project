@@ -1,7 +1,7 @@
 """The {ok,error} contract must reach ADK 2.x's reflect-and-retry plugin.
 
 Regression guard: the base ReflectAndRetryToolPlugin.extract_error_from_result
-returns None, so without OkContractRetryPlugin every bq_tools failure would be
+returns None, so without OkContractRetryPlugin every catalog_tools failure would be
 recorded as a SUCCESS and never retried.
 """
 from unittest.mock import MagicMock
@@ -51,7 +51,7 @@ async def test_base_plugin_would_have_missed_it():
 
 async def test_exceeding_max_retries_returns_guidance_instead_of_raising():
     """ADK defaults throw_exception_if_retry_exceeded=True, which would break
-    the 'tools never raise into the model' contract core/bq_tools.py rests on.
+    the 'tools never raise into the model' contract core/catalog_tools.py rests on.
     build_app must pass False — this pins the behaviour end to end."""
     from unittest.mock import MagicMock
 
