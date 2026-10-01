@@ -77,6 +77,17 @@ variable "wsp_token_pp" {
   sensitive   = true
 }
 
+variable "agent_service_token" {
+  description = "Token de servicio que el webhook usa para autenticarse contra /api/agent/* (identity.py). Compartido con los Agent Engines (ver RUNTIME_ENV_KEYS en agents/deploy.py)."
+  type        = string
+  sensitive   = true
+}
+
+variable "ciruela_api_base" {
+  description = "Base URL de la app Next (Ciruela Certificada) contra la que el webhook resuelve identidad (identity.py). Compartida con los Agent Engines (ver RUNTIME_ENV_KEYS en agents/deploy.py)."
+  type        = string
+}
+
 variable "whatsapp_base_url" {
   description = "Base URL for WhatsApp Graph API"
   type        = string
