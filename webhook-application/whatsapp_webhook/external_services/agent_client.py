@@ -5,6 +5,7 @@ Replaces the previous httpx-based client that POSTed to {APP_URL}/run and
 signatures are preserved so callers in messages.py don't need to change.
 """
 import asyncio
+import hashlib
 import os
 import time
 from functools import lru_cache
@@ -30,6 +31,29 @@ QUERY_TIMEOUT_SECONDS = float(os.getenv("AGENT_QUERY_TIMEOUT", "90"))
 # very next stream_query()/get_session(). Bound the number of retries so the
 # webhook absorbs that window instead of surfacing an empty response.
 SESSION_RETRY_ATTEMPTS = int(os.getenv("AGENT_SESSION_RETRY_ATTEMPTS", "3"))
+
+# Las sesiones del Agent Runtime rotan por ventana de tiempo: el session_id
+# lleva la ventana adentro en vez de ser sólo el wa_id. Dos razones, en orden
+# de importancia:
+#
+#   - Un nombre de sesión que la plataforma deja inutilizable deja de ser una
+#     condena permanente para ese wa_id. El modo de falla es real y observado
+#     (issue #70): el índice de unicidad se queda con el nombre tomado pero el
+#     recurso es ilegible, así que `create` responde 400 "already exists" y el
+#     `get` siguiente responde 404 — para siempre, porque no hay nada que vaya
+#     a aparecer. Con la ventana adentro del id, eso se cura solo al rotar.
+#   - Regenera el hilo cada SESSION_WINDOW_SECONDS sin estado extra.
+#
+# NO cambiar esto por un TTL sobre un session_id fijo: eso le PROGRAMA el
+# estado de arriba a cada productor en cada vencimiento, convirtiendo un
+# incidente aislado en una caída recurrente. El TTL de abajo sólo es sano
+# porque el id rota y ningún nombre se reusa después de vencer.
+SESSION_WINDOW_SECONDS = int(os.getenv("AGENT_SESSION_WINDOW", str(24 * 60 * 60)))
+
+# La API rechaza con 400 cualquier ttl bajo 24h ("`ttl` must be at least 24
+# hours"), y lo mismo un expire_time a menos de 24h. 6h no es expresable: la
+# rotación del id es lo que da ventanas más cortas si alguna vez se quieren.
+SESSION_TTL = os.getenv("AGENT_SESSION_TTL", "86400s")
 
 # TTL (seconds) for the resolved Secret Manager resource_name cache. Keeps
 # the per-message access_secret_version RPC off the hot path while staying
@@ -143,6 +167,29 @@ def _is_session_not_found(exc: Exception) -> bool:
     return "session not found" in str(exc).lower()
 
 
+def session_id_for(wa_id: str, user_id: str) -> str:
+    """session_id determinístico por (wa_id, dueño, ventana de tiempo).
+
+    Mismo wa_id y mismo dueño dentro de la misma ventana -> mismo id, que es lo
+    que mantiene el hilo de la conversación. Al cruzar la ventana el id cambia y
+    el engine abre una sesión nueva.
+
+    El dueño va adentro del nombre a propósito. Agent Runtime rechaza un `get`
+    cuyo user_id no coincide con el de la sesión ("Session does not belong to
+    user"), así que dos identidades distintas no pueden compartir nombre sin
+    romperse. Pasó de verdad: `process_message` cae al wa_id cuando
+    resolve-identity falla, y un turno resuelto al uuid después del turno que
+    cayó al teléfono encontraba la sesión del otro dueño. Con el dueño en el id
+    eso es imposible por construcción, no por disciplina.
+
+    Va un digest y no el uuid pelado para no dejar el id del productor en un
+    resource name ni en los logs; 8 hex alcanzan de sobra para separar dos
+    identidades del mismo teléfono.
+    """
+    owner = hashlib.sha256(user_id.encode()).hexdigest()[:8]
+    return f"{wa_id}-{owner}-{int(time.time()) // SESSION_WINDOW_SECONDS}"
+
+
 async def create_agent_session(
     user_id: str, app_name: str, session_id: str
 ) -> dict[str, Any]:
@@ -150,7 +197,9 @@ async def create_agent_session(
     engine = await get_engine(app_name)
     try:
         return await asyncio.wait_for(
-            engine.async_create_session(user_id=user_id, session_id=session_id),
+            engine.async_create_session(
+                user_id=user_id, session_id=session_id, ttl=SESSION_TTL
+            ),
             timeout=SESSION_TIMEOUT_SECONDS,
         )
     except (gax.AlreadyExists, gax.InvalidArgument) as exc:
