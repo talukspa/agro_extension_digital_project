@@ -20,28 +20,22 @@ from core.retry_plugin import OkContractRetryPlugin
 
 # Model choices are per-role, and the cheap one is NOT the obvious one.
 #
-# ROOT_MODEL / CATALOG_MODEL — gemini-3.7-flash costs $0.75/$3.75 per 1M in/out
-# through 2026-12-31 and $1.50/$7.50 after, versus $1.50/$9.00 for the
-# gemini-3.5-flash it replaces. It is cheaper today (-50% in, -58% out) and
-# still cheaper once the introductory rate lapses (same in, -17% out), so this
-# swap never costs more. A live 4-tool Postgres run also came back in 13.2s
-# against 22.2s (n=1, indicative not conclusive). gemini-3.6-flash is priced
-# identically, so there is no reason to prefer it.
-#
-# RAG_MODEL — deliberately NOT upgraded. gemini-3.5-flash-lite is $0.30/$2.50
-# versus $0.25/$1.50 for gemini-3.1-flash-lite, i.e. more expensive on both
-# axes. Note the 3.1-flash-lite rate is introductory through 2026-12-31 and the
-# post-intro price is not published yet — worth re-checking before then, since
-# RAG is the highest-volume path.
-ROOT_MODEL = "gemini-3.7-flash"
-CATALOG_MODEL = "gemini-3.7-flash"
-RAG_MODEL = "gemini-3.1-flash-lite"
+# Modelos GA (2.5) en vez de los 3.x preview. Los 3.x (gemini-3.7-flash /
+# 3.1-flash-lite) sólo se sirven desde la location `global`, que comparte una
+# pool de quota de preview chica: en prod devolvía 429 RESOURCE_EXHAUSTED en
+# casi cada turno (texto e imágenes por igual). Los 2.5 son GA, multimodales
+# (imágenes/PDF), y con `GEMINI_LOCATION=us-central1` usan la quota regional
+# dedicada del proyecto. Volver a un 3.x cuando su quota esté resuelta es sólo
+# cambiar estas constantes de vuelta (y GEMINI_LOCATION a `global`).
+ROOT_MODEL = "gemini-2.5-flash"
+CATALOG_MODEL = "gemini-2.5-flash"
+RAG_MODEL = "gemini-2.5-flash-lite"
 
 # El expediente es lectura y ESCRITURA sobre el productor: adjunta respaldos,
 # registra labores, publica mensajes al auditor. Se le da el mismo modelo que al
 # root en lugar del flash-lite de RAG porque equivocarse acá deja un registro
 # mal puesto en el expediente de una persona, no una respuesta imprecisa.
-RECORD_MODEL = "gemini-3.7-flash"
+RECORD_MODEL = "gemini-2.5-flash"
 
 
 def _tool_max_retries() -> int:
