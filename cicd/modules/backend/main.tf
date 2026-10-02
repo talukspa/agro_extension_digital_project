@@ -120,6 +120,14 @@ resource "google_cloud_run_v2_service" "cloud_run_name_webhook" {
         name  = "CIRUELA_API_BASE"
         value = var.ciruela_api_base
       }
+
+      # Private GCS bucket the webhook uploads WhatsApp image/PDF media to
+      # before handing a gs:// URI to the agent (multimodal message). See
+      # google_storage_bucket.wsp_media below.
+      env {
+        name  = "WSP_MEDIA_BUCKET"
+        value = google_storage_bucket.wsp_media.name
+      }
     }
 
     service_account = google_service_account.webhook_app_sa.email
@@ -272,6 +280,49 @@ resource "google_secret_manager_secret_iam_member" "webhook_reads_engine_pp" {
   secret_id = google_secret_manager_secret.engine_pp_name.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.webhook_app_sa.email}"
+}
+
+# --------------------------------------------------------------------
+# Producer media (WhatsApp image/PDF) → GCS → agent, multimodal.
+#
+# Private bucket: uniform access, no public ACL/IAM at the resource level
+# (public_access_prevention=enforced), object names are the webhook's own
+# uuid-based keys (not guessable), and a short lifecycle deletes producer
+# documents automatically — this bucket is not meant to retain anything.
+# webhook SA writes (objectCreator); the two agent runtime SAs read
+# (objectViewer) so Gemini can resolve the gs:// URI it's handed.
+# --------------------------------------------------------------------
+resource "google_storage_bucket" "wsp_media" {
+  name                        = "${var.project_id}-wsp-media"
+  location                    = var.region
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+  force_destroy               = false
+
+  lifecycle_rule {
+    condition {
+      age = 7
+    }
+    action {
+      type = "Delete"
+    }
+  }
+}
+
+resource "google_storage_bucket_iam_member" "webhook_writes_media" {
+  bucket = google_storage_bucket.wsp_media.name
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${google_service_account.webhook_app_sa.email}"
+}
+
+resource "google_storage_bucket_iam_member" "runtime_reads_media" {
+  for_each = toset([
+    google_service_account.agent_aa_runtime.email,
+    google_service_account.agent_pp_runtime.email,
+  ])
+  bucket = google_storage_bucket.wsp_media.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${each.value}"
 }
 
 # TODO(iam-scope): project-level roles/aiplatform.user is broader than ideal —
