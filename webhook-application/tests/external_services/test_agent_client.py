@@ -173,6 +173,74 @@ async def test_send_to_agent_concatenates_assistant_text():
 
 
 @pytest.mark.asyncio
+async def test_send_to_agent_passes_file_part():
+    """A dict message with file_uri must reach async_stream_query as a
+    Content-shaped dict with both the file_data and the caption text."""
+    from whatsapp_webhook.external_services import agent_client
+
+    seen = {}
+
+    async def fake_stream(*, user_id, session_id, message):
+        seen["message"] = message
+        yield {"content": {"parts": [{"text": "vi la imagen"}]}}
+
+    engine = MagicMock()
+    engine.async_stream_query = lambda **kw: fake_stream(**kw)
+    with patch.object(agent_client, "get_engine", return_value=engine):
+        res = await agent_client.send_to_agent(
+            "agent_aa", "uuid", "sess",
+            {"text": "mira esto", "file_uri": "gs://b/x.jpg", "mime_type": "image/jpeg"},
+        )
+
+    assert seen["message"]["role"] == "user"
+    parts = seen["message"]["parts"]
+    assert {"text": "mira esto"} in parts
+    assert {"file_data": {"file_uri": "gs://b/x.jpg", "mime_type": "image/jpeg"}} in parts
+    assert res["response"] == "vi la imagen"
+
+
+@pytest.mark.asyncio
+async def test_send_to_agent_passes_file_part_without_caption():
+    """No caption text -> only the file_data part, no empty text part."""
+    from whatsapp_webhook.external_services import agent_client
+
+    seen = {}
+
+    async def fake_stream(*, user_id, session_id, message):
+        seen["message"] = message
+        yield {"content": {"parts": [{"text": "ok"}]}}
+
+    engine = MagicMock()
+    engine.async_stream_query = lambda **kw: fake_stream(**kw)
+    with patch.object(agent_client, "get_engine", return_value=engine):
+        await agent_client.send_to_agent(
+            "agent_aa", "uuid", "sess",
+            {"text": "", "file_uri": "gs://b/x.pdf", "mime_type": "application/pdf"},
+        )
+
+    assert seen["message"]["parts"] == [
+        {"file_data": {"file_uri": "gs://b/x.pdf", "mime_type": "application/pdf"}}
+    ]
+
+
+def test_to_stream_message_dict_is_a_valid_genai_content():
+    """Guards the chosen format against the installed google-genai version:
+    async_stream_query does types.Content.model_validate(message) when a dict
+    is passed, so the dict _to_stream_message builds must validate as one."""
+    from google.genai import types
+
+    from whatsapp_webhook.external_services import agent_client
+
+    built = agent_client._to_stream_message(
+        {"text": "hola", "file_uri": "gs://b/x.jpg", "mime_type": "image/jpeg"}
+    )
+    content = types.Content.model_validate(built)
+    assert content.parts[0].text == "hola"
+    assert content.parts[1].file_data.file_uri == "gs://b/x.jpg"
+    assert content.parts[1].file_data.mime_type == "image/jpeg"
+
+
+@pytest.mark.asyncio
 async def test_send_to_agent_returns_error_payload_when_no_text():
     """Tool-call-only stream -> empty string -> error payload."""
     from whatsapp_webhook.external_services import agent_client

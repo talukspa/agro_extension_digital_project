@@ -246,10 +246,43 @@ async def create_agent_session(
                 await asyncio.sleep(0.3 * (attempt + 1))
 
 
+def _to_stream_message(message: str | dict[str, Any]) -> str | dict[str, Any]:
+    """Build the value passed as `async_stream_query(message=...)`.
+
+    `message` is either plain text (str, as today) or a dict
+    `{"text": ..., "file_uri": "gs://...", "mime_type": "..."}` produced by
+    messages.handle_media_message for an image/PDF.
+
+    Format verified against the INSTALLED vertexai/google-genai versions
+    (plan Task 3 Step 0): `AdkApp.async_stream_query` (vertexai.agent_engines.
+    templates.adk) accepts `message: Union[str, Dict[str, Any]]` and, when a
+    dict is given, does `google.genai.types.Content.model_validate(message)`.
+    So the dict must be a valid Content: `{"role": "user", "parts": [...]}`
+    with parts shaped as `google.genai.types.Part` — `{"text": ...}` for text
+    and `{"file_data": {"file_uri": ..., "mime_type": ...}}` for the GCS file.
+    A plain str is left untouched; AdkApp itself wraps it as
+    `Content(role="user", parts=[Part(text=message)])`.
+    """
+    if isinstance(message, str):
+        return message
+    parts: list[dict[str, Any]] = []
+    text = message.get("text")
+    if text:
+        parts.append({"text": text})
+    parts.append(
+        {"file_data": {"file_uri": message["file_uri"], "mime_type": message["mime_type"]}}
+    )
+    return {"role": "user", "parts": parts}
+
+
 async def send_to_agent(
-    app_name: str, user_id: str, session_id: str, message: str
+    app_name: str, user_id: str, session_id: str, message: str | dict[str, Any]
 ) -> dict[str, Any]:
     """Stream a query to Agent Runtime, returning the concatenated assistant text.
+
+    `message` is plain text (str) or a multimodal dict with a `file_uri` (see
+    _to_stream_message) — e.g. a WhatsApp image/PDF uploaded to GCS by
+    messages.handle_media_message.
 
     Retries (bounded, short backoff) when the stream fails with "Session not
     found": Agent Runtime sessions are eventually consistent, so the session
@@ -258,6 +291,7 @@ async def send_to_agent(
     via create_agent_session before trying again. out/raw_events are cleared
     between attempts so a retry never duplicates text from the failed one.
     """
+    stream_message = _to_stream_message(message)
     engine = await get_engine(app_name)
     _logger.info(
         "agent_query.start",
@@ -275,7 +309,7 @@ async def send_to_agent(
         try:
             async with asyncio.timeout(QUERY_TIMEOUT_SECONDS):
                 async for event in engine.async_stream_query(
-                    user_id=user_id, session_id=session_id, message=message
+                    user_id=user_id, session_id=session_id, message=stream_message
                 ):
                     raw_events.append(event)
                     # Skip partial (incremental) streaming events: when the engine
