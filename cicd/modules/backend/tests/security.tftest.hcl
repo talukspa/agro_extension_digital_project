@@ -34,6 +34,8 @@ variables {
   estandar_pp_app_name                     = "pp-app"
   wsp_token_aa                             = "dummy-wsp-token-aa"
   wsp_token_pp                             = "dummy-wsp-token-pp"
+  agent_service_token                      = "dummy-agent-service-token"
+  ciruela_api_base                         = "https://ciruela.test"
   bigquery_dataset                         = "agro_dataset"
   datastore_aa_id                          = "projects/test/locations/global/collections/default/dataStores/aa"
   datastore_pp_id                          = "projects/test/locations/global/collections/default/dataStores/pp"
