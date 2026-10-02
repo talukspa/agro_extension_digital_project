@@ -16,6 +16,7 @@ dependencies = [
     # Google Cloud authentication
     "google-auth>=2.23.0,<3.0.0",
     "google-cloud-speech>=2.21.0,<3.0.0",
+    "google-cloud-storage>=2.18.0,<4.0.0",
     # Vertex AI Agent Runtime client
     "google-cloud-aiplatform[agent_engines]>=1.135.0",
     "google-cloud-secret-manager>=2.20.0",

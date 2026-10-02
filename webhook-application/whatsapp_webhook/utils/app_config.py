@@ -47,6 +47,11 @@ class AppConfig(BaseModel):
     port: int = 8080
     environment: str = "production"
 
+    # Private GCS bucket for WhatsApp producer media (image/PDF) uploaded by
+    # gcs_media.upload_media before being handed to the agent as a gs:// URI.
+    # Sourced from WSP_MEDIA_BUCKET; per-env, provisioned by Terraform.
+    wsp_media_bucket: Optional[str] = None
+
     @property
     def is_development(self) -> bool:
         """True when running in a local/dev environment."""
@@ -95,6 +100,7 @@ def load_config_from_env() -> AppConfig:
         host=os.getenv("HOST", "0.0.0.0"),
         port=int(os.getenv("PORT", "8080")),
         environment=os.getenv("ENVIRONMENT", "production"),
+        wsp_media_bucket=os.getenv("WSP_MEDIA_BUCKET"),
     )
 
 # Singleton instance to be used across the application
