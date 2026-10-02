@@ -162,7 +162,9 @@ async def process_message(
     # uuid resuelto (igual que la consulta en send_to_agent/handle_audio_message);
     # el session_id sale de session_id_for() — el wa_id más la ventana de tiempo,
     # para que el hilo rote en vez de vivir para siempre (ver agent_client).
-    await create_agent_session(agent_user_id, app_name, session_id_for(sender_wa_id))
+    await create_agent_session(
+        agent_user_id, app_name, session_id_for(sender_wa_id, agent_user_id)
+    )
     if message.type == "text":
         await _process_single_text_message(sender_wa_id, agent_user_id, message, app_name)
     elif message.type == "audio" and message.audio:
@@ -180,7 +182,7 @@ async def _process_single_text_message(
     """Process a single text message from WhatsApp."""
     message_text = message.get_message_content() or ""
     agent_response = await send_message_to_agent(
-        agent_user_id, app_name, session_id_for(sender_wa_id), message_text
+        agent_user_id, app_name, session_id_for(sender_wa_id, agent_user_id), message_text
     )
     response_text = agent_response or "No pude procesar tu mensaje. Intenta de nuevo."
     await _send_whatsapp_acknowledgment(sender_wa_id, response_text, app_name)
@@ -222,7 +224,7 @@ async def handle_audio_message(
             return
 
         response = await send_message_to_agent(
-            agent_user_id, app_name, session_id_for(phone), transcript
+            agent_user_id, app_name, session_id_for(phone, agent_user_id), transcript
         )
         await send_whatsapp_message(
             phone, create_text_message(response), f"{facebook_app_url}/messages", wsp_token

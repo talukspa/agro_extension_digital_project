@@ -5,6 +5,7 @@ Replaces the previous httpx-based client that POSTed to {APP_URL}/run and
 signatures are preserved so callers in messages.py don't need to change.
 """
 import asyncio
+import hashlib
 import os
 import time
 from functools import lru_cache
@@ -166,14 +167,27 @@ def _is_session_not_found(exc: Exception) -> bool:
     return "session not found" in str(exc).lower()
 
 
-def session_id_for(wa_id: str) -> str:
-    """session_id determinístico por (wa_id, ventana de tiempo).
+def session_id_for(wa_id: str, user_id: str) -> str:
+    """session_id determinístico por (wa_id, dueño, ventana de tiempo).
 
-    Mismo wa_id dentro de la misma ventana -> mismo id, que es lo que mantiene
-    el hilo de la conversación. Al cruzar la ventana el id cambia y el engine
-    abre una sesión nueva.
+    Mismo wa_id y mismo dueño dentro de la misma ventana -> mismo id, que es lo
+    que mantiene el hilo de la conversación. Al cruzar la ventana el id cambia y
+    el engine abre una sesión nueva.
+
+    El dueño va adentro del nombre a propósito. Agent Runtime rechaza un `get`
+    cuyo user_id no coincide con el de la sesión ("Session does not belong to
+    user"), así que dos identidades distintas no pueden compartir nombre sin
+    romperse. Pasó de verdad: `process_message` cae al wa_id cuando
+    resolve-identity falla, y un turno resuelto al uuid después del turno que
+    cayó al teléfono encontraba la sesión del otro dueño. Con el dueño en el id
+    eso es imposible por construcción, no por disciplina.
+
+    Va un digest y no el uuid pelado para no dejar el id del productor en un
+    resource name ni en los logs; 8 hex alcanzan de sobra para separar dos
+    identidades del mismo teléfono.
     """
-    return f"{wa_id}-{int(time.time()) // SESSION_WINDOW_SECONDS}"
+    owner = hashlib.sha256(user_id.encode()).hexdigest()[:8]
+    return f"{wa_id}-{owner}-{int(time.time()) // SESSION_WINDOW_SECONDS}"
 
 
 async def create_agent_session(

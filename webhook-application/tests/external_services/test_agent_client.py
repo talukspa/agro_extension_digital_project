@@ -338,8 +338,8 @@ def test_session_id_is_stable_inside_the_same_window():
     from whatsapp_webhook.external_services import agent_client
 
     with patch.object(agent_client.time, "time", return_value=1_700_000_000.0):
-        primero = agent_client.session_id_for("56968767906")
-        segundo = agent_client.session_id_for("56968767906")
+        primero = agent_client.session_id_for("56968767906", "uuid-1")
+        segundo = agent_client.session_id_for("56968767906", "uuid-1")
     assert primero == segundo
     assert primero.startswith("56968767906-")
 
@@ -351,11 +351,11 @@ def test_session_id_rotates_when_the_window_advances():
 
     base = 1_700_000_000.0
     with patch.object(agent_client.time, "time", return_value=base):
-        antes = agent_client.session_id_for("56968767906")
+        antes = agent_client.session_id_for("56968767906", "uuid-1")
     with patch.object(
         agent_client.time, "time", return_value=base + agent_client.SESSION_WINDOW_SECONDS
     ):
-        despues = agent_client.session_id_for("56968767906")
+        despues = agent_client.session_id_for("56968767906", "uuid-1")
     assert antes != despues
 
 
@@ -363,9 +363,9 @@ def test_distinct_wa_ids_never_share_a_session():
     from whatsapp_webhook.external_services import agent_client
 
     with patch.object(agent_client.time, "time", return_value=1_700_000_000.0):
-        assert agent_client.session_id_for("56961954566") != agent_client.session_id_for(
-            "56968767906"
-        )
+        assert agent_client.session_id_for(
+            "56961954566", "uuid-1"
+        ) != agent_client.session_id_for("56968767906", "uuid-1")
 
 
 @pytest.mark.asyncio
@@ -378,3 +378,26 @@ async def test_create_session_sends_the_ttl():
     with patch.object(agent_client, "get_engine", AsyncMock(return_value=engine)):
         await agent_client.create_agent_session("uuid-1", "agent_pp", "56968767906-0")
     assert engine.async_create_session.await_args.kwargs["ttl"] == agent_client.SESSION_TTL
+
+
+def test_session_id_separates_owners_of_the_same_phone():
+    """La red de seguridad del "does not belong to user": si la identidad del
+    turno cambia (resolve-identity falla y se cae al teléfono), el nombre de la
+    sesión cambia con ella, así que nunca se topa con la sesión del otro dueño.
+    """
+    from whatsapp_webhook.external_services import agent_client
+
+    with patch.object(agent_client.time, "time", return_value=1_700_000_000.0):
+        como_uuid = agent_client.session_id_for("56968767906", "245e654f-617b-4ba6")
+        como_telefono = agent_client.session_id_for("56968767906", "56968767906")
+    assert como_uuid != como_telefono
+
+
+def test_session_id_is_accepted_by_the_runtime_pattern():
+    """El engine valida con ^[A-Za-z0-9_-]+$ y revienta el turno si no calza."""
+    import re
+
+    from whatsapp_webhook.external_services import agent_client
+
+    sid = agent_client.session_id_for("56968767906", "245e654f-617b-4ba6-9122-6c035ffa1fe3")
+    assert re.fullmatch(r"[A-Za-z0-9_-]+", sid), sid
