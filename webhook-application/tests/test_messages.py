@@ -31,6 +31,24 @@ def _audio_msg(audio_id="AUDIO123"):
     )
 
 
+def _image_msg(media_id="IMG1", mime_type="image/jpeg", caption=None):
+    image = {"id": media_id, "mime_type": mime_type}
+    if caption is not None:
+        image["caption"] = caption
+    return WhatsAppMessage.model_validate(
+        {"id": "wamid.img", "type": "image", "timestamp": "0", "from": WA_ID, "image": image}
+    )
+
+
+def _document_msg(media_id="DOC1", mime_type="application/pdf", filename="informe.pdf", caption=None):
+    document = {"id": media_id, "mime_type": mime_type, "filename": filename}
+    if caption is not None:
+        document["caption"] = caption
+    return WhatsAppMessage.model_validate(
+        {"id": "wamid.doc", "type": "document", "timestamp": "0", "from": WA_ID, "document": document}
+    )
+
+
 @pytest.fixture(autouse=True)
 def _wsp(monkeypatch):
     # Ensure the WhatsApp config used by the audio/ack paths is populated.
@@ -71,14 +89,40 @@ async def test_audio_message_routes_to_handle_audio():
 @pytest.mark.asyncio
 async def test_unsupported_type_sends_fallback_ack():
     msg = WhatsAppMessage.model_validate(
-        {"id": "wamid.3", "type": "image", "timestamp": "0", "from": WA_ID,
-         "image": {"id": "IMG"}}
+        {"id": "wamid.3", "type": "video", "timestamp": "0", "from": WA_ID,
+         "video": {"id": "VID"}}
     )
     with patch.object(messages, "create_agent_session", AsyncMock()), \
          patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
         await messages.process_message(WA_ID, msg, AA)
     send.assert_awaited_once()
-    assert "texto y audio" in send.await_args.args[1]["text"]["body"]
+    assert "imágenes y PDF" in send.await_args.args[1]["text"]["body"]
+
+
+@pytest.mark.asyncio
+async def test_image_message_routes_to_handle_media():
+    with patch.object(messages, "create_agent_session", AsyncMock()), \
+         patch.object(messages, "handle_media_message", AsyncMock()) as h:
+        await messages.process_message(WA_ID, _image_msg("IMG1", caption="mira"), AA)
+    h.assert_awaited_once_with(WA_ID, WA_ID, "IMG1", "image/jpeg", "mira", "", AA)
+
+
+@pytest.mark.asyncio
+async def test_image_message_without_caption_routes_with_empty_caption():
+    with patch.object(messages, "create_agent_session", AsyncMock()), \
+         patch.object(messages, "handle_media_message", AsyncMock()) as h:
+        await messages.process_message(WA_ID, _image_msg("IMG1"), AA)
+    h.assert_awaited_once_with(WA_ID, WA_ID, "IMG1", "image/jpeg", "", "", AA)
+
+
+@pytest.mark.asyncio
+async def test_document_message_routes_to_handle_media():
+    with patch.object(messages, "create_agent_session", AsyncMock()), \
+         patch.object(messages, "handle_media_message", AsyncMock()) as h:
+        await messages.process_message(WA_ID, _document_msg("DOC1", caption="revisa esto"), AA)
+    h.assert_awaited_once_with(
+        WA_ID, WA_ID, "DOC1", "application/pdf", "revisa esto", "informe.pdf", AA
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -142,6 +186,90 @@ async def test_handle_audio_exception_path_sends_error_ack_no_nameerror():
 async def test_handle_audio_unknown_app_name_short_circuits():
     with patch.object(messages, "download_whatsapp_media", AsyncMock()) as dl:
         await messages.handle_audio_message(WA_ID, WA_ID, "A1", "agent_unknown")
+    dl.assert_not_awaited()
+
+
+# --------------------------------------------------------------------------- #
+# Media (image/PDF) happy path + validation errors
+# --------------------------------------------------------------------------- #
+
+@pytest.mark.asyncio
+async def test_handle_media_message_uploads_and_sends_file():
+    sent = {}
+
+    async def fake_send(uid, app, sess, msg):
+        sent["msg"] = msg
+        return "vi tu imagen"
+
+    with patch.object(messages, "download_whatsapp_media",
+                      AsyncMock(return_value=b"\xff\xd8img")), \
+         patch.object(messages, "upload_media",
+                      AsyncMock(return_value="gs://b/x.jpg")) as upload, \
+         patch.object(messages, "send_message_to_agent", fake_send), \
+         patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
+        await messages.handle_media_message(
+            WA_ID, WA_ID, "mid", "image/jpeg", "mira", "", AA
+        )
+
+    upload.assert_awaited_once_with(b"\xff\xd8img", mime_type="image/jpeg", suffix=".jpg")
+    assert sent["msg"] == {"text": "mira", "file_uri": "gs://b/x.jpg", "mime_type": "image/jpeg"}
+    send.assert_awaited_once()
+    assert send.await_args.args[1]["text"]["body"] == "vi tu imagen"
+
+
+@pytest.mark.asyncio
+async def test_handle_media_message_download_failure_sends_error_ack():
+    with patch.object(messages, "download_whatsapp_media", AsyncMock(return_value=None)), \
+         patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
+        await messages.handle_media_message(WA_ID, WA_ID, "mid", "image/jpeg", "", "", AA)
+    send.assert_awaited_once()
+    assert "descargar" in send.await_args.args[1]["text"]["body"]
+
+
+@pytest.mark.asyncio
+async def test_handle_media_message_unsupported_mime_sends_clear_ack():
+    with patch.object(messages, "download_whatsapp_media",
+                      AsyncMock(return_value=b"data")), \
+         patch.object(messages, "upload_media",
+                      AsyncMock(side_effect=messages.UnsupportedMediaError("application/zip"))), \
+         patch.object(messages, "send_whatsapp_message", AsyncMock()) as send, \
+         patch.object(messages, "send_message_to_agent", AsyncMock()) as agent:
+        await messages.handle_media_message(WA_ID, WA_ID, "mid", "application/zip", "", "", AA)
+    agent.assert_not_awaited()
+    send.assert_awaited_once()
+    assert "no es compatible" in send.await_args.args[1]["text"]["body"]
+
+
+@pytest.mark.asyncio
+async def test_handle_media_message_too_large_sends_clear_ack():
+    with patch.object(messages, "download_whatsapp_media",
+                      AsyncMock(return_value=b"data")), \
+         patch.object(messages, "upload_media",
+                      AsyncMock(side_effect=messages.MediaTooLargeError("99999999"))), \
+         patch.object(messages, "send_whatsapp_message", AsyncMock()) as send, \
+         patch.object(messages, "send_message_to_agent", AsyncMock()) as agent:
+        await messages.handle_media_message(WA_ID, WA_ID, "mid", "application/pdf", "", "", AA)
+    agent.assert_not_awaited()
+    send.assert_awaited_once()
+    assert "grande" in send.await_args.args[1]["text"]["body"]
+
+
+@pytest.mark.asyncio
+async def test_handle_media_message_exception_path_sends_error_ack():
+    with patch.object(messages, "download_whatsapp_media",
+                      AsyncMock(side_effect=RuntimeError("network"))), \
+         patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
+        await messages.handle_media_message(WA_ID, WA_ID, "mid", "image/jpeg", "", "", AA)
+    send.assert_awaited_once()
+    assert "Error procesando tu archivo" in send.await_args.args[1]["text"]["body"]
+
+
+@pytest.mark.asyncio
+async def test_handle_media_message_unknown_app_name_short_circuits():
+    with patch.object(messages, "download_whatsapp_media", AsyncMock()) as dl:
+        await messages.handle_media_message(
+            WA_ID, WA_ID, "mid", "image/jpeg", "", "", "agent_unknown"
+        )
     dl.assert_not_awaited()
 
 
