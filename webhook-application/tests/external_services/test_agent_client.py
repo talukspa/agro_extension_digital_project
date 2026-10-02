@@ -99,7 +99,7 @@ async def test_create_agent_session_returns_new_when_absent():
         )
     assert out["id"] == "+56999"
     engine.async_create_session.assert_awaited_once_with(
-        user_id="+56999", session_id="+56999",
+        user_id="+56999", session_id="+56999", ttl=agent_client.SESSION_TTL,
     )
 
 
@@ -329,3 +329,52 @@ async def test_get_engine_picks_up_secret_rotation(monkeypatch):
         "projects/p/locations/us-central1/reasoningEngines/OLD",
         "projects/p/locations/us-central1/reasoningEngines/NEW",
     ]
+
+
+# --- rotación de session_id por ventana de tiempo (issue #70) -----------------
+
+def test_session_id_is_stable_inside_the_same_window():
+    """El hilo de conversación depende de que el id no cambie dentro de la ventana."""
+    from whatsapp_webhook.external_services import agent_client
+
+    with patch.object(agent_client.time, "time", return_value=1_700_000_000.0):
+        primero = agent_client.session_id_for("56968767906")
+        segundo = agent_client.session_id_for("56968767906")
+    assert primero == segundo
+    assert primero.startswith("56968767906-")
+
+
+def test_session_id_rotates_when_the_window_advances():
+    """Cruzar la ventana tiene que dar un id distinto: es lo que cura un nombre
+    que la plataforma dejó inutilizable (create "already exists" + get 404)."""
+    from whatsapp_webhook.external_services import agent_client
+
+    base = 1_700_000_000.0
+    with patch.object(agent_client.time, "time", return_value=base):
+        antes = agent_client.session_id_for("56968767906")
+    with patch.object(
+        agent_client.time, "time", return_value=base + agent_client.SESSION_WINDOW_SECONDS
+    ):
+        despues = agent_client.session_id_for("56968767906")
+    assert antes != despues
+
+
+def test_distinct_wa_ids_never_share_a_session():
+    from whatsapp_webhook.external_services import agent_client
+
+    with patch.object(agent_client.time, "time", return_value=1_700_000_000.0):
+        assert agent_client.session_id_for("56961954566") != agent_client.session_id_for(
+            "56968767906"
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_session_sends_the_ttl():
+    """Sin ttl las sesiones quedan un año (expireTime +365d por defecto)."""
+    from whatsapp_webhook.external_services import agent_client
+
+    engine = MagicMock()
+    engine.async_create_session = AsyncMock(return_value={"id": "x"})
+    with patch.object(agent_client, "get_engine", AsyncMock(return_value=engine)):
+        await agent_client.create_agent_session("uuid-1", "agent_pp", "56968767906-0")
+    assert engine.async_create_session.await_args.kwargs["ttl"] == agent_client.SESSION_TTL

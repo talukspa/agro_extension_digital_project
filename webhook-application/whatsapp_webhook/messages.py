@@ -2,7 +2,11 @@ import asyncio
 import logging
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from .external_services.agent_client import create_agent_session, send_to_agent
+from .external_services.agent_client import (
+    create_agent_session,
+    send_to_agent,
+    session_id_for,
+)
 from .external_services.identity import resolve_producer
 from .external_services.whatsapp_client import (
     create_text_message,
@@ -36,8 +40,10 @@ async def send_message_to_agent(
     `send_to_agent` con `user_id` distinto: Agent Runtime responde "Session does
     not belong to user". Ver docs/superpowers/plans/2026-10-01-fix-agent-session-race.md.
 
-    El `session_id` sigue siendo el teléfono: es lo que mantiene el hilo de la
-    conversación, y cambiarlo huérfanaría las sesiones abiertas.
+    El `session_id` ya no es el teléfono pelado sino `session_id_for(wa_id)`:
+    el teléfono más la ventana de tiempo. Mantiene el hilo dentro de la ventana
+    y lo rota al cruzarla — ver el comentario en agent_client para por qué la
+    rotación va en el id y no en un TTL.
     """
     logger = get_logger("agent_communication", {"app_name": app_name})
 
@@ -154,8 +160,9 @@ async def process_message(
         agent_user_id = sender_wa_id
     # Firma: create_agent_session(user_id, app_name, session_id). El user_id es el
     # uuid resuelto (igual que la consulta en send_to_agent/handle_audio_message);
-    # el session_id sigue siendo el wa_id (clave estable de la conversación).
-    await create_agent_session(agent_user_id, app_name, sender_wa_id)
+    # el session_id sale de session_id_for() — el wa_id más la ventana de tiempo,
+    # para que el hilo rote en vez de vivir para siempre (ver agent_client).
+    await create_agent_session(agent_user_id, app_name, session_id_for(sender_wa_id))
     if message.type == "text":
         await _process_single_text_message(sender_wa_id, agent_user_id, message, app_name)
     elif message.type == "audio" and message.audio:
@@ -173,7 +180,7 @@ async def _process_single_text_message(
     """Process a single text message from WhatsApp."""
     message_text = message.get_message_content() or ""
     agent_response = await send_message_to_agent(
-        agent_user_id, app_name, sender_wa_id, message_text
+        agent_user_id, app_name, session_id_for(sender_wa_id), message_text
     )
     response_text = agent_response or "No pude procesar tu mensaje. Intenta de nuevo."
     await _send_whatsapp_acknowledgment(sender_wa_id, response_text, app_name)
@@ -214,7 +221,9 @@ async def handle_audio_message(
             )
             return
 
-        response = await send_message_to_agent(agent_user_id, app_name, phone, transcript)
+        response = await send_message_to_agent(
+            agent_user_id, app_name, session_id_for(phone), transcript
+        )
         await send_whatsapp_message(
             phone, create_text_message(response), f"{facebook_app_url}/messages", wsp_token
         )

@@ -96,7 +96,9 @@ async def test_handle_audio_happy_path_transcribes_and_replies():
          patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
         await messages.handle_audio_message(WA_ID, WA_ID, "A1", AA)
 
-    agent.assert_awaited_once_with(WA_ID, AA, WA_ID, "hola mundo")
+    agent.assert_awaited_once_with(
+        WA_ID, AA, messages.session_id_for(WA_ID), "hola mundo"
+    )
     send.assert_awaited_once()
     assert send.await_args.args[1]["text"]["body"] == "respuesta"
 
@@ -375,7 +377,9 @@ async def test_process_message_resuelve_una_vez_y_usa_el_mismo_user_id_en_crear_
         await messages.process_message(WA_ID, _text_msg("cómo voy?"), AA)
 
     assert seen["create"][0] == seen["query"][0] == PRODUCTOR  # mismo user_id
-    assert seen["create"][1] == seen["query"][1] == WA_ID       # mismo session_id
+    # El session_id lleva la ventana de tiempo adentro (session_id_for). Lo que
+    # tiene que seguir siendo cierto es que crear y consultar coincidan.
+    assert seen["create"][1] == seen["query"][1] == messages.session_id_for(WA_ID)
 
 
 @pytest.mark.asyncio
@@ -396,8 +400,8 @@ async def test_process_message_sin_vinculo_usa_el_telefono_para_crear_y_consulta
          patch.object(messages, "send_whatsapp_message", AsyncMock()):
         await messages.process_message(WA_ID, _text_msg("hola"), AA)
 
-    assert seen["create"] == (WA_ID, WA_ID)
-    assert seen["query"] == (WA_ID, WA_ID)
+    assert seen["create"] == (WA_ID, messages.session_id_for(WA_ID))
+    assert seen["query"] == (WA_ID, messages.session_id_for(WA_ID))
 
 
 @pytest.mark.asyncio
@@ -421,8 +425,8 @@ async def test_process_message_si_resolver_la_identidad_levanta_el_turno_no_se_c
          patch.object(messages, "send_whatsapp_message", AsyncMock()):
         await messages.process_message(WA_ID, _text_msg("hola"), AA)
 
-    assert seen["create"] == (WA_ID, WA_ID)
-    assert seen["query"] == (WA_ID, WA_ID)
+    assert seen["create"] == (WA_ID, messages.session_id_for(WA_ID))
+    assert seen["query"] == (WA_ID, messages.session_id_for(WA_ID))
 
 
 @pytest.mark.asyncio
