@@ -27,15 +27,15 @@ from core.retry_plugin import OkContractRetryPlugin
 # (imágenes/PDF), y con `GEMINI_LOCATION=us-central1` usan la quota regional
 # dedicada del proyecto. Volver a un 3.x cuando su quota esté resuelta es sólo
 # cambiar estas constantes de vuelta (y GEMINI_LOCATION a `global`).
-ROOT_MODEL = "gemini-2.5-flash"
-CATALOG_MODEL = "gemini-2.5-flash"
-RAG_MODEL = "gemini-2.5-flash-lite"
+ROOT_MODEL = "gemini-3.7-flash"
+CATALOG_MODEL = "gemini-3.7-flash"
+RAG_MODEL = "gemini-3.1-flash-lite"
 
 # El expediente es lectura y ESCRITURA sobre el productor: adjunta respaldos,
 # registra labores, publica mensajes al auditor. Se le da el mismo modelo que al
 # root en lugar del flash-lite de RAG porque equivocarse acá deja un registro
 # mal puesto en el expediente de una persona, no una respuesta imprecisa.
-RECORD_MODEL = "gemini-2.5-flash"
+RECORD_MODEL = "gemini-3.7-flash"
 
 
 def _tool_max_retries() -> int:
