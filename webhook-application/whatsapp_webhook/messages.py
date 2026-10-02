@@ -1,11 +1,17 @@
 import asyncio
 import logging
+import mimetypes
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from .external_services.agent_client import (
     create_agent_session,
     send_to_agent,
     session_id_for,
+)
+from .external_services.gcs_media import (
+    MediaTooLargeError,
+    UnsupportedMediaError,
+    upload_media,
 )
 from .external_services.identity import resolve_producer
 from .external_services.whatsapp_client import (
@@ -28,7 +34,7 @@ _background_tasks: set[asyncio.Task] = set()
 
 
 async def send_message_to_agent(
-    agent_user_id: str, app_name: str, session_id: str, message: str
+    agent_user_id: str, app_name: str, session_id: str, message: str | dict[str, Any]
 ) -> str:
     """Sends a message to the internal agent service and parses the response.
 
@@ -169,10 +175,30 @@ async def process_message(
         await _process_single_text_message(sender_wa_id, agent_user_id, message, app_name)
     elif message.type == "audio" and message.audio:
         await handle_audio_message(sender_wa_id, agent_user_id, message.audio.id, app_name)
+    elif message.type == "image" and message.image and message.image.id:
+        await handle_media_message(
+            sender_wa_id,
+            agent_user_id,
+            message.image.id,
+            message.image.mime_type or "",
+            message.image.caption or "",
+            "",
+            app_name,
+        )
+    elif message.type == "document" and message.document and message.document.id:
+        await handle_media_message(
+            sender_wa_id,
+            agent_user_id,
+            message.document.id,
+            message.document.mime_type or "",
+            message.document.caption or "",
+            message.document.filename or "",
+            app_name,
+        )
     else:
         await _send_whatsapp_acknowledgment(
             sender_wa_id,
-            "Solo puedo procesar mensajes de texto y audio. ¿En qué puedo ayudarte?",
+            "Solo puedo procesar mensajes de texto, audio, imágenes y PDF. ¿En qué puedo ayudarte?",
             app_name,
         )
 
@@ -233,4 +259,74 @@ async def handle_audio_message(
         logging.error(f"Error processing audio: {e}", exc_info=True)
         await send_whatsapp_message(
             phone, create_text_message("Error procesando tu audio."), f"{facebook_app_url}/messages", wsp_token
+        )
+
+
+async def handle_media_message(
+    phone: str,
+    agent_user_id: str,
+    media_id: str,
+    mime_type: str,
+    caption: str,
+    filename: str,
+    app_name: str,
+) -> None:
+    """Processes an image/PDF message: downloads from Meta, uploads to the
+    private GCS bucket, and sends the agent a multimodal message (caption +
+    gs:// file_uri) instead of a transcription. See gcs_media.upload_media
+    and agent_client.send_to_agent's dict-message format."""
+    if app_name == config.aa_app_name:
+        facebook_app_url = config.aa_facebook_app_url
+    elif app_name == config.pp_app_name:
+        facebook_app_url = config.pp_facebook_app_url
+    else:
+        logging.error(f"Unknown app name: {app_name}")
+        return
+
+    wsp_token = config.token_for(app_name)
+    if not facebook_app_url or not wsp_token:
+        logging.error(f"Incomplete WhatsApp config for media in {app_name}")
+        return
+
+    try:
+        content = await download_whatsapp_media(media_id, config.whatsapp_base_url, wsp_token)
+        if not content:
+            await send_whatsapp_message(
+                phone, create_text_message("No pude descargar tu archivo."), f"{facebook_app_url}/messages", wsp_token
+            )
+            return
+
+        try:
+            suffix = mimetypes.guess_extension(mime_type) or ""
+            gs_uri = await upload_media(content, mime_type=mime_type, suffix=suffix)
+        except UnsupportedMediaError:
+            await send_whatsapp_message(
+                phone,
+                create_text_message(
+                    "Ese tipo de archivo no es compatible. Puedo recibir imágenes (JPG, PNG, WEBP) o PDF."
+                ),
+                f"{facebook_app_url}/messages",
+                wsp_token,
+            )
+            return
+        except MediaTooLargeError:
+            await send_whatsapp_message(
+                phone,
+                create_text_message("El archivo es demasiado grande (máximo 20 MB)."),
+                f"{facebook_app_url}/messages",
+                wsp_token,
+            )
+            return
+
+        message = {"text": caption, "file_uri": gs_uri, "mime_type": mime_type}
+        response = await send_message_to_agent(
+            agent_user_id, app_name, session_id_for(phone, agent_user_id), message
+        )
+        await send_whatsapp_message(
+            phone, create_text_message(response), f"{facebook_app_url}/messages", wsp_token
+        )
+    except Exception as e:
+        logging.error(f"Error processing media: {e}", exc_info=True)
+        await send_whatsapp_message(
+            phone, create_text_message("Error procesando tu archivo."), f"{facebook_app_url}/messages", wsp_token
         )
