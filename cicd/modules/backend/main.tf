@@ -316,10 +316,12 @@ resource "google_storage_bucket_iam_member" "webhook_writes_media" {
 }
 
 resource "google_storage_bucket_iam_member" "runtime_reads_media" {
-  for_each = toset([
-    google_service_account.agent_aa_runtime.email,
-    google_service_account.agent_pp_runtime.email,
-  ])
+  # Static keys: the SA emails are only known after apply, so they can't be
+  # for_each keys (plan fails with "Invalid for_each argument").
+  for_each = {
+    aa = google_service_account.agent_aa_runtime.email
+    pp = google_service_account.agent_pp_runtime.email
+  }
   bucket = google_storage_bucket.wsp_media.name
   role   = "roles/storage.objectViewer"
   member = "serviceAccount:${each.value}"

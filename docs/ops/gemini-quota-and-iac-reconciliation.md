@@ -55,9 +55,9 @@ PROJ=agro-extension-digital-prd; BUCKET=${PROJ}-wsp-media
 terragrunt import 'google_storage_bucket.wsp_media' "$BUCKET"
 terragrunt import 'google_storage_bucket_iam_member.webhook_writes_media' \
   "b/$BUCKET roles/storage.objectCreator serviceAccount:agent-webhook-sa-prd@${PROJ}.iam.gserviceaccount.com"
-terragrunt import 'google_storage_bucket_iam_member.runtime_reads_media["agent-aa-runtime@'"$PROJ"'.iam.gserviceaccount.com"]' \
+terragrunt import 'google_storage_bucket_iam_member.runtime_reads_media["aa"]' \
   "b/$BUCKET roles/storage.objectViewer serviceAccount:agent-aa-runtime@${PROJ}.iam.gserviceaccount.com"
-terragrunt import 'google_storage_bucket_iam_member.runtime_reads_media["agent-pp-runtime@'"$PROJ"'.iam.gserviceaccount.com"]' \
+terragrunt import 'google_storage_bucket_iam_member.runtime_reads_media["pp"]' \
   "b/$BUCKET roles/storage.objectViewer serviceAccount:agent-pp-runtime@${PROJ}.iam.gserviceaccount.com"
 ```
 Después, `terragrunt plan` debe dar **no changes** sobre estos recursos (confirma que el código == la realidad, sin drift).
