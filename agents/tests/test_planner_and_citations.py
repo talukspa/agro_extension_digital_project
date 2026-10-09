@@ -5,6 +5,12 @@ from core import prompts
 from core.agent import _planner, build_app
 
 
+def _subagentes(root):
+    """Los AgentTool del raíz. `root.tools` también trae ofrecer_opciones, que
+    es una función y no tiene `.agent`."""
+    return [t for t in root.tools if hasattr(t, "agent")]
+
+
 def _root(app):
     return app._tmpl_attrs["agent"]
 
@@ -41,16 +47,16 @@ def test_planner_enabled_by_env(monkeypatch):
 def test_default_build_attaches_no_planner(monkeypatch):
     monkeypatch.delenv("AGENT_PLANNER", raising=False)
     root = _root(_build())
-    bq = next(t.agent for t in root.tools if t.agent.name == "aa_agent_catalog")
-    rag = next(t.agent for t in root.tools if t.agent.name == "aa_agent_rag")
+    bq = next(t.agent for t in _subagentes(root) if t.agent.name == "aa_agent_catalog")
+    rag = next(t.agent for t in _subagentes(root) if t.agent.name == "aa_agent_rag")
     assert root.planner is None and bq.planner is None and rag.planner is None
 
 
 def test_enabled_build_plans_on_root_and_catalog_but_not_rag(monkeypatch):
     monkeypatch.setenv("AGENT_PLANNER", "builtin")
     root = _root(_build())
-    bq = next(t.agent for t in root.tools if t.agent.name == "aa_agent_catalog")
-    rag = next(t.agent for t in root.tools if t.agent.name == "aa_agent_rag")
+    bq = next(t.agent for t in _subagentes(root) if t.agent.name == "aa_agent_catalog")
+    rag = next(t.agent for t in _subagentes(root) if t.agent.name == "aa_agent_rag")
     assert isinstance(root.planner, BuiltInPlanner)
     assert isinstance(bq.planner, BuiltInPlanner)
     # RAG is single-step: thinking budget buys nothing there.
@@ -114,6 +120,6 @@ def test_build_app_uses_those_models():
     from core import agent as core_agent
     root = _root(_build())
     assert root.model.model == core_agent.ROOT_MODEL
-    by = {t.agent.name: t.agent for t in root.tools}
+    by = {t.agent.name: t.agent for t in _subagentes(root)}
     assert by["aa_agent_catalog"].model.model == core_agent.CATALOG_MODEL
     assert by["aa_agent_rag"].model.model == core_agent.RAG_MODEL
