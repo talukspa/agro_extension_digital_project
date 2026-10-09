@@ -16,6 +16,7 @@ from google.api_core import exceptions as gax
 from google.cloud import secretmanager
 from vertexai import agent_engines
 
+from ..interactive import parse_options
 from ..utils.app_config import config
 from ..utils.logging import get_logger
 from .whatsapp_format import normalize_whatsapp_markdown
@@ -333,9 +334,13 @@ async def send_to_agent(
     )
     out: list[str] = []
     raw_events: list[dict] = []
+    # La ÚLTIMA llamada a ofrecer_opciones del turno: si el modelo reintentó
+    # tras un ok:False, la que vale es la final (ver interactive.parse_options).
+    options_args: dict | None = None
     for attempt in range(SESSION_RETRY_ATTEMPTS):
         out.clear()
         raw_events.clear()
+        options_args = None
         try:
             async with asyncio.timeout(QUERY_TIMEOUT_SECONDS):
                 async for event in engine.async_stream_query(
@@ -357,6 +362,9 @@ async def send_to_agent(
                         text = part.get("text")
                         if text:
                             out.append(text)
+                        call = part.get("function_call") or {}
+                        if call.get("name") == "ofrecer_opciones":
+                            options_args = call.get("args")
             break
         except TimeoutError:
             _logger.error(
@@ -403,7 +411,9 @@ async def send_to_agent(
             # Re-assert the session exists before retrying the stream.
             await create_agent_session(user_id, app_name, session_id)
     response_text = normalize_whatsapp_markdown("".join(out))
-    if not response_text:
+    parsed = parse_options(options_args) if options_args is not None else None
+    options, button = parsed if parsed else (None, None)
+    if not response_text and not options:
         _logger.warning(
             "agent_query.empty_response",
             extra={
@@ -423,6 +433,12 @@ async def send_to_agent(
             "user_id": user_id,
             "events_received": len(raw_events),
             "response_chars": len(response_text),
+            "options": len(options) if options else 0,
         },
     )
-    return {"response": response_text, "raw_response": raw_events}
+    return {
+        "response": response_text,
+        "options": options,
+        "button": button,
+        "raw_response": raw_events,
+    }
