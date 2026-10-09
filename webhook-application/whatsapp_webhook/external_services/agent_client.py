@@ -246,6 +246,33 @@ async def create_agent_session(
                 await asyncio.sleep(0.3 * (attempt + 1))
 
 
+def _media_label(message: dict[str, Any]) -> str:
+    """La etiqueta con el `media_id` de Meta que el agente necesita para adjuntar.
+
+    El endpoint /api/agent/evidence del expediente recibe `mediaId` y baja los
+    bytes de Meta por su cuenta (una función serverless tiene tope de ~4,5 MB de
+    cuerpo, así que el archivo no viaja por ahí). Su herramienta,
+    `adjuntar_evidencia`, pide entonces ese id — y hasta ahora el modelo no
+    tenía de dónde sacarlo: `handle_media_message` gastaba el `media_id` en la
+    descarga y le mandaba sólo el `gs://`, cuyo nombre es un uuid4 nuevo a
+    propósito. La cadena quedaba cortada justo en el handoff, y el agente ni
+    siquiera mencionaba el archivo.
+
+    Va como una parte de texto aparte y entre corchetes, no mezclada con el
+    caption: lo que el productor escribió tiene que seguir siendo distinguible
+    de lo que agrega el canal. El prompt (`prompts/agent_*/record.md`) le dice
+    al modelo que la copie tal cual y que no se la muestre al productor.
+    """
+    media_id = message.get("media_id")
+    if not media_id:
+        return ""
+    campos = [f"id_de_adjunto={media_id}"]
+    filename = message.get("filename")
+    if filename:
+        campos.append(f"nombre_archivo={filename}")
+    return f"[adjunto de WhatsApp · {' · '.join(campos)}]"
+
+
 def _to_stream_message(message: str | dict[str, Any]) -> str | dict[str, Any]:
     """Build the value passed as `async_stream_query(message=...)`.
 
@@ -272,6 +299,9 @@ def _to_stream_message(message: str | dict[str, Any]) -> str | dict[str, Any]:
     parts.append(
         {"file_data": {"file_uri": message["file_uri"], "mime_type": message["mime_type"]}}
     )
+    etiqueta = _media_label(message)
+    if etiqueta:
+        parts.append({"text": etiqueta})
     return {"role": "user", "parts": parts}
 
 

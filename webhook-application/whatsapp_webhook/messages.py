@@ -318,7 +318,17 @@ async def handle_media_message(
             )
             return
 
-        message = {"text": caption, "file_uri": gs_uri, "mime_type": mime_type}
+        # El `media_id` viaja junto al archivo, no se queda en la descarga: es
+        # lo que `adjuntar_evidencia` manda como `mediaId` al expediente, que
+        # baja los bytes de Meta por su cuenta. Sin esto el modelo ve la foto
+        # pero no tiene con qué guardarla (ver agent_client._media_label).
+        message = {
+            "text": caption,
+            "file_uri": gs_uri,
+            "mime_type": mime_type,
+            "media_id": media_id,
+            "filename": filename,
+        }
         response = await send_message_to_agent(
             agent_user_id, app_name, session_id_for(phone, agent_user_id), message
         )

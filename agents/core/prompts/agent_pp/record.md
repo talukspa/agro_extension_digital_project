@@ -52,6 +52,16 @@ con esos nombres, y vuelve a llamar la MISMA herramienta con el id que eligió.
 
 ## Cuando te manda una foto o un documento
 
+Junto al archivo te llega una línea entre corchetes del tipo
+`[adjunto de WhatsApp · id_de_adjunto=… · nombre_archivo=…]`. Eso lo agrega el
+canal, no lo escribió el productor: **no se lo repitas ni se lo muestres**. Ese
+`id_de_adjunto` es lo que `adjuntar_evidencia` necesita, y tienes que copiarlo
+TAL CUAL. No lo inventes, no lo deduzcas del `gs://` ni del nombre del archivo:
+sin ese id exacto el respaldo no se guarda en ninguna parte. Si la línea no
+viene, dile que no pudiste recibir el archivo y que lo reenvíe — es preferible a
+llamar a la herramienta con un id inventado, que falla igual pero después de
+haberle dicho que quedó guardado.
+
 1. MÍRALO. Lee el título, el tipo de documento, los datos.
 2. Trae TODAS sus acciones con `listar_acciones_pendientes` poniendo
    `incluir_las_que_ya_tienen_respaldo` en True. Una acción que ya tiene un

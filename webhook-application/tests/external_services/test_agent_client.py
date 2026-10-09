@@ -223,6 +223,63 @@ async def test_send_to_agent_passes_file_part_without_caption():
     ]
 
 
+def test_to_stream_message_carries_the_media_id_for_the_evidence_tool():
+    """El `media_id` de Meta tiene que llegarle al modelo.
+
+    /api/agent/evidence recibe `mediaId` y baja los bytes de Meta por su cuenta,
+    así que `adjuntar_evidencia` lo exige. El `gs://` no sirve: su nombre es un
+    uuid4 nuevo. Sin esta parte el modelo ve la foto y no puede guardarla.
+    """
+    from whatsapp_webhook.external_services import agent_client
+
+    built = agent_client._to_stream_message(
+        {
+            "text": "esta es la evidencia de A001",
+            "file_uri": "gs://b/9f2c.jpg",
+            "mime_type": "image/jpeg",
+            "media_id": "wamid-123",
+            "filename": "",
+        }
+    )
+
+    etiquetas = [p["text"] for p in built["parts"] if "text" in p]
+    assert "[adjunto de WhatsApp · id_de_adjunto=wamid-123]" in etiquetas
+    # El caption del productor sigue siendo una parte aparte: lo que escribió
+    # no se mezcla con lo que agrega el canal.
+    assert "esta es la evidencia de A001" in etiquetas
+
+
+def test_to_stream_message_includes_the_filename_when_there_is_one():
+    from whatsapp_webhook.external_services import agent_client
+
+    built = agent_client._to_stream_message(
+        {
+            "text": "",
+            "file_uri": "gs://b/9f2c.pdf",
+            "mime_type": "application/pdf",
+            "media_id": "wamid-9",
+            "filename": "informe.pdf",
+        }
+    )
+
+    assert built["parts"][-1] == {
+        "text": "[adjunto de WhatsApp · id_de_adjunto=wamid-9 · nombre_archivo=informe.pdf]"
+    }
+
+
+def test_to_stream_message_without_media_id_adds_no_label():
+    """Sin `media_id` no se inventa una etiqueta vacía: el modelo no debe ver
+    `id_de_adjunto=None` y copiarlo a la herramienta."""
+    from whatsapp_webhook.external_services import agent_client
+
+    built = agent_client._to_stream_message(
+        {"text": "mira", "file_uri": "gs://b/x.jpg", "mime_type": "image/jpeg"}
+    )
+
+    assert len(built["parts"]) == 2
+    assert all("id_de_adjunto" not in p.get("text", "") for p in built["parts"])
+
+
 def test_to_stream_message_dict_is_a_valid_genai_content():
     """Guards the chosen format against the installed google-genai version:
     async_stream_query does types.Content.model_validate(message) when a dict
