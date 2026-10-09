@@ -67,3 +67,16 @@ def test_no_ofrece_opciones_cuando_el_productor_tiene_que_escribir(agente):
 def test_el_toque_llega_como_su_mensaje(agente):
     texto = _plano(prompts.root_instruction(agente))
     assert "trátalo como si lo hubiera escrito" in texto
+
+
+@pytest.mark.parametrize("agente", AGENTES)
+def test_escribe_antes_de_llamar_y_un_numero_suelto_es_la_opcion(agente):
+    texto = _plano(prompts.root_instruction(agente))
+    assert (
+        "Escribe tu respuesta ANTES de llamar a `ofrecer_opciones`; después de "
+        "llamarla no escribas nada más."
+    ) in texto
+    assert (
+        "Si el productor responde sólo con un número, es la opción con ese "
+        "número de tu último `ofrecer_opciones`."
+    ) in texto

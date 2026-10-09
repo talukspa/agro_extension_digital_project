@@ -20,7 +20,13 @@ MENU = [
 
 def test_el_menu_principal_es_valido():
     r = ofrecer_opciones(MENU)
-    assert r == {"ok": True, "data": {"opciones_ofrecidas": 7}}
+    assert r == {
+        "ok": True,
+        "data": {
+            "opciones_ofrecidas": 7,
+            "nota": "Las opciones ya se muestran al productor; no escribas nada más.",
+        },
+    }
 
 
 def test_acepta_instancias_de_opcion():

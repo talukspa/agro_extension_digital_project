@@ -83,7 +83,13 @@ def ofrecer_opciones(opciones: list[Opcion], boton: str = "Ver opciones") -> dic
     # Vacío = el de siempre: el webhook pone "Ver opciones".
     if len((boton or "").strip()) > MAX_BOTON:
         return _error(f"El texto del botón debe tener hasta {MAX_BOTON} caracteres.")
-    return {"ok": True, "data": {"opciones_ofrecidas": len(items)}}
+    return {
+        "ok": True,
+        "data": {
+            "opciones_ofrecidas": len(items),
+            "nota": "Las opciones ya se muestran al productor; no escribas nada más.",
+        },
+    }
 
 
 TOOLS: list = [ofrecer_opciones]
