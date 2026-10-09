@@ -212,7 +212,8 @@ async def process_message(
     await create_agent_session(
         agent_user_id, app_name, session_id_for(sender_wa_id, agent_user_id)
     )
-    if message.type == "text":
+    if message.type == "text" or message.interactive_reply_text():
+        # Un toque de botón/lista es texto para el agente: mismo camino.
         await _process_single_text_message(sender_wa_id, agent_user_id, message, app_name)
     elif message.type == "audio" and message.audio:
         await handle_audio_message(sender_wa_id, agent_user_id, message.audio.id, app_name)

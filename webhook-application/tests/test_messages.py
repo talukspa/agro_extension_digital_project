@@ -699,3 +699,38 @@ def test_whatsapp_endpoint_por_app(monkeypatch):
         "https://graph.example/aa/messages", "test-wsp-token-aa"
     )
     assert messages._whatsapp_endpoint("agent_unknown") is None
+
+
+def _tap_msg(kind="list_reply", **reply):
+    return WhatsAppMessage.model_validate(
+        {"id": "wamid.tap", "type": "interactive", "timestamp": "0", "from": WA_ID,
+         "interactive": {"type": kind, kind: reply}}
+    )
+
+
+@pytest.mark.asyncio
+async def test_toque_de_una_opcion_va_al_agente_como_texto():
+    visto = {}
+
+    async def fake_send_to_agent(app_name, user_id, session_id, message):
+        visto["message"] = message
+        return {"response": "Te faltan 3 acciones"}
+
+    with patch.object(messages, "create_agent_session", AsyncMock()), \
+         patch.object(messages, "send_to_agent", fake_send_to_agent), \
+         patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
+        await messages.process_message(
+            WA_ID, _tap_msg(id="opt_3", title="Qué me falta", description="Acciones pendientes"), AA
+        )
+    assert visto["message"] == "Qué me falta — Acciones pendientes"
+    assert send.await_args.args[1]["text"]["body"] == "Te faltan 3 acciones"
+
+
+@pytest.mark.asyncio
+async def test_interactive_sin_toque_sigue_en_el_acuse():
+    with patch.object(messages, "create_agent_session", AsyncMock()), \
+         patch.object(messages, "send_to_agent", AsyncMock()) as agent, \
+         patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
+        await messages.process_message(WA_ID, _tap_msg("nfm_reply", response_json="{}"), AA)
+    agent.assert_not_awaited()
+    assert "imágenes y PDF" in send.await_args.args[1]["text"]["body"]
