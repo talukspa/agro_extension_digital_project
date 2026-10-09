@@ -153,7 +153,7 @@ async def test_create_agent_session_exists_then_never_visible_propagates(monkeyp
 
 @pytest.mark.asyncio
 async def test_send_to_agent_concatenates_assistant_text():
-    """Multiple events with text parts -> concatenated response string."""
+    """Multiple events with text parts -> joined with a blank line (F1)."""
     from whatsapp_webhook.external_services import agent_client
 
     async def fake_stream(*, user_id, session_id, message):
@@ -168,7 +168,7 @@ async def test_send_to_agent_concatenates_assistant_text():
             app_name="agent_aa", user_id="+56999", session_id="+56999",
             message="hola",
         )
-    assert result["response"] == "Hola mundo."
+    assert result["response"] == "Hola \n\nmundo."
     assert len(result["raw_response"]) == 3
 
 
@@ -596,3 +596,28 @@ def test_session_id_is_accepted_by_the_runtime_pattern():
 
     sid = agent_client.session_id_for("56968767906", "245e654f-617b-4ba6-9122-6c035ffa1fe3")
     assert re.fullmatch(r"[A-Za-z0-9_-]+", sid), sid
+
+
+@pytest.mark.asyncio
+async def test_send_to_agent_separa_con_linea_en_blanco_el_texto_de_eventos_distintos():
+    """El texto de antes y de después de la tool son mensajes distintos."""
+    from whatsapp_webhook.interactive import Option
+    engine = _engine_que_emite(
+        {"content": {"parts": [{"text": "Hola"}]}},
+        _llamada({"opciones": [{"titulo": "Qué me falta"}]}),
+        {"content": {"parts": [{"function_response": {"name": "ofrecer_opciones",
+                                                      "response": {"ok": True}}}]}},
+        {"content": {"parts": [{"text": "Listo"}]}},
+    )
+    result = await _consultar(engine)
+    assert result["response"] == "Hola\n\nListo"
+    assert result["options"] == [Option("Qué me falta")]
+
+
+@pytest.mark.asyncio
+async def test_send_to_agent_une_sin_separador_el_texto_de_un_mismo_evento():
+    engine = _engine_que_emite(
+        {"content": {"parts": [{"text": "Ho"}, {"text": "la"}]}},
+    )
+    result = await _consultar(engine)
+    assert result["response"] == "Hola"

@@ -358,13 +358,18 @@ async def send_to_agent(
                     # token) or {"function_call": ...} / {"function_response": ...}
                     # (tool events). The `if text:` guard skips tool-call parts.
                     content = event.get("content") or {}
+                    event_text: list[str] = []
                     for part in content.get("parts") or []:
                         text = part.get("text")
                         if text:
-                            out.append(text)
+                            event_text.append(text)
                         call = part.get("function_call") or {}
                         if call.get("name") == "ofrecer_opciones":
                             options_args = call.get("args")
+                    # Las partes de un mismo evento son un solo mensaje; los
+                    # eventos distintos (antes/después de una tool) se separan.
+                    if event_text:
+                        out.append("".join(event_text))
             break
         except TimeoutError:
             _logger.error(
@@ -410,7 +415,7 @@ async def send_to_agent(
             await asyncio.sleep(0.3 * (attempt + 1))
             # Re-assert the session exists before retrying the stream.
             await create_agent_session(user_id, app_name, session_id)
-    response_text = normalize_whatsapp_markdown("".join(out))
+    response_text = normalize_whatsapp_markdown("\n\n".join(out))
     parsed = parse_options(options_args) if options_args is not None else None
     options, button = parsed if parsed else (None, None)
     if not response_text and not options:
