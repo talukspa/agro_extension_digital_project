@@ -212,9 +212,41 @@ async def test_handle_media_message_uploads_and_sends_file():
         )
 
     upload.assert_awaited_once_with(b"\xff\xd8img", mime_type="image/jpeg", suffix=".jpg")
-    assert sent["msg"] == {"text": "mira", "file_uri": "gs://b/x.jpg", "mime_type": "image/jpeg"}
+    # El media_id va en el mensaje, no se queda en la descarga: es lo que
+    # adjuntar_evidencia manda como mediaId al expediente.
+    assert sent["msg"] == {
+        "text": "mira",
+        "file_uri": "gs://b/x.jpg",
+        "mime_type": "image/jpeg",
+        "media_id": "mid",
+        "filename": "",
+    }
     send.assert_awaited_once()
     assert send.await_args.args[1]["text"]["body"] == "vi tu imagen"
+
+
+@pytest.mark.asyncio
+async def test_handle_media_message_forwards_document_filename():
+    """El nombre del PDF llega al agente: el expediente lo usa como nombre
+    visible del adjunto, y si no va cae a "whatsapp-<mediaId>"."""
+    sent = {}
+
+    async def fake_send(uid, app, sess, msg):
+        sent["msg"] = msg
+        return "ok"
+
+    with patch.object(messages, "download_whatsapp_media",
+                      AsyncMock(return_value=b"%PDF")), \
+         patch.object(messages, "upload_media",
+                      AsyncMock(return_value="gs://b/x.pdf")), \
+         patch.object(messages, "send_message_to_agent", fake_send), \
+         patch.object(messages, "send_whatsapp_message", AsyncMock()):
+        await messages.handle_media_message(
+            WA_ID, WA_ID, "DOC1", "application/pdf", "", "informe.pdf", AA
+        )
+
+    assert sent["msg"]["media_id"] == "DOC1"
+    assert sent["msg"]["filename"] == "informe.pdf"
 
 
 @pytest.mark.asyncio
