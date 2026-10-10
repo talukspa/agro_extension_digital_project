@@ -379,18 +379,21 @@ async def adjuntar_evidencia(tool_context: ToolContext, codigo_accion: str,
                              estandar: str = "") -> dict:
     """Adjunta a una acción del plan la foto o documento que mandó el productor.
 
-    Es el caso central del canal. Llámala SOLO cuando efectivamente haya enviado
-    un adjunto y esté claro a qué acción corresponde; si no sabes a cuál,
-    pregúntale antes.
+    Es el caso central del canal. Llámala cuando haya enviado un adjunto y sepa
+    a qué acción va: porque te lo dijo, o porque te confirmó la que le
+    propusiste. Si el archivo sirve o no lo decide el productor y lo revisa el
+    auditor: no lo filtres tú.
 
     Adjuntar el respaldo NO significa que la acción quede cumplida. No se lo
     digas así.
 
     Args:
         codigo_accion: el código de la acción, por ejemplo "A001".
-        id_de_adjunto: el identificador del archivo que llegó por WhatsApp.
-        nombre_archivo: nombre visible, si se conoce. No inventes uno para un
-            archivo que no viste.
+        id_de_adjunto: el `id_de_adjunto` de la línea
+            "[adjunto de WhatsApp · id_de_adjunto=… · nombre_archivo=…]" que
+            llega junto al archivo, copiado tal cual. Nunca lo inventes.
+        nombre_archivo: el `nombre_archivo` de esa misma línea, si viene. Si no
+            viene, déjalo vacío.
         estandar: DÉJALO VACÍO en el primer intento, siempre, aunque creas saber
             cuál es. Si el código existe en los dos estándares el servidor
             responde `ambiguous` y ahí le preguntas. Rellenarlo por tu cuenta es

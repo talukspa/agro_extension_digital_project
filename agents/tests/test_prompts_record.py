@@ -157,3 +157,24 @@ def test_no_incluye_preserve_citations(agente):
     citas = prompts._read("shared", "preserve_citations.md")[:40].strip()
     assert citas in prompts.root_instruction(agente)
     assert citas not in prompts.record_instruction(agente)
+
+
+@pytest.mark.parametrize("agente", ["agent_pp", "agent_aa"])
+def test_el_productor_decide_si_el_archivo_sirve(agente):
+    """Medido: el agente juzgaba la foto contra el medio de verificación y no
+    la guardaba. Validarla es del productor y del auditor, no del agente."""
+    texto = _sin_saltos(prompts.record_instruction(agente))
+    assert "Quien decide si el archivo le sirve como respaldo es el PRODUCTOR" in texto
+    assert "NUNCA te niegues a guardarlo" in texto
+    assert "no lo guardes" not in texto.lower()
+    assert "pídele otro archivo" not in texto.lower()
+
+
+@pytest.mark.parametrize("agente", ["agent_pp", "agent_aa"])
+def test_propone_la_accion_y_guarda_recien_cuando_confirma(agente):
+    """docs/producto/agente-whatsapp HU-04.2: el productor confirma a qué
+    acción va antes de guardar, salvo que ya lo haya dicho él."""
+    texto = _sin_saltos(prompts.record_instruction(agente))
+    assert "Guárdala recién cuando te confirme" in texto
+    assert "Si ya te dijo a qué acción va" in texto
+    assert "sin preguntarle" not in texto.lower()
