@@ -47,6 +47,8 @@ from typing import Any
 import httpx
 from google.adk.tools.tool_context import ToolContext
 
+from core import attachment_state
+
 _TIMEOUT_SECONDS = 20.0
 
 # La misma forma que acepta el tipo `uuid` de Postgres, y la misma que valida
@@ -375,34 +377,71 @@ async def registrar_labor(tool_context: ToolContext, estandar: str,
 
 
 async def adjuntar_evidencia(tool_context: ToolContext, codigo_accion: str,
-                             id_de_adjunto: str, nombre_archivo: str = "",
+                             id_de_adjunto: str = "", nombre_archivo: str = "",
                              estandar: str = "") -> dict:
     """Adjunta a una acción del plan la foto o documento que mandó el productor.
 
-    Es el caso central del canal. Llámala SOLO cuando efectivamente haya enviado
-    un adjunto y esté claro a qué acción corresponde; si no sabes a cuál,
-    pregúntale antes.
+    Es el caso central del canal. Llámala cuando haya enviado un adjunto y sepa
+    a qué acción va: porque te lo dijo, o porque te confirmó la que le
+    propusiste. Si el archivo sirve o no lo decide el productor y lo revisa el
+    auditor: no lo filtres tú.
 
     Adjuntar el respaldo NO significa que la acción quede cumplida. No se lo
     digas así.
 
     Args:
         codigo_accion: el código de la acción, por ejemplo "A001".
-        id_de_adjunto: el identificador del archivo que llegó por WhatsApp.
-        nombre_archivo: nombre visible, si se conoce. No inventes uno para un
-            archivo que no viste.
+        id_de_adjunto: si en ADJUNTOS RECIBIDOS hay UNO solo, déjalo vacío: se
+            toma solo. Si hay varios, copia TAL CUAL el id del archivo al que
+            se refiere el pedido. Nunca lo inventes.
+        nombre_archivo: déjalo vacío: sale de ADJUNTOS RECIBIDOS.
         estandar: DÉJALO VACÍO en el primer intento, siempre, aunque creas saber
             cuál es. Si el código existe en los dos estándares el servidor
             responde `ambiguous` y ahí le preguntas. Rellenarlo por tu cuenta es
             cómo se archiva un respaldo en el plan equivocado, donde nadie lo ve.
     """
+    # Los ids salen del estado (core/attachment_state.py): este sub-agente
+    # corre como AgentTool y no ve el mensaje donde vino el archivo.
+    state = getattr(tool_context, "state", None)
+    lista = attachment_state.pendientes(state)
+    id_de_adjunto = (id_de_adjunto or "").strip()
+    nombre_archivo = (nombre_archivo or "").strip()
+    elegido = None
+    if id_de_adjunto:
+        elegido = next((a for a in lista if a["id_de_adjunto"] == id_de_adjunto), None)
+    elif len(lista) == 1:
+        elegido = lista[0]
+        id_de_adjunto = elegido["id_de_adjunto"]
+    elif len(lista) > 1:
+        # Varios archivos esperando: el servidor no elige y la tool tampoco.
+        # ok: True a propósito, igual que la ambigüedad del servidor: es una
+        # pregunta para el productor, no un error para reintentar.
+        return {"ok": True, "data": {
+            "ambiguous": True, "kind": "attachment",
+            "candidates": [{"id_de_adjunto": a["id_de_adjunto"],
+                            "nombre_archivo": a.get("nombre_archivo", "")}
+                           for a in lista]}}
+    if not id_de_adjunto:
+        # Sin archivo no hay nada que mandar. ok: True a propósito: como
+        # ok: False el retry plugin haría reintentar al modelo, y la única
+        # forma de "arreglarlo" sería inventar un id.
+        return {"ok": True, "data": {"guardado": False,
+                                     "motivo": "NO_ATTACHMENT_RECEIVED"}}
+    if elegido and not nombre_archivo:
+        nombre_archivo = elegido.get("nombre_archivo", "")
     payload: dict[str, Any] = {"questionCode": codigo_accion,
                                "mediaId": id_de_adjunto}
     # Por _scope(), no por un `if nombre_archivo`: un espacio en vez de un
     # parámetro omitido dejaría "fileName": " " — el adjunto quedaría con
     # nombre visible en blanco en el expediente, en vez de sin nombre.
     payload.update(_scope(fileName=nombre_archivo, standardCode=estandar))
-    return await _post("evidence", payload, tool_context)
+    resultado = await _post("evidence", payload, tool_context)
+    data = resultado.get("data")
+    guardado = resultado.get("ok") and not (isinstance(data, dict) and data.get("ambiguous"))
+    if guardado and elegido:
+        # Ya quedó en el expediente: que el próximo turno no lo vuelva a usar.
+        attachment_state.quitar(state, elegido["id_de_adjunto"])
+    return resultado
 
 
 async def enviar_mensaje_al_auditor(tool_context: ToolContext,

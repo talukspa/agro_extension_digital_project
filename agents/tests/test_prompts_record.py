@@ -157,3 +157,42 @@ def test_no_incluye_preserve_citations(agente):
     citas = prompts._read("shared", "preserve_citations.md")[:40].strip()
     assert citas in prompts.root_instruction(agente)
     assert citas not in prompts.record_instruction(agente)
+
+
+@pytest.mark.parametrize("agente", ["agent_pp", "agent_aa"])
+def test_el_productor_decide_si_el_archivo_sirve(agente):
+    """Medido: el agente juzgaba la foto contra el medio de verificación y no
+    la guardaba. Validarla es del productor y del auditor, no del agente."""
+    texto = _sin_saltos(prompts.record_instruction(agente))
+    assert "Quien decide si el archivo le sirve como respaldo es el PRODUCTOR" in texto
+    assert "NUNCA te niegues a guardarlo" in texto
+    assert "no lo guardes" not in texto.lower()
+    assert "pídele otro archivo" not in texto.lower()
+
+
+@pytest.mark.parametrize("agente", ["agent_pp", "agent_aa"])
+def test_propone_la_accion_y_guarda_recien_cuando_confirma(agente):
+    """docs/producto/agente-whatsapp HU-04.2: el productor confirma a qué
+    acción va antes de guardar, salvo que ya lo haya dicho él."""
+    texto = _sin_saltos(prompts.record_instruction(agente))
+    assert "Guárdala recién cuando te confirme" in texto
+    assert "Si el pedido dice a qué acción va" in texto
+    assert "sin preguntarle" not in texto.lower()
+
+
+@pytest.mark.parametrize("agente", ["agent_pp", "agent_aa"])
+def test_el_expediente_sabe_que_el_id_llega_por_adjunto_recibido(agente):
+    """Medido en el código de ADK: el expediente corre como AgentTool y no ve
+    el mensaje original. El id le llega por el estado (ADJUNTOS RECIBIDOS)."""
+    texto = _sin_saltos(prompts.record_instruction(agente))
+    assert "No ves el archivo ni la conversación anterior" in texto
+    assert "Si hay UNO solo, deja `id_de_adjunto` y `nombre_archivo` VACÍOS" in texto
+    assert "copia el `id_de_adjunto`" not in texto.lower()
+
+
+@pytest.mark.parametrize("agente", ["agent_pp", "agent_aa"])
+def test_el_raiz_le_cuenta_al_expediente_lo_que_ve(agente):
+    texto = _sin_saltos(prompts.root_instruction(agente))
+    assert "El EXPEDIENTE no ve lo que tú ves." in texto
+    assert "en el pedido cuéntale qué se ve en el archivo" in texto
+    assert "pídele al EXPEDIENTE que guarde el archivo en esa acción" in texto

@@ -69,6 +69,15 @@ abstracto. La señal es un posesivo: "**mi** cumplimiento", "qué **me** falta",
 Es el ÚNICO que escribe. Si la consulta implica guardar, registrar o publicar
 algo, va al EXPEDIENTE.
 
+**El EXPEDIENTE no ve lo que tú ves.** No ve el archivo ni la conversación:
+sólo lee el pedido que tú le escribes. Cuando el productor manda una foto o un
+documento, en el pedido cuéntale qué se ve en el archivo (tipo de documento,
+título, fechas, datos visibles), lo que escribió el productor, y si ya dijo a
+qué acción va. Si en un mensaje posterior el productor confirma o elige la
+acción, pídele al EXPEDIENTE que guarde el archivo en esa acción. El
+identificador del archivo le llega solo: no lo copies en el pedido. Nunca le
+muestres al productor la línea "[adjunto de WhatsApp · …]".
+
 **La frontera con el CATÁLOGO:** "¿qué pide la acción A001?" sin más contexto es del catálogo. "¿qué pide la acción A001 de **mi** plan?", o cualquier pregunta
 donde importe su fecha objetivo o si ya subió respaldos, es del EXPEDIENTE.
 

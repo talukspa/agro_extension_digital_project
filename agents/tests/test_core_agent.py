@@ -271,3 +271,37 @@ def test_los_prompts_de_bq_ya_no_existen():
     for agente in ("agent_pp", "agent_aa"):
         assert not (raiz / agente / "bq.md").exists()
         assert not (raiz / agente / "bq_description.md").exists()
+
+
+def test_el_root_guarda_el_adjunto_en_el_estado():
+    """El expediente corre como AgentTool: el id del archivo le llega por el
+    estado que deja este callback del raíz, no por el texto del pedido."""
+    from core.agent import build_app
+    from core import attachment_state
+    for name, env in (("pp_agent", "DATASTORE_PP_ID"), ("aa_agent", "DATASTORE_AA_ID")):
+        root = build_app(name=name, display_name=name, main_datastore_env=env)._tmpl_attrs["agent"]
+        assert root.before_agent_callback is attachment_state.before_agent
+
+
+async def test_la_instruccion_del_expediente_incluye_el_adjunto_recibido(monkeypatch):
+    from core import attachment_state, producer_scope
+    from core.agent import build_app
+
+    async def sin_bloque(ctx):
+        return ""
+
+    monkeypatch.setattr(producer_scope, "for_context", sin_bloque)
+    app = build_app(name="pp_agent", display_name="PP",
+                    main_datastore_env="DATASTORE_PP_ID")
+    record = next(t.agent for t in app._tmpl_attrs["agent"].tools
+                  if t.agent.name == "pp_agent_record")
+
+    class Ctx:
+        user_id = PRODUCTOR
+        state = {attachment_state.STATE_KEY: [
+            {"id_de_adjunto": "55", "nombre_archivo": "", "recibido": 9e12}]}
+
+    texto = record.instruction(Ctx())
+    if hasattr(texto, "__await__"):
+        texto = await texto
+    assert texto.endswith("ADJUNTOS RECIBIDOS (del más viejo al más nuevo):\n- id_de_adjunto=55")

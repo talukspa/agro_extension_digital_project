@@ -14,7 +14,7 @@ from vertexai.agent_engines import AdkApp
 from google.adk.planners import BuiltInPlanner
 from google.genai.types import ThinkingConfig
 
-from core import catalog_tools, consent_guard, producer_scope, prompts, record_tools
+from core import attachment_state, catalog_tools, consent_guard, producer_scope, prompts, record_tools
 from core.llm_global import GlobalGemini
 from core.retry_plugin import OkContractRetryPlugin
 
@@ -87,7 +87,11 @@ async def _record_instruction(key: str, ctx) -> str:
     rompe ese patrón. `functools.partial(_record_instruction, key)` en
     build_app fija `key` sin crear una función por llamada.
     """
-    return prompts.record_instruction(key) + await producer_scope.for_context(ctx)
+    return (
+        prompts.record_instruction(key)
+        + await producer_scope.for_context(ctx)
+        + attachment_state.bloque(getattr(ctx, "state", None))
+    )
 
 
 def _datastore(value: str) -> str:
@@ -159,6 +163,9 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
         # La baja de WhatsApp se registra antes de que el modelo pueda
         # contestar sin registrarla — ver core/consent_guard.py.
         before_model_callback=consent_guard.before_model,
+        # El archivo del productor pasa al expediente por el estado, no por el
+        # texto del pedido — ver core/attachment_state.py.
+        before_agent_callback=attachment_state.before_agent,
         tools=[
             agent_tool.AgentTool(agent=rag),
             agent_tool.AgentTool(agent=catalog),
