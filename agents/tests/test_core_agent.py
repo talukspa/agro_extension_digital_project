@@ -298,9 +298,10 @@ async def test_la_instruccion_del_expediente_incluye_el_adjunto_recibido(monkeyp
 
     class Ctx:
         user_id = PRODUCTOR
-        state = {attachment_state.STATE_KEY: {"id_de_adjunto": "55", "nombre_archivo": ""}}
+        state = {attachment_state.STATE_KEY: [
+            {"id_de_adjunto": "55", "nombre_archivo": "", "recibido": 9e12}]}
 
     texto = record.instruction(Ctx())
     if hasattr(texto, "__await__"):
         texto = await texto
-    assert texto.endswith("ADJUNTO RECIBIDO: id_de_adjunto=55")
+    assert texto.endswith("ADJUNTOS RECIBIDOS (del más viejo al más nuevo):\n- id_de_adjunto=55")

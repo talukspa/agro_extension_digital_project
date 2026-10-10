@@ -183,10 +183,10 @@ def test_propone_la_accion_y_guarda_recien_cuando_confirma(agente):
 @pytest.mark.parametrize("agente", ["agent_pp", "agent_aa"])
 def test_el_expediente_sabe_que_el_id_llega_por_adjunto_recibido(agente):
     """Medido en el código de ADK: el expediente corre como AgentTool y no ve
-    el mensaje original. El id le llega por el estado (ADJUNTO RECIBIDO)."""
+    el mensaje original. El id le llega por el estado (ADJUNTOS RECIBIDOS)."""
     texto = _sin_saltos(prompts.record_instruction(agente))
     assert "No ves el archivo ni la conversación anterior" in texto
-    assert "deja `id_de_adjunto` y `nombre_archivo` VACÍOS" in texto
+    assert "Si hay UNO solo, deja `id_de_adjunto` y `nombre_archivo` VACÍOS" in texto
     assert "copia el `id_de_adjunto`" not in texto.lower()
 
 

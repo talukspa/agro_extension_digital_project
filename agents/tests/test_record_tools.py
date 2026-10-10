@@ -359,7 +359,7 @@ async def test_registrar_labor_con_codigo_en_blanco_no_manda_la_llave(monkeypatc
     assert "questionCode" not in llamadas[0]["kwargs"]["json"]
 
 
-# --- el archivo llega por el estado (core/attachment_state.py) -------------
+# --- los archivos llegan por el estado (core/attachment_state.py) ---------
 
 
 class StateToolContext(FakeToolContext):
@@ -370,59 +370,87 @@ class StateToolContext(FakeToolContext):
         self.state = state
 
 
-def _ctx_con_adjunto():
+def _pendiente(id_, nombre=""):
+    import time
+    return {"id_de_adjunto": id_, "nombre_archivo": nombre, "recibido": time.time()}
+
+
+def _ctx_con(*pendientes):
     from core import attachment_state
-    return StateToolContext(PRODUCTOR, {attachment_state.STATE_KEY: {
-        "id_de_adjunto": "1234567890", "nombre_archivo": "informe.pdf"}})
+    return StateToolContext(PRODUCTOR, {attachment_state.STATE_KEY: list(pendientes)})
 
 
-async def test_adjuntar_evidencia_toma_el_id_del_estado(monkeypatch):
-    """El expediente no ve el mensaje: si el modelo no pasa el id, sale del
-    ADJUNTO RECIBIDO que dejó el raíz en el estado."""
+def _ids(ctx):
+    from core import attachment_state
+    return [a["id_de_adjunto"] for a in ctx.state[attachment_state.STATE_KEY]]
+
+
+async def test_con_un_solo_archivo_toma_el_id_del_estado(monkeypatch):
+    """El expediente no ve el mensaje: si el modelo no pasa el id, sale de
+    ADJUNTOS RECIBIDOS."""
     monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
     llamadas = _stub_capturing_client(monkeypatch)
-    await record_tools.adjuntar_evidencia(_ctx_con_adjunto(), codigo_accion="A001")
+    await record_tools.adjuntar_evidencia(
+        _ctx_con(_pendiente("1234567890", "informe.pdf")), codigo_accion="A001")
     assert llamadas[0]["kwargs"]["json"] == {
         "producerUserId": PRODUCTOR, "questionCode": "A001",
         "mediaId": "1234567890", "fileName": "informe.pdf"}
 
 
-async def test_adjuntar_evidencia_borra_el_pendiente_al_guardar(monkeypatch):
-    from core import attachment_state
+async def test_al_guardar_saca_solo_el_que_uso(monkeypatch):
     monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
     _stub_capturing_client(monkeypatch, response=FakeResponse(200, {"data": {"actionId": "x"}}))
-    ctx = _ctx_con_adjunto()
-    r = await record_tools.adjuntar_evidencia(ctx, codigo_accion="A001")
+    ctx = _ctx_con(_pendiente("1"), _pendiente("2"))
+    r = await record_tools.adjuntar_evidencia(ctx, codigo_accion="A001", id_de_adjunto="2")
     assert r["ok"] is True
-    assert ctx.state[attachment_state.STATE_KEY] is None
+    assert _ids(ctx) == ["1"]
 
 
-async def test_adjuntar_evidencia_ambigua_no_borra_el_pendiente(monkeypatch):
+async def test_con_varios_y_sin_id_pregunta_y_no_llama(monkeypatch):
+    """Varios archivos esperando: la tool no elige por el productor."""
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    llamadas = _stub_capturing_client(monkeypatch)
+    r = await record_tools.adjuntar_evidencia(
+        _ctx_con(_pendiente("1", "a.jpg"), _pendiente("2", "b.jpg")), codigo_accion="A001")
+    assert r["ok"] is True
+    assert r["data"]["ambiguous"] is True and r["data"]["kind"] == "attachment"
+    assert [c["nombre_archivo"] for c in r["data"]["candidates"]] == ["a.jpg", "b.jpg"]
+    assert llamadas == []
+
+
+async def test_ambigua_no_saca_el_pendiente(monkeypatch):
     """Ambiguo = no se escribió: el id hace falta para el reintento."""
-    from core import attachment_state
     monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
     _stub_capturing_client(monkeypatch, response=FakeResponse(
         200, {"data": {"ambiguous": True, "kind": "action", "candidates": []}}))
-    ctx = _ctx_con_adjunto()
+    ctx = _ctx_con(_pendiente("1"))
     await record_tools.adjuntar_evidencia(ctx, codigo_accion="A001")
-    assert ctx.state[attachment_state.STATE_KEY]["id_de_adjunto"] == "1234567890"
+    assert _ids(ctx) == ["1"]
 
 
-async def test_adjuntar_evidencia_con_error_no_borra_el_pendiente(monkeypatch):
-    from core import attachment_state
+async def test_con_error_no_saca_el_pendiente(monkeypatch):
     monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
     _stub_capturing_client(monkeypatch, response=FakeResponse(
         502, {"error": {"code": "MEDIA_FETCH_FAILED"}}))
-    ctx = _ctx_con_adjunto()
+    ctx = _ctx_con(_pendiente("1"))
     r = await record_tools.adjuntar_evidencia(ctx, codigo_accion="A001")
     assert r == {"ok": False, "error": "MEDIA_FETCH_FAILED"}
-    assert ctx.state[attachment_state.STATE_KEY]["id_de_adjunto"] == "1234567890"
+    assert _ids(ctx) == ["1"]
 
 
-async def test_adjuntar_evidencia_sin_archivo_no_llama(monkeypatch):
-    """Sin id ni ADJUNTO RECIBIDO no hay nada que mandar."""
+async def test_sin_archivo_no_llama_ni_provoca_reintento(monkeypatch):
+    """ok: True a propósito: como ok: False el retry plugin empujaría al
+    modelo a inventar un id."""
     monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
     llamadas = _stub_capturing_client(monkeypatch)
     r = await record_tools.adjuntar_evidencia(_productor_ctx(), codigo_accion="A001")
-    assert r == {"ok": False, "error": "NO_ATTACHMENT_RECEIVED"}
+    assert r == {"ok": True, "data": {"guardado": False, "motivo": "NO_ATTACHMENT_RECEIVED"}}
     assert llamadas == []
+
+
+async def test_id_nulo_no_revienta(monkeypatch):
+    monkeypatch.setenv("AGENT_SERVICE_TOKEN", "tok")
+    _stub_capturing_client(monkeypatch)
+    r = await record_tools.adjuntar_evidencia(_productor_ctx(), codigo_accion="A001",
+                                              id_de_adjunto=None)
+    assert r["data"]["motivo"] == "NO_ATTACHMENT_RECEIVED"

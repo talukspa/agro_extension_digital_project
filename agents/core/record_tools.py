@@ -391,28 +391,46 @@ async def adjuntar_evidencia(tool_context: ToolContext, codigo_accion: str,
 
     Args:
         codigo_accion: el código de la acción, por ejemplo "A001".
-        id_de_adjunto: DÉJALO VACÍO: se toma solo del ADJUNTO RECIBIDO de tus
-            instrucciones. Nunca lo inventes.
-        nombre_archivo: DÉJALO VACÍO: también sale del ADJUNTO RECIBIDO.
+        id_de_adjunto: si en ADJUNTOS RECIBIDOS hay UNO solo, déjalo vacío: se
+            toma solo. Si hay varios, copia TAL CUAL el id del archivo al que
+            se refiere el pedido. Nunca lo inventes.
+        nombre_archivo: déjalo vacío: sale de ADJUNTOS RECIBIDOS.
         estandar: DÉJALO VACÍO en el primer intento, siempre, aunque creas saber
             cuál es. Si el código existe en los dos estándares el servidor
             responde `ambiguous` y ahí le preguntas. Rellenarlo por tu cuenta es
             cómo se archiva un respaldo en el plan equivocado, donde nadie lo ve.
     """
-    # El id sale del estado (core/attachment_state.py): este sub-agente corre
-    # como AgentTool y no ve el mensaje donde vino. El argumento queda para un
-    # id explícito, pero no se depende de que el modelo lo copie.
+    # Los ids salen del estado (core/attachment_state.py): este sub-agente
+    # corre como AgentTool y no ve el mensaje donde vino el archivo.
     state = getattr(tool_context, "state", None)
-    pendiente = attachment_state.pendiente(state)
-    if not id_de_adjunto.strip() and pendiente:
-        id_de_adjunto = pendiente["id_de_adjunto"]
-        nombre_archivo = nombre_archivo or pendiente.get("nombre_archivo", "")
-    if not id_de_adjunto.strip():
-        # Sin archivo no hay nada que mandar: un mediaId vacío vuelve 400 y el
-        # modelo lo leería como "plataforma caída", no como "no llegó la foto".
-        return {"ok": False, "error": "NO_ATTACHMENT_RECEIVED"}
+    lista = attachment_state.pendientes(state)
+    id_de_adjunto = (id_de_adjunto or "").strip()
+    nombre_archivo = (nombre_archivo or "").strip()
+    elegido = None
+    if id_de_adjunto:
+        elegido = next((a for a in lista if a["id_de_adjunto"] == id_de_adjunto), None)
+    elif len(lista) == 1:
+        elegido = lista[0]
+        id_de_adjunto = elegido["id_de_adjunto"]
+    elif len(lista) > 1:
+        # Varios archivos esperando: el servidor no elige y la tool tampoco.
+        # ok: True a propósito, igual que la ambigüedad del servidor: es una
+        # pregunta para el productor, no un error para reintentar.
+        return {"ok": True, "data": {
+            "ambiguous": True, "kind": "attachment",
+            "candidates": [{"id_de_adjunto": a["id_de_adjunto"],
+                            "nombre_archivo": a.get("nombre_archivo", "")}
+                           for a in lista]}}
+    if not id_de_adjunto:
+        # Sin archivo no hay nada que mandar. ok: True a propósito: como
+        # ok: False el retry plugin haría reintentar al modelo, y la única
+        # forma de "arreglarlo" sería inventar un id.
+        return {"ok": True, "data": {"guardado": False,
+                                     "motivo": "NO_ATTACHMENT_RECEIVED"}}
+    if elegido and not nombre_archivo:
+        nombre_archivo = elegido.get("nombre_archivo", "")
     payload: dict[str, Any] = {"questionCode": codigo_accion,
-                               "mediaId": id_de_adjunto.strip()}
+                               "mediaId": id_de_adjunto}
     # Por _scope(), no por un `if nombre_archivo`: un espacio en vez de un
     # parámetro omitido dejaría "fileName": " " — el adjunto quedaría con
     # nombre visible en blanco en el expediente, en vez de sin nombre.
@@ -420,9 +438,9 @@ async def adjuntar_evidencia(tool_context: ToolContext, codigo_accion: str,
     resultado = await _post("evidence", payload, tool_context)
     data = resultado.get("data")
     guardado = resultado.get("ok") and not (isinstance(data, dict) and data.get("ambiguous"))
-    if guardado and pendiente and state is not None:
+    if guardado and elegido:
         # Ya quedó en el expediente: que el próximo turno no lo vuelva a usar.
-        state[attachment_state.STATE_KEY] = None
+        attachment_state.quitar(state, elegido["id_de_adjunto"])
     return resultado
 
 
