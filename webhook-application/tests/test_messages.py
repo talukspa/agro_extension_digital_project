@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from whatsapp_webhook import messages
+from whatsapp_webhook.interactive import AgentReply, Option
 from whatsapp_webhook.models.messages import WhatsAppMessage
 from whatsapp_webhook.utils.app_config import config
 
@@ -313,14 +314,14 @@ async def test_handle_media_message_unknown_app_name_short_circuits():
 async def test_send_message_to_agent_value_error_returns_config_message():
     with patch.object(messages, "send_to_agent", AsyncMock(side_effect=ValueError("x"))):
         out = await messages.send_message_to_agent(WA_ID, AA, WA_ID, "hi")
-    assert "no configurado" in out
+    assert "no configurado" in out.text
 
 
 @pytest.mark.asyncio
 async def test_send_message_to_agent_generic_error_returns_comm_message():
     with patch.object(messages, "send_to_agent", AsyncMock(side_effect=RuntimeError("x"))):
         out = await messages.send_message_to_agent(WA_ID, AA, WA_ID, "hi")
-    assert "comunicación" in out.lower()
+    assert "comunicación" in out.text.lower()
 
 
 # --------------------------------------------------------------------------- #
@@ -510,7 +511,7 @@ async def test_send_message_to_agent_pasa_el_user_id_ya_resuelto_sin_resolver_de
         out = await messages.send_message_to_agent(PRODUCTOR, AA, WA_ID, "cómo voy?")
 
     resolve.assert_not_awaited()
-    assert out == "listo"
+    assert out.text == "listo"
     assert visto["args"] == (AA, PRODUCTOR, WA_ID, "cómo voy?")
 
 
@@ -605,3 +606,131 @@ async def test_el_texto_y_el_audio_pasan_los_dos_por_la_resolucion():
     for linea in fuente.splitlines():
         if "send_to_agent(" in linea and "def " not in linea:
             assert "agent_user_id" in linea or "user" in linea, linea
+
+
+# --------------------------------------------------------------------------- #
+# Respuestas con opciones (menú interactivo)
+# --------------------------------------------------------------------------- #
+SIETE = [Option(f"Opción {i}", f"Descripción {i}") for i in range(1, 8)]
+
+
+@pytest.mark.asyncio
+async def test_send_message_to_agent_pasa_las_opciones():
+    with patch.object(messages, "send_to_agent", AsyncMock(return_value={
+        "response": "Hola", "options": SIETE, "button": "Ver"})):
+        out = await messages.send_message_to_agent(WA_ID, AA, WA_ID, "hola")
+    assert out == AgentReply("Hola", SIETE, "Ver")
+
+
+@pytest.mark.asyncio
+async def test_send_agent_reply_con_un_str_manda_texto():
+    with patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
+        await messages.send_agent_reply(WA_ID, "Hola", "u", "t")
+    assert send.await_args.args[1]["text"]["body"] == "Hola"
+
+
+@pytest.mark.asyncio
+async def test_send_agent_reply_con_opciones_cortas_manda_botones():
+    with patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
+        await messages.send_agent_reply(WA_ID, AgentReply("¿Seguimos?", [Option("Sí"), Option("No")]), "u", "t")
+    send.assert_awaited_once()
+    assert send.await_args.args[1]["interactive"]["type"] == "button"
+
+
+@pytest.mark.asyncio
+async def test_si_falla_el_interactivo_cae_a_texto_numerado():
+    send = AsyncMock(side_effect=[RuntimeError("400 Bad Request"), {}])
+    with patch.object(messages, "send_whatsapp_message", send):
+        await messages.send_agent_reply(WA_ID, AgentReply("Hola", [Option("Sí"), Option("No")]), "u", "t")
+    assert send.await_count == 2
+    body = send.await_args_list[1].args[1]["text"]["body"]
+    assert body.startswith("Hola") and "1. Sí" in body and "2. No" in body
+
+
+@pytest.mark.asyncio
+async def test_texto_largo_no_se_repite_en_el_fallback():
+    """Review Focus 3."""
+    largo = "x" * 1100
+    send = AsyncMock(side_effect=[{}, RuntimeError("400"), {}])
+    with patch.object(messages, "send_whatsapp_message", send):
+        await messages.send_agent_reply(WA_ID, AgentReply(largo, SIETE), "u", "t")
+    assert send.await_count == 3
+    fallback = send.await_args_list[2].args[1]["text"]["body"]
+    assert largo not in fallback and "1. Opción 1" in fallback
+
+
+@pytest.mark.asyncio
+async def test_si_falla_el_texto_se_propaga():
+    """El texto no tiene fallback: el manejador ya captura y avisa el error."""
+    with patch.object(messages, "send_whatsapp_message", AsyncMock(side_effect=RuntimeError("x"))):
+        with pytest.raises(RuntimeError):
+            await messages.send_agent_reply(WA_ID, "Hola", "u", "t")
+
+
+@pytest.mark.asyncio
+async def test_texto_entrante_con_opciones_responde_con_lista():
+    with patch.object(messages, "create_agent_session", AsyncMock()), \
+         patch.object(messages, "send_to_agent", AsyncMock(return_value={
+             "response": "¡Hola! ¿Qué quieres hacer hoy?", "options": SIETE,
+             "button": "Ver opciones"})), \
+         patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
+        await messages.process_message(WA_ID, _text_msg(), AA)
+    payload = send.await_args.args[1]
+    assert payload["interactive"]["type"] == "list"
+    assert payload["interactive"]["body"]["text"] == "¡Hola! ¿Qué quieres hacer hoy?"
+
+
+@pytest.mark.asyncio
+async def test_media_con_opciones_responde_con_botones():
+    async def fake_send(uid, app, sess, msg):
+        return AgentReply("Lo guardé en Calibración", [Option("Subir otro"), Option("Menú principal")])
+
+    with patch.object(messages, "download_whatsapp_media", AsyncMock(return_value=b"\xff\xd8img")), \
+         patch.object(messages, "upload_media", AsyncMock(return_value="gs://b/x.jpg")), \
+         patch.object(messages, "send_message_to_agent", fake_send), \
+         patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
+        await messages.handle_media_message(WA_ID, WA_ID, "mid", "image/jpeg", "", "", AA)
+    assert send.await_args.args[1]["interactive"]["type"] == "button"
+
+
+def test_whatsapp_endpoint_por_app(monkeypatch):
+    monkeypatch.setattr(config, "aa_facebook_app_url", "https://graph.example/aa")
+    assert messages._whatsapp_endpoint(AA) == (
+        "https://graph.example/aa/messages", "test-wsp-token-aa"
+    )
+    assert messages._whatsapp_endpoint("agent_unknown") is None
+
+
+def _tap_msg(kind="list_reply", **reply):
+    return WhatsAppMessage.model_validate(
+        {"id": "wamid.tap", "type": "interactive", "timestamp": "0", "from": WA_ID,
+         "interactive": {"type": kind, kind: reply}}
+    )
+
+
+@pytest.mark.asyncio
+async def test_toque_de_una_opcion_va_al_agente_como_texto():
+    visto = {}
+
+    async def fake_send_to_agent(app_name, user_id, session_id, message):
+        visto["message"] = message
+        return {"response": "Te faltan 3 acciones"}
+
+    with patch.object(messages, "create_agent_session", AsyncMock()), \
+         patch.object(messages, "send_to_agent", fake_send_to_agent), \
+         patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
+        await messages.process_message(
+            WA_ID, _tap_msg(id="opt_3", title="Qué me falta", description="Acciones pendientes"), AA
+        )
+    assert visto["message"] == "Qué me falta — Acciones pendientes"
+    assert send.await_args.args[1]["text"]["body"] == "Te faltan 3 acciones"
+
+
+@pytest.mark.asyncio
+async def test_interactive_sin_toque_sigue_en_el_acuse():
+    with patch.object(messages, "create_agent_session", AsyncMock()), \
+         patch.object(messages, "send_to_agent", AsyncMock()) as agent, \
+         patch.object(messages, "send_whatsapp_message", AsyncMock()) as send:
+        await messages.process_message(WA_ID, _tap_msg("nfm_reply", response_json="{}"), AA)
+    agent.assert_not_awaited()
+    assert "imágenes y PDF" in send.await_args.args[1]["text"]["body"]

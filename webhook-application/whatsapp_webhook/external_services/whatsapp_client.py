@@ -53,6 +53,41 @@ def create_document_message(media_id: str, filename: str, caption: Optional[str]
         message["document"]["caption"] = caption
     return message
 
+def create_button_message(body: str, titles: list[str]) -> Dict[str, Any]:
+    """Mensaje con 1-3 botones de respuesta (título ≤ 20, cuerpo ≤ 1024)."""
+    return {
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {"text": body},
+            "action": {"buttons": [
+                {"type": "reply", "reply": {"id": f"opt_{i}", "title": title}}
+                for i, title in enumerate(titles, 1)
+            ]},
+        },
+    }
+
+
+def create_list_message(body: str, button: str, rows: list[tuple[str, str]]) -> Dict[str, Any]:
+    """Mensaje de lista: un botón que abre 1-10 filas (título ≤ 24, descripción ≤ 72).
+
+    La descripción vacía se omite: la Cloud API rechaza `"description": ""`.
+    """
+    return {
+        "type": "interactive",
+        "interactive": {
+            "type": "list",
+            "body": {"text": body},
+            "action": {
+                "button": button,
+                "sections": [{"title": "Opciones", "rows": [
+                    {"id": f"opt_{i}", "title": title, **({"description": desc} if desc else {})}
+                    for i, (title, desc) in enumerate(rows, 1)
+                ]}],
+            },
+        },
+    }
+
 async def download_whatsapp_media(media_id: str, whatsapp_base_url: str, token: str) -> Optional[bytes]:
     """Downloads media content from WhatsApp using the media ID."""
     headers = {"Authorization": f"Bearer {token}"}

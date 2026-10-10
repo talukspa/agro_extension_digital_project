@@ -2,6 +2,12 @@
 from vertexai.agent_engines import AdkApp
 
 
+def _subagentes(root):
+    """Los AgentTool del raíz. `root.tools` también trae ofrecer_opciones, que
+    es una función y no tiene `.agent`."""
+    return [t for t in root.tools if hasattr(t, "agent")]
+
+
 def _root(app: AdkApp):
     """AdkApp exposes NO public `.agent` — verified: hasattr(AdkApp, "agent") is
     False. The wrapped agent lives in `_tmpl_attrs`, the internal-but-stable
@@ -37,7 +43,7 @@ def test_root_has_rag_and_catalog_subagents():
         display_name="Producción Primaria",
         main_datastore_env="DATASTORE_PP_ID",
     )
-    tool_names = {t.agent.name for t in _root(app).tools}
+    tool_names = {t.agent.name for t in _subagentes(_root(app))}
     assert tool_names == {"pp_agent_rag", "pp_agent_catalog", "pp_agent_record"}
 
 
@@ -48,7 +54,7 @@ def test_catalog_subagent_uses_four_function_tools():
         display_name="Adecuación Agroindustrial",
         main_datastore_env="DATASTORE_AA_ID",
     )
-    bq = next(t.agent for t in _root(app).tools if t.agent.name == "aa_agent_catalog")
+    bq = next(t.agent for t in _subagentes(_root(app)) if t.agent.name == "aa_agent_catalog")
     fn_names = {_tool_name(t) for t in bq.tools}
     assert fn_names == {"list_tables", "get_schema", "check_query", "run_query"}
 
@@ -90,7 +96,7 @@ def test_el_root_tiene_los_tres_subagentes():
     from core.agent import build_app
     app = build_app(name="pp_agent", display_name="PP",
                     main_datastore_env="DATASTORE_PP_ID")
-    nombres = {t.agent.name for t in app._tmpl_attrs["agent"].tools}
+    nombres = {t.agent.name for t in _subagentes(app._tmpl_attrs["agent"])}
     assert nombres == {"pp_agent_rag", "pp_agent_catalog", "pp_agent_record"}
 
 
@@ -99,7 +105,7 @@ def test_el_subagente_del_expediente_tiene_las_once_tools():
     from core import record_tools
     app = build_app(name="pp_agent", display_name="PP",
                     main_datastore_env="DATASTORE_PP_ID")
-    record = next(t.agent for t in app._tmpl_attrs["agent"].tools
+    record = next(t.agent for t in _subagentes(app._tmpl_attrs["agent"])
                   if t.agent.name == "pp_agent_record")
     assert len(record.tools) == len(record_tools.TOOLS) == 11
 
@@ -135,7 +141,7 @@ async def test_el_bloque_de_contexto_del_productor_llega_a_la_instruccion(monkey
 
     app = build_app(name="pp_agent", display_name="PP",
                     main_datastore_env="DATASTORE_PP_ID")
-    record = next(t.agent for t in app._tmpl_attrs["agent"].tools
+    record = next(t.agent for t in _subagentes(app._tmpl_attrs["agent"])
                   if t.agent.name == "pp_agent_record")
 
     assert callable(record.instruction)
@@ -159,7 +165,7 @@ def test_el_guard_no_esta_en_los_subagentes():
     from core.agent import build_app
     app = build_app(name="pp_agent", display_name="PP",
                     main_datastore_env="DATASTORE_PP_ID")
-    for t in app._tmpl_attrs["agent"].tools:
+    for t in _subagentes(app._tmpl_attrs["agent"]):
         assert t.agent.before_model_callback is None
 
 
@@ -170,7 +176,7 @@ def test_solo_record_tiene_las_tools_del_expediente():
     app = build_app(name="pp_agent", display_name="PP",
                     main_datastore_env="DATASTORE_PP_ID")
     nombres_expediente = {fn.__name__ for fn in record_tools.TOOLS}
-    for t in app._tmpl_attrs["agent"].tools:
+    for t in _subagentes(app._tmpl_attrs["agent"]):
         if t.agent.name == "pp_agent_record":
             continue
         nombres_del_subagente = {getattr(tool, "__name__", None) for tool in t.agent.tools}
@@ -188,11 +194,11 @@ def test_los_dos_agentes_quedan_iguales_en_estructura():
         app = build_app(name=name, display_name=name, main_datastore_env=env)
         root = app._tmpl_attrs["agent"]
 
-        nombres = {t.agent.name for t in root.tools}
+        nombres = {t.agent.name for t in _subagentes(root)}
         assert nombres == {f"{name}_rag", f"{name}_catalog", f"{name}_record"}
         assert root.before_model_callback is consent_guard.before_model
 
-        record = next(t.agent for t in root.tools if t.agent.name == f"{name}_record")
+        record = next(t.agent for t in _subagentes(root) if t.agent.name == f"{name}_record")
         assert len(record.tools) == len(record_tools.TOOLS) == 11
 
 
@@ -201,7 +207,7 @@ def test_el_root_tiene_rag_catalogo_y_expediente():
     from core.agent import build_app
     app = build_app(name="pp_agent", display_name="PP",
                     main_datastore_env="DATASTORE_PP_ID")
-    nombres = {t.agent.name for t in app._tmpl_attrs["agent"].tools}
+    nombres = {t.agent.name for t in _subagentes(app._tmpl_attrs["agent"])}
     assert nombres == {"pp_agent_rag", "pp_agent_catalog", "pp_agent_record"}
 
 
@@ -210,7 +216,7 @@ def test_el_subagente_del_catalogo_tiene_las_cuatro_tools():
     from core import catalog_tools
     app = build_app(name="pp_agent", display_name="PP",
                     main_datastore_env="DATASTORE_PP_ID")
-    catalogo = next(t.agent for t in app._tmpl_attrs["agent"].tools
+    catalogo = next(t.agent for t in _subagentes(app._tmpl_attrs["agent"])
                     if t.agent.name == "pp_agent_catalog")
     assert len(catalogo.tools) == len(catalog_tools.TOOLS) == 4
 
@@ -293,7 +299,7 @@ async def test_la_instruccion_del_expediente_incluye_el_adjunto_recibido(monkeyp
     monkeypatch.setattr(producer_scope, "for_context", sin_bloque)
     app = build_app(name="pp_agent", display_name="PP",
                     main_datastore_env="DATASTORE_PP_ID")
-    record = next(t.agent for t in app._tmpl_attrs["agent"].tools
+    record = next(t.agent for t in _subagentes(app._tmpl_attrs["agent"])
                   if t.agent.name == "pp_agent_record")
 
     class Ctx:
@@ -305,3 +311,17 @@ async def test_la_instruccion_del_expediente_incluye_el_adjunto_recibido(monkeyp
     if hasattr(texto, "__await__"):
         texto = await texto
     assert texto.endswith("ADJUNTOS RECIBIDOS (del más viejo al más nuevo):\n- id_de_adjunto=55")
+
+
+def test_el_root_tiene_la_tool_del_menu_y_los_subagentes_no():
+    """Sólo el raíz: los eventos de un AgentTool no llegan al stream que lee
+    el webhook, así que en un sub-agente la tool no dibujaría nada."""
+    from core.agent import build_app
+    from core import options_tools
+
+    for name, env in (("pp_agent", "DATASTORE_PP_ID"), ("aa_agent", "DATASTORE_AA_ID")):
+        root = build_app(name=name, display_name=name, main_datastore_env=env)._tmpl_attrs["agent"]
+        assert options_tools.ofrecer_opciones in root.tools
+        for t in root.tools:
+            if hasattr(t, "agent"):
+                assert options_tools.ofrecer_opciones not in t.agent.tools

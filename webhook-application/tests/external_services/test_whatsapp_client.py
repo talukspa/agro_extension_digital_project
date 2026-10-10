@@ -175,3 +175,37 @@ async def test_download_media_generic_error_returns_none():
     with patch.object(wc.httpx, "AsyncClient", lambda timeout=None: _FakeAsyncClient(get=_get)):
         out = await wc.download_whatsapp_media("MID", "https://base", "T")
     assert out is None
+
+
+def test_create_button_message_shape():
+    msg = wc.create_button_message("¿Seguimos?", ["Sí", "No"])
+    assert msg == {
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {"text": "¿Seguimos?"},
+            "action": {"buttons": [
+                {"type": "reply", "reply": {"id": "opt_1", "title": "Sí"}},
+                {"type": "reply", "reply": {"id": "opt_2", "title": "No"}},
+            ]},
+        },
+    }
+
+
+def test_create_list_message_shape_omits_empty_description():
+    msg = wc.create_list_message("Elige", "Ver opciones",
+                                 [("Qué me falta", "Pendientes"), ("Menú principal", "")])
+    assert msg == {
+        "type": "interactive",
+        "interactive": {
+            "type": "list",
+            "body": {"text": "Elige"},
+            "action": {
+                "button": "Ver opciones",
+                "sections": [{"title": "Opciones", "rows": [
+                    {"id": "opt_1", "title": "Qué me falta", "description": "Pendientes"},
+                    {"id": "opt_2", "title": "Menú principal"},
+                ]}],
+            },
+        },
+    }

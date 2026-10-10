@@ -14,7 +14,7 @@ from vertexai.agent_engines import AdkApp
 from google.adk.planners import BuiltInPlanner
 from google.genai.types import ThinkingConfig
 
-from core import attachment_state, catalog_tools, consent_guard, producer_scope, prompts, record_tools
+from core import attachment_state, catalog_tools, consent_guard, options_tools, producer_scope, prompts, record_tools
 from core.llm_global import GlobalGemini
 from core.retry_plugin import OkContractRetryPlugin
 
@@ -170,6 +170,9 @@ def build_app(name: str, display_name: str, main_datastore_env: str) -> AdkApp:
             agent_tool.AgentTool(agent=rag),
             agent_tool.AgentTool(agent=catalog),
             agent_tool.AgentTool(agent=record),
+            # En el raíz y sólo acá: el webhook lee esta llamada del stream
+            # para dibujar el menú — ver core/options_tools.py.
+            *options_tools.TOOLS,
         ],
     )
     # The plugin only sees our tool failures because OkContractRetryPlugin

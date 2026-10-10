@@ -125,3 +125,30 @@ def test_processing_context_rejects_bad_url():
         model_utils.create_processing_context(
             "agent_aa", "56912345678", "ftp://bad", "tok"
         )
+
+
+def _tap(kind, **reply):
+    from whatsapp_webhook.models.messages import WhatsAppMessage
+    return WhatsAppMessage.model_validate({
+        "id": "wamid.tap", "type": "interactive", "timestamp": "0", "from": "56912345678",
+        "interactive": {"type": kind, kind: reply},
+    })
+
+
+def test_list_reply_se_lee_como_titulo_y_descripcion():
+    m = _tap("list_reply", id="opt_3", title="Qué me falta",
+             description="Acciones pendientes y próximas fechas")
+    assert m.interactive_reply_text() == "Qué me falta — Acciones pendientes y próximas fechas"
+    assert m.get_message_content() == m.interactive_reply_text()
+
+
+def test_button_reply_se_lee_como_titulo():
+    m = _tap("button_reply", id="opt_1", title="Sí")
+    assert m.interactive_reply_text() == "Sí"
+
+
+def test_interactive_que_no_es_un_toque_no_tiene_texto():
+    """Review Focus 4: p. ej. la respuesta de un Flow."""
+    m = _tap("nfm_reply", response_json="{}", body="Sent")
+    assert m.interactive_reply_text() is None
+    assert m.get_message_content() == "[Interactive message]"

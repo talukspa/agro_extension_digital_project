@@ -78,12 +78,24 @@ class WhatsAppContactsContent(BaseModel):
     # Using flexible Dict to accommodate different contact formats
 
 
+class WhatsAppInteractiveReply(BaseModel):
+    """El botón o la fila que tocó el usuario."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = Field(None, description="Id del botón o fila (opt_N)")
+    title: Optional[str] = Field(None, description="Título tocado")
+    description: Optional[str] = Field(None, description="Descripción de la fila, si tenía")
+
+
 class WhatsAppInteractiveContent(BaseModel):
     """Interactive content (buttons, lists, etc.)."""
-    
+
     model_config = ConfigDict(extra="allow")
-    
+
     type: Optional[str] = Field(None, description="Interactive type")
+    button_reply: Optional[WhatsAppInteractiveReply] = Field(None, description="Botón tocado")
+    list_reply: Optional[WhatsAppInteractiveReply] = Field(None, description="Fila tocada")
 
 
 class WhatsAppReactionContent(BaseModel):
@@ -138,6 +150,21 @@ class WhatsAppMessage(BaseModel):
             raise ValueError('Invalid phone number format')
         return phone
     
+    def interactive_reply_text(self) -> Optional[str]:
+        """El toque de un botón o fila como texto: "título — descripción".
+
+        La descripción va porque el título solo ("Qué me falta") pierde el
+        contexto del menú. None si no es un toque reconocible (p. ej. un Flow).
+        """
+        if self.type != "interactive" or not self.interactive:
+            return None
+        reply = self.interactive.button_reply or self.interactive.list_reply
+        title = (reply.title or "").strip() if reply else ""
+        if not title:
+            return None
+        description = (reply.description or "").strip()
+        return f"{title} — {description}" if description else title
+
     def get_message_content(self) -> Optional[str]:
         """Extract readable content from any message type."""
         if self.type == "text" and self.text:
@@ -163,7 +190,7 @@ class WhatsAppMessage(BaseModel):
         elif self.type == "contacts":
             return "[Contact shared]"
         elif self.type == "interactive":
-            return "[Interactive message]"
+            return self.interactive_reply_text() or "[Interactive message]"
         elif self.type == "reaction" and self.reaction:
             emoji = self.reaction.emoji or "👍"
             return f"[Reaction: {emoji}]"

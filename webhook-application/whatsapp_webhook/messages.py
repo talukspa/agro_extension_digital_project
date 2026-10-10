@@ -19,6 +19,12 @@ from .external_services.whatsapp_client import (
     download_whatsapp_media,
     send_whatsapp_message,
 )
+from .interactive import (
+    DEFAULT_BUTTON_LABEL,
+    AgentReply,
+    build_reply_messages,
+    numbered_fallback,
+)
 from .models.messages import WhatsAppWebhookPayload
 from .transcription import transcribe_audio_file
 from .utils.app_config import config
@@ -35,7 +41,7 @@ _background_tasks: set[asyncio.Task] = set()
 
 async def send_message_to_agent(
     agent_user_id: str, app_name: str, session_id: str, message: str | dict[str, Any]
-) -> str:
+) -> AgentReply:
     """Sends a message to the internal agent service and parses the response.
 
     `agent_user_id` llega YA RESUELTO por `process_message` (el uuid del
@@ -55,15 +61,64 @@ async def send_message_to_agent(
 
     try:
         response_data = await send_to_agent(app_name, agent_user_id, session_id, message)
-        return response_data.get(
-            "response", "Error: No se pudo extraer el texto de la respuesta."
+        return AgentReply(
+            text=response_data.get(
+                "response", "Error: No se pudo extraer el texto de la respuesta."
+            ),
+            options=response_data.get("options"),
+            button=response_data.get("button") or DEFAULT_BUTTON_LABEL,
         )
     except ValueError as e:
         logger.error(f"Configuration error: {e}", exc_info=True)
-        return "Error: Servicio de agente no configurado."
+        return AgentReply("Error: Servicio de agente no configurado.")
     except Exception as e:
         logger.error(f"Error communicating with agent: {e}", exc_info=True)
-        return "Error: Fallo la comunicación con el servicio del agente."
+        return AgentReply("Error: Fallo la comunicación con el servicio del agente.")
+
+
+def _whatsapp_endpoint(app_name: str) -> Optional[tuple[str, str]]:
+    """(url de /messages, token) de ESTA app, o None si falta configuración.
+
+    AA y PP mandan desde números distintos con tokens distintos (ver
+    config.token_for).
+    """
+    if app_name == config.aa_app_name:
+        facebook_app_url = config.aa_facebook_app_url
+    elif app_name == config.pp_app_name:
+        facebook_app_url = config.pp_facebook_app_url
+    else:
+        logging.error(f"Unknown app name: {app_name}")
+        return None
+    wsp_token = config.token_for(app_name)
+    if not facebook_app_url or not wsp_token:
+        logging.error(f"WhatsApp API URL or token is not configured for {app_name}.")
+        return None
+    return f"{facebook_app_url}/messages", wsp_token
+
+
+async def send_agent_reply(
+    phone: str, reply: "AgentReply | str", api_url: str, token: str
+) -> None:
+    """Manda la respuesta del agente: texto y, si las ofreció, sus opciones.
+
+    Si el interactivo falla (la Cloud API lo rechaza) se reenvía como texto con
+    las opciones numeradas: el productor nunca se queda sin respuesta. Un fallo
+    del TEXTO se propaga; los manejadores ya lo capturan y avisan.
+    """
+    if isinstance(reply, str):
+        reply = AgentReply(text=reply)
+    outgoing = build_reply_messages(reply)
+    for i, message in enumerate(outgoing):
+        if message.get("type") != "interactive":
+            await send_whatsapp_message(phone, message, api_url, token)
+            continue
+        try:
+            await send_whatsapp_message(phone, message, api_url, token)
+        except Exception as e:  # noqa: BLE001 — cualquier rechazo cae al texto
+            logging.warning(f"Interactive send failed, falling back to text: {e}")
+            await send_whatsapp_message(
+                phone, numbered_fallback(reply, include_text=(i == 0)), api_url, token
+            )
 
 
 async def _send_whatsapp_acknowledgment(
@@ -71,33 +126,19 @@ async def _send_whatsapp_acknowledgment(
 ) -> bool:
     """Send acknowledgment message to WhatsApp user."""
     logger = get_logger("whatsapp_ack", {"app_name": app_name})
-    
-    # Get the appropriate configuration based on app name
-    if app_name == config.aa_app_name:
-        facebook_app_url = config.aa_facebook_app_url
-    elif app_name == config.pp_app_name:
-        facebook_app_url = config.pp_facebook_app_url
-    else:
-        logger.error(f"Unknown app name: {app_name}")
-        return False
-
-    # AA and PP send from different numbers with different access tokens; resolve
-    # the token for THIS app (see config.token_for).
-    wsp_token = config.token_for(app_name)
-    if not facebook_app_url or not wsp_token:
-        logger.error("WhatsApp API URL or token is not configured.")
+    endpoint = _whatsapp_endpoint(app_name)
+    if endpoint is None:
         return False
 
     try:
         message = create_text_message(message_text)
-        await send_whatsapp_message(
-            user_wa_id, message, f"{facebook_app_url}/messages", wsp_token
-        )
+        await send_whatsapp_message(user_wa_id, message, *endpoint)
         logger.info(f"Acknowledgment sent successfully to {mask_pii(user_wa_id)}")
         return True
     except Exception as e:
         logger.error(f"Failed to send acknowledgment: {e}", exc_info=True)
         return False
+
 
 async def _process_webhook_in_background(body: dict, app_name: str) -> None:
     """Process webhook in the background after sending an ACK."""
@@ -171,7 +212,8 @@ async def process_message(
     await create_agent_session(
         agent_user_id, app_name, session_id_for(sender_wa_id, agent_user_id)
     )
-    if message.type == "text":
+    if message.type == "text" or message.interactive_reply_text():
+        # Un toque de botón/lista es texto para el agente: mismo camino.
         await _process_single_text_message(sender_wa_id, agent_user_id, message, app_name)
     elif message.type == "audio" and message.audio:
         await handle_audio_message(sender_wa_id, agent_user_id, message.audio.id, app_name)
@@ -207,11 +249,18 @@ async def _process_single_text_message(
 ) -> None:
     """Process a single text message from WhatsApp."""
     message_text = message.get_message_content() or ""
-    agent_response = await send_message_to_agent(
+    reply = await send_message_to_agent(
         agent_user_id, app_name, session_id_for(sender_wa_id, agent_user_id), message_text
     )
-    response_text = agent_response or "No pude procesar tu mensaje. Intenta de nuevo."
-    await _send_whatsapp_acknowledgment(sender_wa_id, response_text, app_name)
+    if not reply.text.strip() and not reply.options:
+        reply = AgentReply("No pude procesar tu mensaje. Intenta de nuevo.")
+    endpoint = _whatsapp_endpoint(app_name)
+    if endpoint is None:
+        return
+    try:
+        await send_agent_reply(sender_wa_id, reply, *endpoint)
+    except Exception as e:  # noqa: BLE001 — mismo contrato que el acuse: loguea y sigue
+        logging.error(f"Failed to send agent reply: {e}", exc_info=True)
 
 async def handle_audio_message(
     phone: str, agent_user_id: str, audio_id: str, app_name: str
@@ -252,9 +301,7 @@ async def handle_audio_message(
         response = await send_message_to_agent(
             agent_user_id, app_name, session_id_for(phone, agent_user_id), transcript
         )
-        await send_whatsapp_message(
-            phone, create_text_message(response), f"{facebook_app_url}/messages", wsp_token
-        )
+        await send_agent_reply(phone, response, f"{facebook_app_url}/messages", wsp_token)
     except Exception as e:
         logging.error(f"Error processing audio: {e}", exc_info=True)
         await send_whatsapp_message(
@@ -332,9 +379,7 @@ async def handle_media_message(
         response = await send_message_to_agent(
             agent_user_id, app_name, session_id_for(phone, agent_user_id), message
         )
-        await send_whatsapp_message(
-            phone, create_text_message(response), f"{facebook_app_url}/messages", wsp_token
-        )
+        await send_agent_reply(phone, response, f"{facebook_app_url}/messages", wsp_token)
     except Exception as e:
         logging.error(f"Error processing media: {e}", exc_info=True)
         await send_whatsapp_message(

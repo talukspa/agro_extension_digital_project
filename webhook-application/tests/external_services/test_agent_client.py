@@ -153,7 +153,7 @@ async def test_create_agent_session_exists_then_never_visible_propagates(monkeyp
 
 @pytest.mark.asyncio
 async def test_send_to_agent_concatenates_assistant_text():
-    """Multiple events with text parts -> concatenated response string."""
+    """Multiple events with text parts -> joined with a blank line (F1)."""
     from whatsapp_webhook.external_services import agent_client
 
     async def fake_stream(*, user_id, session_id, message):
@@ -168,7 +168,7 @@ async def test_send_to_agent_concatenates_assistant_text():
             app_name="agent_aa", user_id="+56999", session_id="+56999",
             message="hola",
         )
-    assert result["response"] == "Hola mundo."
+    assert result["response"] == "Hola \n\nmundo."
     assert len(result["raw_response"]) == 3
 
 
@@ -295,6 +295,76 @@ def test_to_stream_message_dict_is_a_valid_genai_content():
     assert content.parts[0].text == "hola"
     assert content.parts[1].file_data.file_uri == "gs://b/x.jpg"
     assert content.parts[1].file_data.mime_type == "image/jpeg"
+
+
+def _engine_que_emite(*events):
+    async def fake_stream(*, user_id, session_id, message):
+        for e in events:
+            yield e
+    engine = MagicMock()
+    engine.async_stream_query = lambda **kw: fake_stream(**kw)
+    return engine
+
+
+def _llamada(args):
+    return {"content": {"parts": [{"function_call": {"name": "ofrecer_opciones", "args": args}}]}}
+
+
+async def _consultar(engine):
+    from whatsapp_webhook.external_services import agent_client
+    with patch.object(agent_client, "get_engine", return_value=engine):
+        return await agent_client.send_to_agent(
+            app_name="agent_aa", user_id="+56999", session_id="+56999", message="hola",
+        )
+
+
+@pytest.mark.asyncio
+async def test_send_to_agent_toma_la_ultima_llamada_valida_a_ofrecer_opciones():
+    """Review Focus 2: el modelo reintentó tras ok:False; vale la última."""
+    from whatsapp_webhook.interactive import Option
+    engine = _engine_que_emite(
+        _llamada({"opciones": [{"titulo": "x" * 30}]}),
+        {"content": {"parts": [{"function_response": {"name": "ofrecer_opciones",
+                                                      "response": {"ok": False}}}]}},
+        _llamada({"opciones": [{"titulo": "Qué me falta", "descripcion": "Pendientes"}],
+                  "boton": "Ver"}),
+        {"content": {"parts": [{"text": "Hola"}]}},
+    )
+    result = await _consultar(engine)
+    assert result["response"] == "Hola"
+    assert result["options"] == [Option("Qué me falta", "Pendientes")]
+    assert result["button"] == "Ver"
+
+
+@pytest.mark.asyncio
+async def test_send_to_agent_si_la_ultima_llamada_es_invalida_no_hay_opciones():
+    engine = _engine_que_emite(
+        _llamada({"opciones": [{"titulo": "Sí"}]}),
+        _llamada({"opciones": [{"titulo": "x" * 30}]}),
+        {"content": {"parts": [{"text": "Hola"}]}},
+    )
+    result = await _consultar(engine)
+    assert result["response"] == "Hola"
+    assert result["options"] is None
+
+
+@pytest.mark.asyncio
+async def test_send_to_agent_ignora_otras_tools():
+    engine = _engine_que_emite(
+        {"content": {"parts": [{"function_call": {"name": "aa_agent_record", "args": {"request": "x"}}}]}},
+        {"content": {"parts": [{"text": "Hola"}]}},
+    )
+    result = await _consultar(engine)
+    assert result["options"] is None
+
+
+@pytest.mark.asyncio
+async def test_send_to_agent_opciones_sin_texto_no_es_error():
+    """Review Focus 1: llamó la tool y no escribió: no es 'respuesta vacía'."""
+    engine = _engine_que_emite(_llamada({"opciones": [{"titulo": "Menú principal"}]}))
+    result = await _consultar(engine)
+    assert result["response"] == ""
+    assert result["options"] is not None
 
 
 @pytest.mark.asyncio
@@ -526,3 +596,28 @@ def test_session_id_is_accepted_by_the_runtime_pattern():
 
     sid = agent_client.session_id_for("56968767906", "245e654f-617b-4ba6-9122-6c035ffa1fe3")
     assert re.fullmatch(r"[A-Za-z0-9_-]+", sid), sid
+
+
+@pytest.mark.asyncio
+async def test_send_to_agent_separa_con_linea_en_blanco_el_texto_de_eventos_distintos():
+    """El texto de antes y de después de la tool son mensajes distintos."""
+    from whatsapp_webhook.interactive import Option
+    engine = _engine_que_emite(
+        {"content": {"parts": [{"text": "Hola"}]}},
+        _llamada({"opciones": [{"titulo": "Qué me falta"}]}),
+        {"content": {"parts": [{"function_response": {"name": "ofrecer_opciones",
+                                                      "response": {"ok": True}}}]}},
+        {"content": {"parts": [{"text": "Listo"}]}},
+    )
+    result = await _consultar(engine)
+    assert result["response"] == "Hola\n\nListo"
+    assert result["options"] == [Option("Qué me falta")]
+
+
+@pytest.mark.asyncio
+async def test_send_to_agent_une_sin_separador_el_texto_de_un_mismo_evento():
+    engine = _engine_que_emite(
+        {"content": {"parts": [{"text": "Ho"}, {"text": "la"}]}},
+    )
+    result = await _consultar(engine)
+    assert result["response"] == "Hola"
