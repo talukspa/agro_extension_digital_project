@@ -47,6 +47,8 @@ from typing import Any
 import httpx
 from google.adk.tools.tool_context import ToolContext
 
+from core import attachment_state
+
 _TIMEOUT_SECONDS = 20.0
 
 # La misma forma que acepta el tipo `uuid` de Postgres, y la misma que valida
@@ -375,7 +377,7 @@ async def registrar_labor(tool_context: ToolContext, estandar: str,
 
 
 async def adjuntar_evidencia(tool_context: ToolContext, codigo_accion: str,
-                             id_de_adjunto: str, nombre_archivo: str = "",
+                             id_de_adjunto: str = "", nombre_archivo: str = "",
                              estandar: str = "") -> dict:
     """Adjunta a una acción del plan la foto o documento que mandó el productor.
 
@@ -389,23 +391,39 @@ async def adjuntar_evidencia(tool_context: ToolContext, codigo_accion: str,
 
     Args:
         codigo_accion: el código de la acción, por ejemplo "A001".
-        id_de_adjunto: el `id_de_adjunto` de la línea
-            "[adjunto de WhatsApp · id_de_adjunto=… · nombre_archivo=…]" que
-            llega junto al archivo, copiado tal cual. Nunca lo inventes.
-        nombre_archivo: el `nombre_archivo` de esa misma línea, si viene. Si no
-            viene, déjalo vacío.
+        id_de_adjunto: DÉJALO VACÍO: se toma solo del ADJUNTO RECIBIDO de tus
+            instrucciones. Nunca lo inventes.
+        nombre_archivo: DÉJALO VACÍO: también sale del ADJUNTO RECIBIDO.
         estandar: DÉJALO VACÍO en el primer intento, siempre, aunque creas saber
             cuál es. Si el código existe en los dos estándares el servidor
             responde `ambiguous` y ahí le preguntas. Rellenarlo por tu cuenta es
             cómo se archiva un respaldo en el plan equivocado, donde nadie lo ve.
     """
+    # El id sale del estado (core/attachment_state.py): este sub-agente corre
+    # como AgentTool y no ve el mensaje donde vino. El argumento queda para un
+    # id explícito, pero no se depende de que el modelo lo copie.
+    state = getattr(tool_context, "state", None)
+    pendiente = attachment_state.pendiente(state)
+    if not id_de_adjunto.strip() and pendiente:
+        id_de_adjunto = pendiente["id_de_adjunto"]
+        nombre_archivo = nombre_archivo or pendiente.get("nombre_archivo", "")
+    if not id_de_adjunto.strip():
+        # Sin archivo no hay nada que mandar: un mediaId vacío vuelve 400 y el
+        # modelo lo leería como "plataforma caída", no como "no llegó la foto".
+        return {"ok": False, "error": "NO_ATTACHMENT_RECEIVED"}
     payload: dict[str, Any] = {"questionCode": codigo_accion,
-                               "mediaId": id_de_adjunto}
+                               "mediaId": id_de_adjunto.strip()}
     # Por _scope(), no por un `if nombre_archivo`: un espacio en vez de un
     # parámetro omitido dejaría "fileName": " " — el adjunto quedaría con
     # nombre visible en blanco en el expediente, en vez de sin nombre.
     payload.update(_scope(fileName=nombre_archivo, standardCode=estandar))
-    return await _post("evidence", payload, tool_context)
+    resultado = await _post("evidence", payload, tool_context)
+    data = resultado.get("data")
+    guardado = resultado.get("ok") and not (isinstance(data, dict) and data.get("ambiguous"))
+    if guardado and pendiente and state is not None:
+        # Ya quedó en el expediente: que el próximo turno no lo vuelva a usar.
+        state[attachment_state.STATE_KEY] = None
+    return resultado
 
 
 async def enviar_mensaje_al_auditor(tool_context: ToolContext,
